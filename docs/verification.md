@@ -18,4 +18,6 @@ OAuth는 DCR → PKCE → 로그인 → 동의 → 토큰 발급 → MCP 목록/
 
 화면은 PC 1440px와 iPhone 13 크기의 Chromium에서 내비게이션·검색·평가·입고·소비·취소·로그아웃, 모달 Escape 닫기, 주요 페이지 가로 넘침을 검사했습니다. 스크린샷은 테스트 실행 후 `test-results/visual/`에 저장됩니다.
 
-실제 iOS Safari 기기, Neon 운영 DB, Google OAuth 공급자, Claude·ChatGPT·Codex의 서비스 계정 연결, 운영 Airtable 원본 이관은 별도 환경이 필요하며 아직 검증하지 않았습니다. Vercel에 배포하거나 Git 원격으로 push하지 않았습니다.
+Neon PostgreSQL 18 운영 DB 마이그레이션 3개 적용, 실제 Google 로그인과 관리자 가족 생성, 원두 11개 초기 등록 및 로컬 조회를 확인했습니다. 운영 데이터로 만든 Neon development 브랜치도 별도로 연결했습니다. GitHub main push 및 Vercel 첫 배포가 완료되었습니다. 운영 환경변수 적용 후 최종 검증은 아래 기록을 참고합니다.
+
+실제 iOS Safari 기기, Claude·ChatGPT·Codex 각각의 서비스 계정 연결, 운영 Airtable 원본 이관은 아직 검증하지 않았습니다.

@@ -157,7 +157,10 @@ export function LoginScreen({
             먼저 둘러볼게요 <ArrowRight size={15} />
           </Link>
         </div>
-        <footer>취향의 기록 · 우리 가족만의 컬렉션</footer>
+        <footer>
+          취향의 기록 · 우리 가족만의 컬렉션 ·{" "}
+          <Link href="/privacy">개인정보 처리 안내</Link>
+        </footer>
       </section>
     </div>
   );

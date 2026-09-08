@@ -2,7 +2,7 @@
 
 ## 1. 배포 대상
 
-저장소 루트를 Vercel에 Next.js 프로젝트로 등록합니다. Node.js는 **22.x**로 지정합니다. `vercel.json`의 설치 명령은 `npm ci`, 빌드는 `npm run build`, 함수 지역은 서울 `icn1`입니다. Neon DB는 가능한 가까운 지역을 선택합니다. 장시간 연결 상태를 서버 메모리에 보관하지 않는 MCP이며 Redis는 사용하지 않습니다.
+저장소 루트를 Vercel에 Next.js 프로젝트로 등록합니다. Node.js는 **22.x**로 지정합니다. `vercel.json`의 설치 명령은 `npm ci`, 빌드는 `npm run build`, 함수 지역은 기존 Neon 운영 DB와 같은 싱가포르 `sin1`입니다. 장시간 연결 상태를 서버 메모리에 보관하지 않는 MCP이며 Redis는 사용하지 않습니다.
 
 환경변수 없이 배포하면 준비 화면과 읽기 전용 `/demo`가 동작합니다. DB 초기화는 빌드에 포함하지 않아 Preview 배포가 운영 스키마를 자동 변경하지 않습니다.
 
@@ -68,7 +68,7 @@ Google Cloud 프로젝트에서 OAuth 동의 화면과 **Web application** 클�
 
 연결 해제는 동의·refresh/access 저장 레코드를 삭제하고 JWT 발급 시각 기준 차단도 저장합니다. 이미 발급된 토큰을 즉시 차단하며 재연결해도 옛 토큰이 살아나지 않습니다. 같은 초에 즉시 재연결하면 이전 토큰과 구분하기 위해 거부될 수 있으므로 다음 초에 다시 연결합니다. 서명키만 검사하는 JWT 검증으로 바꾸면 이 보장이 사라집니다.
 
-구현 당시 OAuth 흐름과 두 MCP 프로토콜을 로컬에서 검증했습니다. 실제 Google 공급자 로그인과 Claude·ChatGPT·Codex 서비스 계정 연결은 아직 검증하지 않았습니다. 배포 후 각 클라이언트에서 연결 → 목록 조회 → 원두 등록 또는 와인 입고/소비 → 설정에서 해제 → 기존 토큰 접근 거부를 확인합니다.
+구현 당시 OAuth 흐름과 두 MCP 프로토콜을 로컬에서 검증했습니다. Google 공급자 로그인과 Neon DB 연결은 확인했습니다. Claude·ChatGPT·Codex 각각의 서비스 계정 연결은 아직 검증하지 않았습니다. 배포 후 각 클라이언트에서 연결 → 목록 조회 → 원두 등록 또는 와인 입고/소비 → 설정에서 해제 → 기존 토큰 접근 거부를 확인합니다.
 
 ## 6. 백업과 이관
 
@@ -97,3 +97,20 @@ Airtable 이관은 JSON만 지원하고 `--apply` 없이 사전 검증합니다.
 - 사진 업로드·예약 작업·자체 LLM 호출·메일 발송을 실행하는 별도 외부 서비스는 없습니다.
 
 함수 최대 실행 시간은 MCP route의 `maxDuration = 30`으로 지정합니다. 서버리스 파일시스템에 영구 데이터를 저장하지 않습니다. [Vercel 실행 시간 설정](https://vercel.com/docs/functions/configuring-functions/duration)
+
+
+## 8. 현재 연결된 클라우드 환경 (2026-09-08)
+
+- 운영 앱: https://my-seven-sandy.vercel.app
+- MCP: https://my-seven-sandy.vercel.app/api/mcp
+- Vercel: `minsub / my`, GitHub `Minsub/my`의 `main` 자동 배포
+- Neon: `my` (`little-river-19493732`), AWS Singapore, PostgreSQL 18
+- 운영 브랜치: `production` (`br-cool-voice-b33bvl54`)
+- 로컬 개발 브랜치: `development` (`br-round-frost-b339169t`), 초기 운영 데이터 복제
+- Google Cloud: `daily-cellar` (`arctic-marking-508007-h8`), Web OAuth 클라이언트
+
+`.env.local`에는 **Neon development**와 localhost Google 로그인 설정을 저장했습니다. `npm run dev`로 실행합니다. 이 브랜치는 생성 시점의 데이터 사본이며 운영 변경을 실시간으로 동기화하지 않습니다. 기존 Docker 설정은 무시되는 `.env.docker.local`에 보관했습니다. Vitest와 Playwright는 별도의 localhost `daily_test` DB를 계속 사용합니다.
+
+운영 비밀 값은 Git에서 제외된 `.env.vercel.local`과 Vercel Production에 저장합니다. Next.js가 자동으로 불러오는 파일명이 아니므로 로컬 실행이 운영 DB로 바뀌지 않습니다. 운영 마이그레이션·초기 데이터 명령은 이 파일을 명시적으로 읽은 환경에서 실행해야 합니다. 비밀 값을 소스 코드나 공개 문서에 복사하지 않습니다.
+
+Google OAuth 콜백은 운영 `/api/auth/callback/google`과 `http://localhost:3000/api/auth/callback/google`을 허용합니다. 관리자 첫 Google 로그인 및 운영 원두 11개 초기 등록을 완료했습니다. 와인 셀러는 실제 이관 데이터가 없어 비어 있습니다.

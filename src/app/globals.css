@@ -1879,6 +1879,17 @@ input[type="checkbox"] {
 .consent-card > .button-row {
   margin-top: 28px;
 }
+.privacy-card {
+  max-width: 760px;
+}
+.privacy-card h2 {
+  margin: 26px 0 10px;
+  font-size: 18px;
+}
+.privacy-card p {
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
 .scope-list {
   list-style: none;
   padding: 0;
