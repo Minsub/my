@@ -1,185 +1,36 @@
----
-name: wine-cellar
-description: >
-  와인 셀러 관리 스킬. Airtable로 와인 추가/소비/추천을 처리한다.
-  다음 상황에서 반드시 사용하라:
-  - "와인 추가", "셀러에 넣어줘", 라벨 사진과 함께 와인 등록 요청
-  - "와인 마셨어", "소비했어", "수량 줄여줘" 등 소비 기록
-  - "뭐 마실까", "이 음식이랑 어울리는 와인", 와인 추천 요청
-  - "내 와인 목록", "셀러 목록", "보유 와인" 등 재고 목록 조회 요청
-compatibility: "Airtable MCP 필수 (list_records_for_page, list_pages_for_base, create_records_for_table, update_records_for_table)"
----
+# MONO 와인 작업 지침
 
-# 와인 셀러 관리 스킬
+현재 DB는 Neon이며 작업 인터페이스는 MONO MCP다. 이 문서는 에이전트의 와인 업무 지침이다. 과거 Airtable MCP 지침은 [비활성 참고 자료](../archive/airtable-wine-reference.md)에 보존했다. 현재 와인 정보·재고를 Airtable에 쓰지 않는다.
 
-4가지 기능 운영: **와인 추가 / 와인 소비 / 와인 추천 / 와인 목록 조회**
+## 조회·대상 식별
 
----
+- `wine_list`로 이름/종류/국가/빈티지/가격/재고 등을 검색한다. next_cursor가 있으면 다음 페이지를 조회한다. 단일 100건 응답을 전체라고 가정하지 않는다.
+- 표시 번호는 display_id이며 실제 변경에는 UUID id/wine_id를 사용한다. 최대 번호+1로 ID를 만들지 않는다.
+- 이름·빈티지가 같아도 생산자·큐베·용량을 대조한다. 여러 후보면 대상을 확인한다. 임의로 병합하지 않는다.
+- `wine_get`은 구매·시음·최근 가격·version을 반환한다. 재고 없는 와인을 조회하려면 in_stock을 true로 제한하지 않는다.
 
-## Airtable 연결 정보
+## 등록·구매
 
-### 🍾 와인 DB
-- **Base ID:** `appop5NIlidjqK1iW`
-- **Table ID:** `tblCJybtil7UA662V`
-- **Interface ID:** `pbdwBZJEgFDtPxAjl`
-- **Page ID:** `pag4BdObo3xJ20jkO`
+1. 입력에서 확인된 이름·종류·원산지·품종·빈티지만 사용한다. 사진 해석은 외부 AI가 수행하며 OCR API가 서버에 있다고 가정하지 않는다. 모르는 값은 비워둔다. NV와 빈티지 미상을 구분한다.
+2. 기존 제품이 확인되면 그 wine_id를 사용하고, 신규면 `wine_create`로 만든다.
+3. 실제 구매 수량·병당 가격·날짜·구입처를 `wine_receive_stock`으로 저장한다. 제품 생성만으로 재고가 늘지 않는다.
+4. 제품 생성 뒤 입고가 실패하면 완료된 제품 생성을 반복하지 말고 입고 단계만 재시도한다. 같은 요청은 같은 UUID idempotency_key와 입력을 유지한다.
 
-### 🥂 와인잔 DB
-- **Base ID:** `appCHvxtjCUNWnPtm`
-- **Table ID:** `tblOQwMY7CqTZs6yf`
-- **Interface ID:** `pbd8BTgJ6CKWH5c4e`
-- **Page ID:** `pagE9hCcag1SVyidK`
+## 사진
 
-> **⚠️ 조회 방식 중요:**
-> `list_records_for_table`은 이 MCP 플랜에서 **미지원**. 와인 DB, 와인잔 DB 모두 `list_records_for_page`를 사용할 것.
+`wine_upload_photo`에 실제 파일의 base64 데이터, wine_id, expected_version, idempotency_key를 전달한다. 링크/파일명만으로 업로드했다고 말하지 않는다. 서버가 최대 1,000px·300KB WebP 사본을 DB에 저장한다. 원본 JPEG/PNG/WebP는 약 2MB 이하이며 HEIC는 지원하지 않는다.
 
----
+파일 접근이 불가능하면 `wine_photo_upload_link`로 직접 업로드할 웹 화면을 안내한다. 도구 반환 결과로 저장 성공을 확인한다. 웹 검색 링크는 Vivino로 통일하며 자동 이미지 매칭은 없다. 제품명·빈티지가 일치하지 않는 이미지를 확정하지 않는다.
 
-## 데이터베이스 스키마
+## 소비·시음·취소
 
-### 🍾 와인 DB 필드 ID 매핑
+- `wine_consume`: 실제 마신 수량만 차감한다. 선택적으로 tasting을 함께 남긴다. 부족한 수량은 저장할 수 없다.
+- `wine_log_tasting`: 재고 변화 없이 본인의 시음 기록을 추가한다. 점수는 0~100, 재구매는 true/false/null로 구분한다.
+- `wine_reverse_event`: 잘못된 입고/소비를 event_id와 사유로 취소한다. 초기 이관 재고와 이미 취소한 기록은 취소하지 않는다.
+- version 충돌은 최신 항목을 다시 조회해 적용한다. 권한 오류를 우회하거나 DB 재고를 직접 변경하지 않는다.
 
-| 필드 | Field ID | 타입 | 비고 |
-|------|----------|------|------|
-| 한글 이름 | `fldaoCORde1HgHRok` | singleLineText | primary |
-| 영어 이름 | `fldXCZpzp2O8LXsoS` | singleLineText | |
-| ID | `fldrhZQqGGTvbLjwE` | number | 수동 auto-increment |
-| 종류 | `fld6m7oC81YO6GdTj` | singleSelect | 레드, 화이트, 로제, 스파클링, 디저트, 주정강화 |
-| 나라 | `fld8oBT8wEfx3YlGJ` | singleSelect | 프랑스, 이탈리아, 스페인, 미국, 칠레, 아르헨티나, 호주, 뉴질랜드, 독일, 포르투갈, 한국, 기타 |
-| 지역 | `fldhcDBxjCvKg2QsC` | singleLineText | |
-| 품종 | `fldjNDuzP5cgkzPoK` | singleLineText | |
-| 빈티지 | `fldjwUPrIPf6xh1ZG` | number | |
-| 수량 | `fldyNUSLA0nT6dlsY` | number | |
-| 구매가 | `fld0m5t84qxbQp4ik` | currency (₩) | |
-| 구매일 | `fld5cHoRn1Wn1Ew2o` | date (YYYY-MM-DD) | |
-| 점수 | `fld7e7VVcoVqfGNix` | number (0~100) | 선택 입력 |
-| 시음 노트 | `fld9pRh46AZMvU7mc` | multilineText | 선택 입력 |
-| 재구매 의사 | `fld8ubX9hq3YibAet` | checkbox | true=Y, false=N |
+## 추천
 
-**ID auto-increment 처리:**
-Airtable은 자동 증가를 지원하지 않으므로, 와인 추가 시:
-1. `list_records_for_page` (interfaceId: `pbdwBZJEgFDtPxAjl`, pageId: `pag4BdObo3xJ20jkO`)로 전체 항목 조회
-2. 가장 큰 ID 값 + 1을 새 ID로 사용
-3. 첫 항목이면 ID = 1
+`wine_get_pairing_context`의 보유 와인·잔·시음 기록을 바탕으로 후보를 제안한다. 필요한 모든 페이지를 읽는다. 음식/상황에 맞는 최대 3개를 골라 이유·보유 잔·일반적인 제공 온도 등을 설명하되 저장된 사실과 AI 제안을 구분한다. 추천만으로 재고를 차감하지 않는다.
 
-### 🥂 와인잔 DB 필드 ID 매핑
-
-| 필드 | Field ID | 타입 |
-|------|----------|------|
-| 잔 이름 | `fld8oBteROD0KFXyt` | singleLineText (primary) |
-| 브랜드 | `fldg7f56JDNetmeVw` | singleSelect |
-| 잔 종류 | `fldhYyqjxobkbO6g7` | singleSelect (보르도형, 부르고뉴형, 유니버설, 화이트와인형, 샴페인 플루트, 샴페인 쿠페, 디저트/포트, 리델-쉬라, 리델-샴페인&리슬링, 리델-사케) |
-| 메모 | `fldfn8FOoyhlmHCfR` | singleLineText |
-
----
-
-## 1. 와인 추가
-
-### 입력
-- 라벨 사진 (이미지에서 와인 정보 추출)
-- 수량, 구매가
-- 점수, 시음 노트, 재구매 의사 (선택 — 입력 없으면 비워둠)
-
-### 처리 흐름
-1. 라벨 사진에서 한글 이름, 영어 이름, 나라, 지역, 품종, 종류, 빈티지 추출
-2. `list_records_for_page` (interfaceId: `pbdwBZJEgFDtPxAjl`, pageId: `pag4BdObo3xJ20jkO`)로 같은 와인(영어 이름 + 빈티지 기준) 이미 존재하는지 확인
-   - **신규** → `create_records_for_table` (tableId: `tblCJybtil7UA662V`)로 새 항목 생성 (ID auto-increment, 구매일=오늘). 점수/시음 노트/재구매 의사가 있으면 함께 저장
-   - **기존 와인** → `update_records_for_table`로 수량만 추가 (구매가, 구매일은 기존 값 유지). 점수/재구매 의사가 있으면 덮어씀
-   - **시음 노트 공통 규칙:** 저장 시 `(YYYY-MM-DD)` 날짜를 앞에 자동 추가. 기존 노트가 있으면 줄바꿈 후 이어 붙임 (덮어쓰지 않음)
-
-### 응답 형식
-```
-✅ [신규 추가 / 수량 업데이트]
-
-#[ID] 한글이름 (English Name) · 빈티지
-🌍 나라 > 지역 | 🍇 품종 | 종류
-📦 수량: N병 · 💰 구매가: N원
-⭐ 점수: N/100 · 📝 [시음 노트 한 줄 요약] · 🔁 재구매: Y/N
-```
-(점수/시음 노트/재구매 의사가 없으면 해당 줄 생략)
-
----
-
-## 2. 와인 소비
-
-### 입력
-- 와인 이름 또는 ID
-- 소비 수량 (미입력 시 기본값: 1병)
-- 점수, 시음 노트, 재구매 의사 (선택 — 소비 후 함께 입력 가능)
-
-### 처리 흐름
-1. `list_records_for_page` (interfaceId: `pbdwBZJEgFDtPxAjl`, pageId: `pag4BdObo3xJ20jkO`)로 전체 조회 후 ID 또는 이름으로 필터
-   - 복수 결과 시 사용자에게 선택지 제시
-2. 현재 수량 확인
-   - 수량 > 소비량 → `update_records_for_table`로 수량 차감
-   - 수량 = 소비량 → 차감 후 "재고 없음" 안내
-   - 수량 < 소비량 → 경고 후 사용자 확인
-3. 점수/시음 노트/재구매 의사가 함께 제공된 경우 → 수량 차감과 동시에 해당 필드도 업데이트
-4. 시음 노트 저장 시 앞에 오늘 날짜를 `(YYYY-MM-DD)` 형식으로 자동 추가
-   예: `(2026-05-21) 시트러스한 향이 아주 좋음`
-   기존 시음 노트가 있으면 줄바꿈 후 새 노트를 이어 붙임 (덮어쓰지 않음)
-
-### 응답 형식
-```
-🍷 [한글이름] (#[ID])
-📦 [이전 수량]병 → [잔여 수량]병 (-[소비량])
-⭐ 점수: N/100 · 🔁 재구매: Y/N
-📝 [시음 노트]
-```
-(점수/시음 노트/재구매 의사 미입력 시 해당 줄 생략)
-
----
-
-## 3. 와인 추천
-
-### 입력
-- 음식 또는 상황 설명 (자유 입력)
-
-### 처리 흐름
-1. `list_records_for_page` (interfaceId: `pbdwBZJEgFDtPxAjl`, pageId: `pag4BdObo3xJ20jkO`) → 수량 > 0인 항목만 필터
-2. `list_records_for_page` (interfaceId: `pbd8BTgJ6CKWH5c4e`, pageId: `pagE9hCcag1SVyidK`) → 와인잔 전체 조회
-3. 입력된 음식/상황에 맞는 와인 3개 선정
-4. 각 와인에 대해 응답 구성
-
-### 응답 형식
-```
-## 🍷 오늘의 와인 추천
-
-### 1순위: [한글이름] (#[ID])
-- **빈티지:** [연도] | **종류:** [종류] | **품종:** [품종]
-- **추천 이유:** [음식/상황과 어울리는 이유]
-- **와인 특징:** [맛, 향, 바디감 설명]
-- **적정 온도:** [N]℃
-- **추천 잔:** [보유 잔 중 최적 / 없으면 "보르도형 권장"]
-- **디켄터 사용 추천:** [디켄팅 추천여부, 추천 이유]
-- **Vivino:** [https://www.vivino.com/search/wines?q=영어이름+빈티지]
-
-### 2순위: ...
-### 3순위: ...
-```
-
-**Vivino 링크 형식:**
-`https://www.vivino.com/search/wines?q=[영어이름을+URL인코딩+빈티지]`
-예: `https://www.vivino.com/search/wines?q=Opus+One+2019`
-
-**잔 추천 로직:**
-- 레드 풀바디 → 보르도형
-- 레드 라이트바디 (피노 누아 등) → 부르고뉴형
-- 화이트/로제 → 화이트와인형 or 유니버설
-- 스파클링 → 샴페인 플루트 or 쿠페
-- 보유 잔 목록과 대조 후 보유 중이면 해당 잔 이름 명시, 없으면 종류만 권장
-
----
-
-## 4. 와인 목록 조회
-
-### 처리 흐름
-1. `list_records_for_page` (interfaceId: `pbdwBZJEgFDtPxAjl`, pageId: `pag4BdObo3xJ20jkO`, pageSize: 100)로 단일 호출로 전체 조회
-2. 종류별 그룹화하여 표 또는 카드 형식으로 정리
-
----
-
-## 오류 처리
-
-- **항목 못 찾음** → "검색 결과가 없습니다. ID나 이름을 다시 확인해주세요."
-- **수량 부족** → "현재 N병 보유 중입니다. N병만 소비할까요?"
+정확한 도구별 입력·출력은 설정의 MCP 안내와 `src/lib/mcp-guide.ts`, `src/lib/contracts.ts`, `src/server/mcp.ts`를 확인한다. 이관 내역은 [migration-report.md](migration-report.md), 가격/차트 규칙은 [cellar-features.md](cellar-features.md)를 따른다.

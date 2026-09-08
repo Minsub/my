@@ -15,7 +15,7 @@ async function login(page: import("@playwright/test").Page) {
     .fill("Test-password-2026!");
   await page.getByRole("button", { name: "로그인", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "좋아하는 것들로 채워가는 우리 집." }),
+    page.getByRole("heading", { name: "내가 쓰는 모든 것." }),
   ).toBeVisible();
 }
 test("protects data and MCP while demo stays read-only", async ({
@@ -42,9 +42,7 @@ test("platform navigation, filters, details and preferences", async ({
     name: info.project.name === "mobile" ? "모바일 주 메뉴" : "PC 주 메뉴",
   });
   await nav.getByRole("link", { name: /커피 원두/ }).click();
-  await expect(
-    page.getByRole("heading", { name: "나의 커피 취향." }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "커피." })).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -268,9 +266,7 @@ test("wine photo upload and expanded filters work on both platforms", async ({
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await expect(
-    page.getByRole("heading", { name: /우리 집 와인 셀러/ }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: /와인 셀러/ })).toBeVisible();
   await expect(page.locator(".cellar-row").first()).toBeVisible();
   await page.screenshot({
     path: `test-results/visual/${info.project.name}-cellar.png`,

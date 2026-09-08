@@ -55,7 +55,7 @@ export function authOptions() {
     resourcePrivileges: () => false,
   };
   return {
-    appName: "취향의 기록",
+    appName: "MONO",
     baseURL: appUrl(),
     basePath: "/api/auth",
     secret: process.env.BETTER_AUTH_SECRET,
@@ -234,7 +234,7 @@ export async function provisionMember(userId: string, email: string) {
       if (!house)
         [house] = await query(
           "INSERT INTO households(name) VALUES($1) RETURNING id",
-          [process.env.HOUSEHOLD_NAME ?? "우리 집"],
+          [process.env.HOUSEHOLD_NAME ?? "MONO"],
           client,
         );
       await query(

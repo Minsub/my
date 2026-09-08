@@ -48,7 +48,7 @@ export function ProductArt({
             fontSize="8"
             letterSpacing="3"
           >
-            DAILY COLLECTION
+            PERSONAL WORKSPACE
           </text>
           <text
             x="120"

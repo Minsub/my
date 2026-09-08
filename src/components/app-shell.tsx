@@ -1,4 +1,5 @@
 "use client";
+import { WorkspaceHome } from "./workspace-home";
 import { WineCellar } from "./wine-cellar";
 import { WinePhotoUpload } from "./wine-photo-upload";
 import { wineFacts } from "@/lib/wine-cellar";
@@ -24,7 +25,6 @@ import {
   Search,
   Settings,
   SlidersHorizontal,
-  Sparkles,
   Users,
   Wine as WineIcon,
   X,
@@ -41,7 +41,7 @@ import { ProductArt } from "./product-art";
 import { RecordForm, type FormSpec, type Field } from "./record-form";
 import { ConnectionSettings } from "./connections";
 const nav = [
-  { href: "/", label: "우리 집", icon: Home },
+  { href: "/", label: "홈", icon: Home },
   { href: "/coffee", label: "커피 원두", icon: Coffee },
   { href: "/wine", label: "와인 셀러", icon: WineIcon },
   { href: "/settings", label: "설정", icon: Settings },
@@ -205,13 +205,6 @@ export function AppShell({
       (!status ||
         ownPrefs.some((p) => p.bean_id === b.id && p.status === status)),
   );
-  const favoriteCount = data.preferences.filter(
-    (p) =>
-      p.user_id === data.user.id &&
-      p.recommendation === "추천" &&
-      data.beans.some((b) => b.id === p.bean_id && !b.archived),
-  ).length;
-  const totalStock = data.wines.reduce((n, w) => n + w.stock, 0);
   function beanForm(bean?: Bean) {
     open({
       title: bean ? "원두 정보 수정" : "새로운 원두",
@@ -598,180 +591,15 @@ export function AppShell({
     );
   }
   function renderHome() {
-    const favorites = data.beans
-      .filter(
-        (b) =>
-          !b.archived &&
-          data.preferences.some(
-            (p) =>
-              p.bean_id === b.id &&
-              p.user_id === data.user.id &&
-              p.recommendation === "추천",
-          ),
-      )
-      .slice(0, 3);
-    return (
-      <>
-        <div className="greeting">
-          <span className="eyebrow">YOUR EVERYDAY COLLECTION</span>
-          <span className="date-label">
-            {new Intl.DateTimeFormat("ko-KR", {
-              month: "long",
-              day: "numeric",
-              weekday: "long",
-              timeZone: "Asia/Seoul",
-            }).format(new Date())}
-          </span>
-        </div>
-        <section className="home-hero">
-          <div>
-            <span className="hero-label">
-              <span />
-              작은 취향이 모이는 곳
-            </span>
-            <h1>
-              좋아하는 것들로
-              <br />
-              채워가는 우리 집<span>.</span>
-            </h1>
-            <p>
-              아침의 커피 한 잔부터 저녁의 와인 한 병까지.
-              <br className="desktop-only" /> 우리 가족의 취향을 차곡차곡
-              기록해요.
-            </p>
-            <Link className="hero-link" href={href("/coffee")}>
-              나의 컬렉션 둘러보기 <ArrowRight size={17} />
-            </Link>
-          </div>
-          <div className="hero-objects" aria-hidden="true">
-            <div className="hero-orbit" />
-            <div className="hero-bag">
-              <ProductArt name="coffee" brand="모모스커피" />
-            </div>
-            <div className="hero-bottle">
-              <ProductArt name="wine" kind="wine" />
-            </div>
-            <span className="hero-script">
-              a little collection
-              <br />
-              of everyday joys.
-            </span>
-          </div>
-        </section>
-        <div className="stats-grid">
-          <Stat
-            icon={<Coffee />}
-            label="원두 컬렉션"
-            value={data.beans.filter((b) => !b.archived).length}
-            unit="가지"
-            foot={`${data.brands.length}개의 브랜드와 함께`}
-          />
-          <Stat
-            icon={<WineIcon />}
-            label="우리 집 와인"
-            value={totalStock}
-            unit="병"
-            foot={`${data.wines.filter((w) => w.stock > 0).length}종의 와인 보유`}
-          />
-          <Stat
-            icon={<Heart />}
-            label="다시 찾는 원두"
-            value={favoriteCount}
-            unit="가지"
-            foot="내가 추천한 취향"
-          />
-          <Stat
-            icon={<BookOpen />}
-            label="와인 시음 기록"
-            value={data.tastings.length}
-            unit="개"
-            foot="가족이 함께 쌓은 이야기"
-          />
-        </div>
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">BACK TO YOUR FAVORITES</span>
-            <h2>다시 마시고 싶은 커피</h2>
-          </div>
-          <Link href={href("/coffee")}>
-            전체 보기 <ArrowUpRight size={16} />
-          </Link>
-        </div>
-        {favorites.length ? (
-          <div className="bean-grid home-coffee">
-            {favorites.map(coffeeCard)}
-          </div>
-        ) : (
-          empty(
-            "아직 추천한 원두가 없어요",
-            "원두에 평가를 남기면 이곳에서 다시 만날 수 있어요.",
-            () => beanForm(),
-            "첫 원두 등록",
-          )
-        )}
-        <div className="home-bottom">
-          <section className="panel">
-            <div className="section-heading compact">
-              <h2>최근의 기록</h2>
-              <span className="muted small">가족과 함께</span>
-            </div>
-            {data.activities.length ? (
-              <div className="activity-list">
-                {data.activities.slice(0, 5).map((a) => (
-                  <div key={a.id}>
-                    <span className="activity-icon">
-                      {a.operation.startsWith("wine") ? (
-                        <WineIcon size={17} />
-                      ) : (
-                        <Coffee size={17} />
-                      )}
-                    </span>
-                    <div>
-                      <strong>{a.label}</strong>
-                      <p>
-                        {memberName(a.user_id)} ·{" "}
-                        {a.channel === "mcp" ? "AI로 기록" : "직접 기록"}
-                      </p>
-                    </div>
-                    <time>{dateLabel(a.created_at)}</time>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="quiet-empty">
-                <BookOpen size={25} />
-                <p>오늘의 취향을 첫 기록으로 남겨보세요.</p>
-              </div>
-            )}
-          </section>
-          <section className="ai-note">
-            <Sparkles size={24} />
-            <span className="eyebrow">YOUR COLLECTION, CONNECTED</span>
-            <h2>
-              우리 집 취향을
-              <br />
-              AI에게 물어보세요.
-            </h2>
-            <p>
-              “내가 좋아했던 원두는 뭐였지?”
-              <br />
-              “오늘 저녁에 어떤 와인을 마실까?”
-            </p>
-            <Link href={href("/settings")}>
-              AI 연결 살펴보기 <ArrowRight size={16} />
-            </Link>
-          </section>
-        </div>
-      </>
-    );
+    return <WorkspaceHome data={data} href={href} />;
   }
   function renderCoffee() {
     return (
       <>
         {pageHeading(
           "THE COFFEE COLLECTION",
-          "나의 커피 취향",
-          "한 잔에 담긴 취향을 발견하고, 좋아하는 원두를 기억해요.",
+          "커피",
+          "원두와 브랜드를 관리하고 평가와 추출 설정을 기록합니다.",
           () => beanForm(),
           "원두 등록",
         )}
@@ -806,14 +634,14 @@ export function AppShell({
               ))}
             </select>
             <select
-              aria-label="평가한 가족"
+              aria-label="평가한 사용자"
               value={person}
               onChange={(e) => {
                 setPerson(e.target.value);
                 updateFilter("person", e.target.value);
               }}
             >
-              <option value="all">가족 전체</option>
+              <option value="all">사용자 전체</option>
               {data.members.map((m) => (
                 <option key={m.user_id} value={m.user_id}>
                   {m.user_id === data.user.id ? "내 취향" : m.name}
@@ -1050,7 +878,7 @@ export function AppShell({
         <div className="detail-columns">
           <section className="panel">
             <div className="section-heading compact">
-              <h2>우리 가족의 평가</h2>
+              <h2>사용자별 평가</h2>
               <Heart size={18} />
             </div>
             {data.preferences
@@ -1114,9 +942,9 @@ export function AppShell({
     return (
       <>
         {pageHeading(
-          "THE FAMILY CELLAR",
-          "우리 집 와인 셀러",
-          "좋은 날을 위해 모은 와인, 함께 나누는 한 병의 기록.",
+          "WINE CELLAR",
+          "와인 셀러",
+          "보유 와인, 구매 내역과 시음 기록을 관리합니다.",
           () => wineForm(),
           "와인 등록",
         )}
@@ -1322,7 +1150,7 @@ export function AppShell({
           </section>
           <section className="panel">
             <div className="section-heading compact">
-              <h2>가족의 시음 노트</h2>
+              <h2>사용자별 시음 노트</h2>
               <button className="text-button" onClick={() => tastingForm(wine)}>
                 <Plus size={15} />
                 추가
@@ -1372,7 +1200,7 @@ export function AppShell({
       <>
         {pageHeading(
           "THE FINISHING TOUCH",
-          "우리 집 와인잔",
+          "와인잔",
           "와인의 순간을 더 좋게 만드는 작은 차이.",
           add,
           "와인잔 등록",
@@ -1426,8 +1254,8 @@ export function AppShell({
       <>
         {pageHeading(
           "MAKE YOURSELF AT HOME",
-          "우리 집 설정",
-          "함께 쓰는 가족과 취향을 이어주는 연결을 관리해요.",
+          "설정",
+          "계정, 구성원, 도구와 AI 연결을 관리합니다.",
         )}
         <div className="settings-grid">
           <section className="panel">
@@ -1471,7 +1299,7 @@ export function AppShell({
                       {m.name}
                       {m.user_id === data.user.id ? " (나)" : ""}
                     </strong>
-                    <p>{m.role === "owner" ? "가족 관리자" : "가족 구성원"}</p>
+                    <p>{m.role === "owner" ? "관리자" : "구성원"}</p>
                   </div>
                   {data.user.role === "owner" && m.role !== "owner" && (
                     <button
@@ -1596,11 +1424,9 @@ export function AppShell({
     <div className="app-shell">
       <aside className="sidebar">
         <Link className="brand" href={href("/")}>
-          <span className="brand-mark">
-            d<span>.</span>
-          </span>
+          <span className="brand-mark">M</span>
           <div>
-            취향의 기록<small>DAILY COLLECTION</small>
+            MONO<small>PERSONAL WORKSPACE</small>
           </div>
         </Link>
         <div className="sidebar-family">
@@ -1608,8 +1434,8 @@ export function AppShell({
             <Home size={16} />
           </span>
           <div>
-            <strong>{data.household.name}</strong>
-            <small>우리 가족만의 컬렉션</small>
+            <strong>Workspace</strong>
+            <small>PERSONAL WORKSPACE</small>
           </div>
           <span className="family-dot" />
         </div>
@@ -1632,11 +1458,11 @@ export function AppShell({
         <div className="sidebar-bottom">
           <div className="sidebar-note">
             <span>
-              Good things,
+              Your space,
               <br />
-              worth remembering.
+              your way.
             </span>
-            <small>일상의 작은 취향을 모아요.</small>
+            <small>필요한 것을 하나의 공간에.</small>
           </div>
           <div className="profile">
             <span className="avatar">{data.user.name[0]}</span>
@@ -1646,8 +1472,8 @@ export function AppShell({
                 {demo
                   ? "둘러보기"
                   : data.user.role === "owner"
-                    ? "가족 관리자"
-                    : "가족 구성원"}
+                    ? "관리자"
+                    : "구성원"}
               </small>
             </div>
             {!demo && (
@@ -1672,7 +1498,7 @@ export function AppShell({
       <div className="main-wrap">
         <header className="topbar">
           <div className="breadcrumb">
-            <span>우리 집</span>
+            <span>MONO</span>
             {active !== "/" && (
               <>
                 <span>/</span>
@@ -1681,15 +1507,13 @@ export function AppShell({
             )}
           </div>
           <Link className="mobile-brand" href={href("/")}>
-            <span className="brand-mark">
-              d<span>.</span>
-            </span>
-            <strong>취향의 기록</strong>
+            <span className="brand-mark">M</span>
+            <strong>MONO</strong>
           </Link>
           <div className="topbar-actions">
             <span className="private-indicator">
               <span />
-              우리 가족만의 공간
+              PRIVATE
             </span>
             <button
               className="icon-button"
@@ -1712,8 +1536,8 @@ export function AppShell({
         <main className="main-content" id="main-content">
           {content}
           <footer className="page-footer">
-            <span>취향의 기록</span>
-            <span>Made for the little things.</span>
+            <span>MONO</span>
+            <span>Built for your everyday.</span>
           </footer>
         </main>
       </div>
@@ -1740,32 +1564,5 @@ export function AppShell({
         </div>
       )}
     </div>
-  );
-}
-function Stat({
-  icon,
-  label,
-  value,
-  unit,
-  foot,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  unit: string;
-  foot: string;
-}) {
-  return (
-    <section className="stat-card">
-      <div>
-        <span>{label}</span>
-        {icon}
-      </div>
-      <p>
-        <strong>{value}</strong>
-        <span>{unit}</span>
-      </p>
-      <small>{foot}</small>
-    </section>
   );
 }

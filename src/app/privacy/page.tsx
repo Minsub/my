@@ -1,15 +1,15 @@
 import Link from "next/link";
 
-export const metadata = { title: "개인정보 처리 안내 — 취향의 기록" };
+export const metadata = { title: "개인정보 처리 안내 — MONO" };
 
 export default function Privacy() {
   return (
     <main className="standalone-page" id="main-content">
       <article className="consent-card panel privacy-card">
-        <span className="eyebrow">취향의 기록 · 2026년 9월 8일</span>
+        <span className="eyebrow">MONO · 2026년 9월 8일</span>
         <h1>개인정보 처리 안내</h1>
         <p>
-          취향의 기록은 초대된 가족이 커피와 와인 기록을 함께 관리하는 개인용
+          MONO는 데이터와 도구를 관리하고 허용된 구성원과 공유할 수 있는 개인용
           서비스입니다.
         </p>
         <h2>저장하는 정보와 목적</h2>
@@ -37,9 +37,9 @@ export default function Privacy() {
         <h2>보관과 삭제 요청</h2>
         <p>
           컬렉션 기록은 사용자가 관리하는 동안 보관합니다. 계정과 기록의
-          열람·수정·삭제 또는 서비스 이용 중단은 가족 관리자에게 요청할 수
-          있습니다. 재고·구매 이력은 정합성을 위해 취소 기록으로 보존할 수
-          있으며, 백업 사본은 설정된 보존 기간이 끝날 때 제거됩니다.
+          열람·수정·삭제 또는 서비스 이용 중단은 관리자에게 요청할 수 있습니다.
+          재고·구매 이력은 정합성을 위해 취소 기록으로 보존할 수 있으며, 백업
+          사본은 설정된 보존 기간이 끝날 때 제거됩니다.
         </p>
         <div className="button-row">
           <Link className="button secondary" href="/login">

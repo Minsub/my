@@ -103,7 +103,7 @@ export function WineCellar({
       <section className="cellar-dashboard" aria-label="셀러 대시보드">
         <div className="cellar-metrics">
           <div>
-            <span>지금 우리 셀러</span>
+            <span>현재 보유</span>
             <strong>
               {bottles}
               <small> 병</small>
@@ -122,7 +122,7 @@ export function WineCellar({
             </p>
           </div>
           <div>
-            <span>이번 달 함께한 와인</span>
+            <span>이번 달 소비</span>
             <strong>
               {consumed}
               <small> 병</small>
@@ -221,7 +221,7 @@ export function WineCellar({
                 ["name_asc", "이름순"],
                 ["vintage_asc", "오래된 빈티지순"],
                 ["stock_desc", "보유 병수순"],
-                ["score_desc", "가족 평점순"],
+                ["score_desc", "사용자 평점순"],
               ].map(([v, t]) => (
                 <option value={v} key={v}>
                   {t}
@@ -263,7 +263,7 @@ export function WineCellar({
                 ["max_price", "최대 구입가", "number"],
                 ["from", "구입일 시작", "date"],
                 ["to", "구입일 종료", "date"],
-                ["min_score", "최소 가족 평점", "number"],
+                ["min_score", "최소 사용자 평점", "number"],
               ] as const
             ).map(([k, label, type]) => (
               <label key={k}>
@@ -373,7 +373,7 @@ export function WineCellar({
                 병당 구입가{w.price_source === "import" ? " · 이관 기록" : ""}
               </small>
               <span>{w.purchased_on || "구입일 미입력"}</span>
-              {w.score !== null && <span>가족 평점 {w.score}/100</span>}
+              {w.score !== null && <span>사용자 평점 {w.score}/100</span>}
             </div>
             <div className="cellar-stock">
               <strong>

@@ -24,12 +24,12 @@ export function ConnectionSettings({ demo = false }: { demo?: boolean }) {
     <section className="panel connections">
       <div className="section-heading compact">
         <h2>
-          <Sparkles size={20} /> AI와 취향 연결하기
+          <Sparkles size={20} /> AI 연결 · MCP
         </h2>
         <span className="tag green">MCP</span>
       </div>
       <p className="muted">
-        Claude, ChatGPT, Codex에서 우리 가족의 기록을 조회하고 관리할 수 있어요.
+        Claude, ChatGPT, Codex에서 이 공간의 기록을 조회하고 관리할 수 있어요.
       </p>
       <label className="connection-url">
         <span>MCP 연결 주소</span>

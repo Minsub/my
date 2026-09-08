@@ -4,12 +4,10 @@ export default function Setup() {
   return (
     <main className="standalone-page" id="main-content">
       <div className="consent-card panel">
-        <span className="brand-mark">
-          d<span>.</span>
-        </span>
-        <span className="eyebrow">A HOME FOR YOUR TASTE</span>
+        <span className="brand-mark">M</span>
+        <span className="eyebrow">YOUR PERSONAL WORKSPACE</span>
         <h1>
-          우리 집 컬렉션을
+          MONO를
           <br />
           준비하고 있어요.
         </h1>

@@ -1,9 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 export const metadata: Metadata = {
-  title: "취향의 기록 — 우리 가족의 커피와 와인",
-  description:
-    "커피 한 잔부터 와인 한 병까지, 우리 가족의 일상과 취향을 기록하는 공간.",
+  title: "MONO — Personal Workspace",
+  description: "데이터, 도구, AI를 하나로 연결하는 개인 워크스페이스.",
   robots: { index: false, follow: false },
 };
 export const viewport: Viewport = {

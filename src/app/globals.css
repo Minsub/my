@@ -3380,3 +3380,127 @@ input[type="checkbox"] {
     min-height: 44px;
   }
 }
+/* MONO identity and module-first overview. */
+:root {
+  --ink: #242627;
+  --green: #303735;
+  --green-pale: #eceeec;
+  --muted: #737975;
+}
+.brand-mark {
+  font-family: inherit;
+  font-size: 23px;
+  font-weight: 750;
+  letter-spacing: -2px;
+  background: #272d2b;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.brand > div,
+.mobile-brand > strong {
+  letter-spacing: 0.06em;
+}
+.sidebar-note > span {
+  font-family: inherit;
+  font-style: normal;
+  font-size: 19px;
+}
+.workspace-heading {
+  padding: 24px 0 32px;
+}
+.workspace-heading h1 {
+  font-size: clamp(30px, 4vw, 46px);
+  letter-spacing: -0.055em;
+  margin: 18px 0;
+}
+.workspace-heading p {
+  line-height: 1.9;
+  color: var(--muted);
+  max-width: 520px;
+}
+.workspace-modules {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+.workspace-module {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--white);
+  padding: 30px;
+  transition:
+    transform 0.15s,
+    border-color 0.15s;
+}
+.workspace-module:hover {
+  transform: translateY(-3px);
+  border-color: #808985;
+}
+.workspace-module > div {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 32px;
+}
+.workspace-module h2 {
+  font-size: 26px;
+  margin: 12px 0;
+}
+.workspace-module p {
+  color: var(--muted);
+  line-height: 1.8;
+}
+.workspace-module > strong {
+  display: block;
+  font-size: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  margin-top: 30px;
+}
+.workspace-bottom {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 20px;
+}
+.workspace-ai {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 16px;
+}
+.workspace-ai h2,
+.workspace-ai p {
+  margin: 0;
+}
+.workspace-ai p {
+  color: var(--muted);
+  line-height: 1.8;
+}
+.workspace-ai .button {
+  margin-top: auto;
+}
+.workspace-bottom .section-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+@media (max-width: 700px) {
+  .workspace-heading {
+    padding: 12px 0 24px;
+  }
+  .workspace-modules,
+  .workspace-bottom {
+    grid-template-columns: 1fr;
+  }
+  .workspace-module {
+    padding: 24px;
+  }
+  .workspace-module > div {
+    margin-bottom: 22px;
+  }
+  .workspace-module > strong {
+    margin-top: 20px;
+  }
+}

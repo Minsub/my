@@ -6,7 +6,7 @@ import {
   LoaderCircle,
   ShieldCheck,
   Check,
-  Coffee,
+  Layers,
 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 export function LoginScreen({
@@ -22,45 +22,42 @@ export function LoginScreen({
     <div className="auth-page">
       <section className="auth-story">
         <Link className="brand light-brand" href="/demo">
-          <span className="brand-mark">
-            d<span>.</span>
-          </span>
+          <span className="brand-mark">M</span>
           <div>
-            취향의 기록<small>DAILY COLLECTION</small>
+            MONO<small>PERSONAL WORKSPACE</small>
           </div>
         </Link>
         <div>
-          <span className="eyebrow">A HOME FOR YOUR TASTE</span>
+          <span className="eyebrow">YOUR PERSONAL WORKSPACE</span>
           <h1>
-            좋아하는 것들을
+            나에게 필요한 것들을
             <br />
-            오래 기억하는 방법.
+            하나의 공간에.
           </h1>
           <p>
-            매일의 커피와 특별한 와인,
-            <br />
-            우리 가족의 작은 취향을 모아요.
+            기록부터 나만의 도구까지,
+            <br />내 방식으로 사용하는 MONO.
           </p>
           <div className="auth-illustration">
-            <Coffee size={130} strokeWidth={0.7} />
+            <Layers size={130} strokeWidth={0.7} />
             <span>
-              good days
+              your tools
               <br />
-              start here.
+              in one place.
             </span>
           </div>
         </div>
-        <span className="auth-story-footer">Made for the little things.</span>
+        <span className="auth-story-footer">Built for your everyday.</span>
       </section>
       <section className="auth-form-area">
         <div className="auth-card">
-          <span className="eyebrow">WELCOME HOME</span>
+          <span className="eyebrow">WELCOME TO MONO</span>
           <h2>
-            우리 집 취향에
+            MONO에
             <br />
             들어오세요.
           </h2>
-          <p>초대받은 가족 계정으로 로그인해주세요.</p>
+          <p>등록된 계정으로 로그인해주세요.</p>
           {google ? (
             <button
               className="button google-button"
@@ -148,7 +145,7 @@ export function LoginScreen({
           <div className="login-note">
             <ShieldCheck size={18} />
             <span>
-              초대된 가족만 기록을 볼 수 있어요.
+              허용된 계정만 접근할 수 있어요.
               <br />
               각자의 계정으로 안전하게 함께해요.
             </span>
@@ -158,7 +155,7 @@ export function LoginScreen({
           </Link>
         </div>
         <footer>
-          취향의 기록 · 우리 가족만의 컬렉션 ·{" "}
+          MONO · PERSONAL WORKSPACE ·{" "}
           <Link href="/privacy">개인정보 처리 안내</Link>
         </footer>
       </section>
@@ -201,12 +198,10 @@ export function ConsentScreen({
   return (
     <main className="standalone-page">
       <div className="consent-card panel">
-        <span className="brand-mark">
-          d<span>.</span>
-        </span>
+        <span className="brand-mark">M</span>
         <span className="eyebrow">CONNECT YOUR COLLECTION</span>
         <h1>
-          AI에 우리 집 기록을
+          AI에 내 기록을
           <br />
           연결할까요?
         </h1>
