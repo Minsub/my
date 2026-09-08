@@ -1,0 +1,18 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    ports:
+      - "127.0.0.1:54329:5432"
+    environment:
+      POSTGRES_USER: daily
+      POSTGRES_PASSWORD: local-development-only
+      POSTGRES_DB: daily
+    volumes:
+      - daily_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U daily"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+volumes:
+  daily_postgres:
