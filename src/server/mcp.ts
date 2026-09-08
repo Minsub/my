@@ -2,7 +2,10 @@ import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
 import { commandSchemas, listSchema, type Operation } from "@/lib/contracts";
 import { snapshot, execute } from "./service";
-import { AppError } from "./security";
+import { photoSchema, uploadWinePhoto } from "./wine-photos";
+import { wineFacts, filterWines, type WineFilters } from "@/lib/wine-cellar";
+import { query } from "./db";
+import { AppError, rateLimit } from "./security";
 import { appUrl } from "./auth";
 import type { Actor, Scope } from "@/lib/types";
 function output(data: unknown) {
@@ -78,6 +81,65 @@ export function mcpHandler(actor: Actor) {
           },
         );
       }
+      if (actor.scopes.includes("wine:write")) {
+        server.registerTool(
+          "wine_upload_photo",
+          {
+            description:
+              "등록한 와인의 대표 사진을 업로드합니다. wine_create 후 반환된 id/version을 사용하세요. JPEG/PNG/WebP 파일을 실제로 읽을 수 있을 때만 base64로 전달합니다(원본 최대 2MB). 파일에 접근할 수 없으면 wine_photo_upload_link를 사용하세요. 위치정보를 제거하고 압축하며 가족에게만 공개합니다.",
+            inputSchema: photoSchema,
+            annotations: {
+              readOnlyHint: false,
+              destructiveHint: false,
+              idempotentHint: true,
+              openWorldHint: false,
+            },
+          },
+          async (input) => {
+            try {
+              await rateLimit(`photo:${actor.userId}`, 12);
+              return output(await uploadWinePhoto(actor, input));
+            } catch (e) {
+              return {
+                isError: true,
+                content: [
+                  {
+                    type: "text" as const,
+                    text:
+                      e instanceof AppError
+                        ? e.message
+                        : "사진 입력을 확인해주세요.",
+                  },
+                ],
+              };
+            }
+          },
+        );
+        server.registerTool(
+          "wine_photo_upload_link",
+          {
+            description:
+              "AI에서 첨부파일을 전달할 수 없을 때 사용자가 직접 사진을 올릴 가족 로그인 화면을 반환합니다.",
+            inputSchema: z.object({ wine_id: z.uuid() }),
+            annotations: { readOnlyHint: true, openWorldHint: false },
+          },
+          async ({ wine_id }) => {
+            const rows = await query(
+              "SELECT id FROM wines WHERE id=$1 AND household_id=$2",
+              [wine_id, actor.householdId],
+            );
+            if (!rows.length)
+              return {
+                isError: true,
+                content: [{ type: "text" as const, text: "NOT_FOUND" }],
+              };
+            return output({
+              url: `${appUrl()}/wine/${wine_id}#photo-upload`,
+              instruction: "가족 계정으로 로그인 후 사진을 선택해주세요.",
+            });
+          },
+        );
+      }
       const collections = {
         coffee_list_brands: "brands",
         coffee_list_beans: "beans",
@@ -95,7 +157,30 @@ export function mcpHandler(actor: Actor) {
           {
             description:
               "가족 목록을 조회합니다. next_cursor가 있으면 다음 페이지를 조회하세요.",
-            inputSchema: listSchema,
+            inputSchema: listSchema.extend({
+              country: z.string().max(100).optional(),
+              region: z.string().max(200).optional(),
+              grape: z.string().max(200).optional(),
+              vintage: z.string().max(10).optional(),
+              min_price: z.number().nonnegative().optional(),
+              max_price: z.number().nonnegative().optional(),
+              from: z.iso.date().optional(),
+              to: z.iso.date().optional(),
+              min_score: z.number().min(0).max(100).optional(),
+              sort: z
+                .enum([
+                  "added_desc",
+                  "price_asc",
+                  "price_desc",
+                  "date_desc",
+                  "date_asc",
+                  "name_asc",
+                  "vintage_asc",
+                  "stock_desc",
+                  "score_desc",
+                ])
+                .optional(),
+            }),
             annotations: { readOnlyHint: true, openWorldHint: false },
             _meta: { securitySchemes: [{ type: "oauth2", scopes: [scope] }] },
           },
@@ -107,13 +192,35 @@ export function mcpHandler(actor: Actor) {
                 unknown
               >[]
             ).filter((r) => !r.archived);
-            if (input.query)
+            if (collection === "wines") {
+              const filters: WineFilters = {
+                q: input.query,
+                type: input.type,
+                country: input.country,
+                region: input.region,
+                grape: input.grape,
+                vintage: input.vintage,
+                sort: input.sort,
+                stock: input.in_stock ? "" : "all",
+                from: input.from,
+                to: input.to,
+                min_price: input.min_price?.toString(),
+                max_price: input.max_price?.toString(),
+                min_score: input.min_score?.toString(),
+              };
+              rows = filterWines(
+                data.wines.map((w) => wineFacts(w, data)),
+                filters,
+              );
+            }
+            if (input.query && collection !== "wines")
               rows = rows.filter((r) =>
                 String(r.name)
                   .toLowerCase()
                   .includes(input.query!.toLowerCase()),
               );
-            if (input.type) rows = rows.filter((r) => r.type === input.type);
+            if (input.type && collection !== "wines")
+              rows = rows.filter((r) => r.type === input.type);
             if (input.in_stock) rows = rows.filter((r) => Number(r.stock) > 0);
             const items = rows
               .slice(input.cursor, input.cursor + input.limit)
@@ -161,7 +268,7 @@ export function mcpHandler(actor: Actor) {
                     url: `${appUrl()}/coffee/beans/${id}`,
                   }
                 : {
-                    ...item,
+                    ...wineFacts(item as import("@/lib/types").Wine, s),
                     tastings: s.tastings.filter((x) => x.wine_id === id),
                     purchases: s.purchases.filter((x) => x.wine_id === id),
                     url: `${appUrl()}/wine/${id}`,

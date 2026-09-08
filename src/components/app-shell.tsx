@@ -1,5 +1,7 @@
 "use client";
-import { WineAnalytics } from "./wine-analytics";
+import { WineCellar } from "./wine-cellar";
+import { WinePhotoUpload } from "./wine-photo-upload";
+import { wineFacts } from "@/lib/wine-cellar";
 /* eslint-disable @next/next/no-location-assign-relative-destination -- Full navigation deliberately clears all cached family data when a session ends. */
 import Link from "next/link";
 import { useState } from "react";
@@ -107,7 +109,6 @@ export function AppShell({
     [recommend, setRecommend] = useState(initialQuery.recommend ?? ""),
     [status, setStatus] = useState(initialQuery.status ?? ""),
     [person, setPerson] = useState(initialQuery.person ?? initial.user.id),
-    [wineType, setWineType] = useState(initialQuery.type ?? ""),
     [stockOnly, setStockOnly] = useState(initialQuery.stock !== "all"),
     [archived, setArchived] = useState(initialQuery.archived === "true"),
     [list, setList] = useState(false);
@@ -203,16 +204,6 @@ export function AppShell({
         )) &&
       (!status ||
         ownPrefs.some((p) => p.bean_id === b.id && p.status === status)),
-  );
-  const wines = data.wines.filter(
-    (w) =>
-      w.archived === archived &&
-      (!stockOnly || w.stock > 0) &&
-      (!search ||
-        (w.name + " " + w.english_name)
-          .toLowerCase()
-          .includes(search.toLowerCase())) &&
-      (!wineType || w.type === wineType),
   );
   const favoriteCount = data.preferences.filter(
     (p) =>
@@ -1130,157 +1121,14 @@ export function AppShell({
           "와인 등록",
         )}
         {tabs("wine")}
-        <div className="wine-summary">
-          <div>
-            <WineIcon size={22} />
-            <strong>{totalStock}</strong>
-            <span>병의 와인</span>
-          </div>
-          <div>
-            <strong>{data.wines.filter((w) => w.stock > 0).length}</strong>
-            <span>가지의 취향</span>
-          </div>
-          <div>
-            <strong>{data.tastings.length}</strong>
-            <span>개의 시음 노트</span>
-          </div>
-        </div>
-        <div className="filter-toolbar">
-          <label className="search-field">
-            <Search size={18} />
-            <input
-              aria-label="와인 검색"
-              placeholder="와인 이름으로 검색"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                updateFilter("q", e.target.value);
-              }}
-            />
-          </label>
-          <div className="filter-selects">
-            <select
-              aria-label="와인 종류"
-              value={wineType}
-              onChange={(e) => {
-                setWineType(e.target.value);
-                updateFilter("type", e.target.value);
-              }}
-            >
-              <option value="">모든 종류</option>
-              {wineTypes.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </select>
-            <label className="check-filter">
-              <input
-                type="checkbox"
-                checked={stockOnly}
-                onChange={(e) => {
-                  setStockOnly(e.target.checked);
-                  updateFilter("stock", e.target.checked ? "" : "all");
-                }}
-              />
-              재고 있는 와인만
-            </label>
-            <label className="check-filter">
-              <input
-                type="checkbox"
-                checked={archived}
-                onChange={(e) => {
-                  setArchived(e.target.checked);
-                  updateFilter("archived", String(e.target.checked));
-                }}
-              />
-              보관함
-            </label>
-          </div>
-        </div>
-        {wines.length ? (
-          <div className="wine-table">
-            <div className="wine-table-head">
-              <span>와인</span>
-              <span>종류 / 원산지</span>
-              <span>빈티지</span>
-              <span>재고</span>
-              <span>기록</span>
-            </div>
-            {wines.map((w) => (
-              <article className="wine-row" key={w.id}>
-                <Link href={href(`/wine/${w.id}`)} className="wine-title">
-                  <ProductArt name={w.name} kind="wine" />
-                  <div>
-                    <small>NO. {String(w.display_id).padStart(3, "0")}</small>
-                    <h3>{w.name}</h3>
-                    <p>{w.english_name}</p>
-                  </div>
-                </Link>
-                <div className="wine-meta">
-                  <Tag tone="rose">{w.type}</Tag>
-                  <span>{w.country || "나라 미입력"}</span>
-                </div>
-                <div className="wine-vintage">{vintageLabel(w)}</div>
-                <div className="stock-count">
-                  <strong>{w.stock}</strong> 병
-                </div>
-                <div className="wine-row-actions">
-                  <button
-                    className="button secondary small-button"
-                    onClick={() => receiveForm(w)}
-                  >
-                    <Plus size={14} />
-                    입고
-                  </button>
-                  <button
-                    className="button primary small-button"
-                    onClick={() => consumeForm(w)}
-                    disabled={w.stock === 0}
-                  >
-                    소비
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          empty(
-            data.wines.length
-              ? "조건에 맞는 와인이 없어요"
-              : "아직 비어 있는 셀러예요",
-            data.wines.length
-              ? "재고 필터를 해제하거나 검색 조건을 바꿔보세요."
-              : "첫 와인을 등록하고, 소중한 순간을 함께 기록해요.",
-            () => wineForm(),
-            "첫 와인 등록",
-          )
-        )}
-        {data.wines.length > 0 && (
-          <section className="panel distribution">
-            <div className="section-heading compact">
-              <h2>셀러의 취향</h2>
-              <span className="muted small">현재 보유 병수 기준</span>
-            </div>
-            {wineTypes.map((type) => {
-              const n = data.wines
-                .filter((w) => w.type === type)
-                .reduce((sum, w) => sum + w.stock, 0);
-              return n > 0 ? (
-                <div className="bar-row" key={type}>
-                  <span>{type}</span>
-                  <div>
-                    <i
-                      style={{
-                        width: `${totalStock ? (n / totalStock) * 100 : 0}%`,
-                      }}
-                    />
-                  </div>
-                  <strong>{n}병</strong>
-                </div>
-              ) : null;
-            })}
-          </section>
-        )}
-        <WineAnalytics data={data} />
+        <WineCellar
+          key={String(stockOnly)}
+          data={data}
+          initialQuery={{ ...initialQuery, stock: stockOnly ? "" : "all" }}
+          href={href}
+          receive={receiveForm}
+          consume={consumeForm}
+        />
       </>
     );
   }
@@ -1293,7 +1141,16 @@ export function AppShell({
           와인 셀러
         </Link>
         <div className="detail-top wine-detail">
-          <ProductArt name={wine.name} kind="wine" large />
+          <ProductArt
+            name={wine.name}
+            kind="wine"
+            large
+            imageUrl={
+              wine.has_photo
+                ? `/api/wine/${wine.id}/photo?v=${wine.version}`
+                : null
+            }
+          />
           <div className="detail-copy">
             <span className="eyebrow">
               CELLAR NO. {String(wine.display_id).padStart(3, "0")}
@@ -1306,6 +1163,18 @@ export function AppShell({
               {wine.country && <Tag>{wine.country}</Tag>}
             </div>
             <dl className="detail-facts">
+              <div>
+                <dt>병당 구입가</dt>
+                <dd>
+                  {wineFacts(wine, data).price === null
+                    ? "미입력"
+                    : money(wineFacts(wine, data).price)}
+                </dd>
+              </div>
+              <div>
+                <dt>최근 구입일</dt>
+                <dd>{wineFacts(wine, data).purchased_on || "미입력"}</dd>
+              </div>
               <div>
                 <dt>현재 보유</dt>
                 <dd>{wine.stock}병</dd>
@@ -1368,6 +1237,9 @@ export function AppShell({
             </div>
           </div>
         </div>
+        {editAllowed(wine) && (
+          <WinePhotoUpload wine={wine} onUpdated={reload} demo={demo} />
+        )}
         <div className="detail-columns">
           <section className="panel">
             <div className="section-heading compact">

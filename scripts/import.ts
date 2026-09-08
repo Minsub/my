@@ -35,7 +35,10 @@ export function parseAirtable(raw: unknown, kind: "wines" | "glasses") {
   return records.map((r) => {
     if (seen.has(r.id)) throw Error("Duplicate source record ID");
     seen.add(r.id);
-    const f = (name: string) => r.fields[name] ?? r.fields[mapping[name]];
+    const f = (name: string) =>
+      r.fields[name] ??
+      r.fields[mapping[name]] ??
+      r.fields[name.replaceAll(" ", "")];
     const str = (name: string) =>
       f(name) == null
         ? ""
@@ -73,6 +76,12 @@ export function parseAirtable(raw: unknown, kind: "wines" | "glasses") {
       region: str("지역"),
       grapes: str("품종"),
       vintage,
+      reference_price:
+        f("구매가") == null
+          ? null
+          : z.number().int().min(0).max(99999999).parse(f("구매가")),
+      reference_purchased_on:
+        f("구매일") == null ? null : z.iso.date().parse(f("구매일")),
       quantity: z
         .number()
         .int()
@@ -87,6 +96,17 @@ export function parseAirtable(raw: unknown, kind: "wines" | "glasses") {
           : null,
     };
   });
+}
+export function hasImportedTasting(record: {
+  note: string;
+  score: number | null;
+  repurchase: boolean | null;
+}) {
+  // An unchecked default alone does not establish that a tasting took place.
+  // Its original value remains available in import_records.raw.
+  return (
+    Boolean(record.note) || record.score !== null || record.repurchase === true
+  );
 }
 async function main() {
   const path = process.argv[2];
@@ -134,7 +154,7 @@ async function main() {
         target = row.id;
       } else {
         const [row] = await query(
-          "INSERT INTO wines(household_id,name,english_name,type,country,region,grapes,vintage_kind,vintage,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id",
+          "INSERT INTO wines(household_id,name,english_name,type,country,region,grapes,vintage_kind,vintage,created_by,reference_price,reference_purchased_on) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id",
           [
             owner.household_id,
             r.name,
@@ -146,6 +166,8 @@ async function main() {
             r.vintage ? "year" : "unknown",
             r.vintage,
             owner.user_id,
+            r.reference_price,
+            r.reference_purchased_on,
           ],
           c,
         );
@@ -162,7 +184,7 @@ async function main() {
             ],
             c,
           );
-        if (r.note || r.score !== null || r.repurchase !== null)
+        if (hasImportedTasting(r))
           await query(
             "INSERT INTO wine_tastings(household_id,wine_id,user_id,tasted_on,score,note,repurchase) VALUES($1,$2,$3,$4,$5,$6,$7)",
             [

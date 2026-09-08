@@ -2924,3 +2924,351 @@ input[type="checkbox"] {
 .mobile-nav a.active {
   color: var(--green);
 }
+
+/* Wine cellar: compact desktop rows and touch-friendly mobile cards. */
+.cellar-dashboard {
+  background: #fffdf9;
+  border: 1px solid var(--border, #e8e1d8);
+  border-radius: 18px;
+  margin: 24px 0;
+  overflow: hidden;
+}
+.cellar-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr 1fr;
+  background: #f5f0e9;
+  gap: 1px;
+}
+.cellar-metrics > div {
+  padding: 24px;
+}
+.cellar-metrics span,
+.cellar-metrics p {
+  font-size: 12px;
+  color: #716b64;
+}
+.cellar-metrics strong {
+  display: block;
+  font-size: 28px;
+  margin: 10px 0;
+}
+.cellar-metrics small {
+  font-size: 14px;
+  font-weight: 400;
+}
+.cellar-breakdown {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 28px;
+  padding: 24px;
+}
+.cellar-breakdown h2 {
+  font-size: 15px;
+  margin: 0 0 16px;
+}
+.cellar-types {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.cellar-types button {
+  background: #f6f2ec;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 12px 6px;
+  color: inherit;
+  cursor: pointer;
+}
+.cellar-types button[aria-pressed="true"] {
+  border-color: #8c4557;
+  background: #f7e8ed;
+}
+.cellar-types span {
+  display: block;
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+.cellar-types strong {
+  font-size: 22px;
+}
+.cellar-types small {
+  font-size: 11px;
+  font-weight: 400;
+  margin-left: 4px;
+}
+.cellar-countries {
+  max-height: 190px;
+  overflow: auto;
+}
+.cellar-countries button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: none;
+  border: 0;
+  padding: 7px 0;
+  font-size: 12px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cellar-countries span {
+  min-width: 65px;
+}
+.cellar-countries i {
+  height: 7px;
+  background: #ad6c7c;
+  border-radius: 4px;
+  max-width: 55%;
+}
+.cellar-countries strong {
+  white-space: nowrap;
+  margin-left: auto;
+}
+.cellar-controls {
+  margin: 24px 0;
+}
+.cellar-search {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.cellar-search > input {
+  flex: 1;
+  min-width: 0;
+}
+.cellar-controls input:not([type="checkbox"]),
+.cellar-controls select {
+  border: 1px solid #dfd9d1;
+  border-radius: 8px;
+  background: #fffdf9;
+  color: inherit;
+  padding: 11px;
+  min-height: 44px;
+  width: 100%;
+  font: inherit;
+  font-size: 13px;
+}
+.cellar-search label {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.cellar-filters {
+  margin-top: 16px;
+  border: 1px solid #e4ded6;
+  border-radius: 12px;
+  padding: 16px;
+}
+.cellar-filters summary {
+  font-size: 13px;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+.cellar-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+}
+.cellar-filter-grid label {
+  font-size: 11px;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.cellar-results {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 18px 0;
+  font-size: 12px;
+}
+.cellar-results strong {
+  margin-right: auto;
+}
+.cellar-list {
+  display: grid;
+  gap: 12px;
+}
+.cellar-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 155px 130px;
+  align-items: center;
+  gap: 24px;
+  padding: 20px;
+  background: #fffdf9;
+  border: 1px solid #e6dfd6;
+  border-radius: 14px;
+}
+.cellar-product {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-width: 0;
+}
+.cellar-product .product-art {
+  width: 88px;
+  height: 135px;
+  flex-shrink: 0;
+}
+.cellar-product h3 {
+  font-size: 16px;
+  line-height: 1.5;
+  margin: 6px 0;
+}
+.cellar-product p {
+  font-size: 12px;
+  color: #777067;
+  margin: 4px 0;
+}
+.cellar-product span,
+.cellar-product small {
+  font-size: 11px;
+  color: #8b7b72;
+}
+.cellar-product > div:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cellar-price {
+  display: grid;
+  gap: 6px;
+}
+.cellar-price strong {
+  font-size: 18px;
+  color: #7f3a50;
+}
+.cellar-price small,
+.cellar-price span {
+  font-size: 11px;
+  color: #80756d;
+}
+.cellar-stock > strong {
+  display: block;
+  font-size: 21px;
+  margin-bottom: 12px;
+}
+.cellar-stock small {
+  font-size: 12px;
+  font-weight: 400;
+}
+.cellar-stock > div {
+  display: flex;
+  gap: 6px;
+}
+.wine-photo-upload {
+  margin: 20px 0;
+  padding: 20px;
+}
+.wine-photo-upload h2 {
+  font-size: 16px;
+}
+.wine-photo-upload p {
+  font-size: 12px;
+  line-height: 1.8;
+}
+.wine-photo-upload input {
+  max-width: 220px;
+  margin-left: 12px;
+  font-size: 12px;
+}
+.product-art img {
+  object-fit: contain;
+}
+.wine-photo-upload a {
+  text-decoration: underline;
+}
+@media (max-width: 760px) {
+  .cellar-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+  .cellar-metrics > div {
+    padding: 16px;
+  }
+  .cellar-metrics > div:nth-child(2) {
+    grid-column: 1/-1;
+    grid-row: 2;
+  }
+  .cellar-metrics strong {
+    font-size: 25px;
+  }
+  .cellar-breakdown {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 18px;
+  }
+  .cellar-types {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .cellar-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .cellar-search {
+    flex-wrap: wrap;
+  }
+  .cellar-search > input {
+    flex-basis: 100%;
+  }
+  .cellar-search label {
+    margin-left: auto;
+  }
+  .cellar-row {
+    grid-template-columns: 1fr 1fr;
+    padding: 16px;
+    gap: 16px;
+  }
+  .cellar-product {
+    grid-column: 1/-1;
+    gap: 16px;
+  }
+  .cellar-product .product-art {
+    width: 76px;
+    height: 125px;
+  }
+  .cellar-product h3 {
+    font-size: 15px;
+  }
+  .cellar-price {
+    padding-left: 92px;
+    grid-column: 1;
+    min-width: 0;
+    padding-left: 0;
+  }
+  .cellar-stock {
+    text-align: right;
+  }
+  .cellar-stock > div {
+    justify-content: flex-end;
+  }
+  .cellar-results {
+    gap: 14px;
+  }
+  .cellar-results > strong {
+    flex-basis: 100%;
+  }
+  .wine-photo-upload input {
+    display: block;
+    margin: 8px 0 0;
+    max-width: 100%;
+  }
+}
+.cellar-active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.cellar-active-filters button {
+  border: 1px solid #e8d1d7;
+  color: #7f3a50;
+  background: #fcf0f3;
+  border-radius: 20px;
+  padding: 8px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}

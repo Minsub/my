@@ -6,6 +6,8 @@ export default defineConfig([
   ...ts,
   globalIgnores([
     ".next/**",
+    ".vercel/**",
+    "backups/**",
     ".next-e2e/**",
     "node_modules/**",
     "playwright-report/**",

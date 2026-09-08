@@ -607,7 +607,7 @@ export async function snapshot(actor: Actor): Promise<Snapshot> {
         : [],
       wines: wine
         ? await query(
-            "SELECT w.*,w.display_id::int,COALESCE(s.stock,0)::int AS stock FROM wines w LEFT JOIN (SELECT wine_id,sum(delta) stock FROM wine_stock_events WHERE household_id=$1 GROUP BY wine_id) s ON s.wine_id=w.id WHERE w.household_id=$1 ORDER BY w.display_id DESC",
+            "SELECT w.*,EXISTS(SELECT 1 FROM wine_photos ph WHERE ph.wine_id=w.id) AS has_photo,w.display_id::int,COALESCE(s.stock,0)::int AS stock FROM wines w LEFT JOIN (SELECT wine_id,sum(delta) stock FROM wine_stock_events WHERE household_id=$1 GROUP BY wine_id) s ON s.wine_id=w.id WHERE w.household_id=$1 ORDER BY w.display_id DESC",
             [actor.householdId],
             client,
           )

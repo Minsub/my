@@ -14,7 +14,7 @@ export function ProductArt({
   kind?: "coffee" | "wine";
   large?: boolean;
 }) {
-  const [failed, setFailed] = useState(false);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const palette = ["#6d795c", "#b27d64", "#6e8585", "#c0a667", "#927983"];
   const color =
     palette[
@@ -26,11 +26,11 @@ export function ProductArt({
       className={`product-art ${large ? "art-large" : ""}`}
       style={{ "--art-color": color } as React.CSSProperties}
     >
-      {imageUrl && !failed ? (
+      {imageUrl && failedUrl !== imageUrl ? (
         <img
           src={imageUrl}
           alt={`${name} 상품 이미지`}
-          onError={() => setFailed(true)}
+          onError={() => setFailedUrl(imageUrl)}
           referrerPolicy="no-referrer"
         />
       ) : kind === "coffee" ? (

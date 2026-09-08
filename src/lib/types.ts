@@ -51,6 +51,9 @@ export type Brew = {
   created_at: string;
 };
 export type Wine = {
+  reference_price?: number | null;
+  reference_purchased_on?: string | null;
+  has_photo?: boolean;
   id: string;
   display_id: number;
   name: string;
@@ -69,6 +72,7 @@ export type Wine = {
   created_by: string | null;
 };
 export type StockEvent = {
+  purchase_id?: string | null;
   id: string;
   wine_id: string;
   kind: string;

@@ -1,3 +1,6 @@
+import sharp from "sharp";
+import { uploadWinePhoto, normalizePhoto } from "../../src/server/wine-photos";
+import { GET as getPhoto } from "../../src/app/api/wine/[id]/photo/route";
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import { randomUUID, createHash, randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -487,5 +490,72 @@ describe("family and domain integrity", () => {
       user_id: member.userId,
     });
     await expect(snapshot(member)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+});
+
+describe("private wine photos", () => {
+  it("normalizes images and protects writes with ownership, scopes, versions and idempotency", async () => {
+    const w = await wine();
+    const bytes = await sharp({
+      create: { width: 32, height: 48, channels: 3, background: "#993344" },
+    })
+      .jpeg()
+      .toBuffer();
+    const input = {
+      wine_id: w.id,
+      expected_version: w.version,
+      idempotency_key: key(),
+      image_base64: bytes.toString("base64"),
+    };
+    await expect(
+      uploadWinePhoto({ ...owner, scopes: ["wine:read"] }, input),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(uploadWinePhoto(outsider, input)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    await expect(uploadWinePhoto(member, input)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    const result = await uploadWinePhoto(owner, input);
+    expect(await uploadWinePhoto(owner, input)).toEqual(result);
+    await expect(
+      uploadWinePhoto(owner, { ...input, expected_version: 99 }),
+    ).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+    await expect(
+      uploadWinePhoto(owner, { ...input, idempotency_key: key() }),
+    ).rejects.toMatchObject({ code: "VERSION_CONFLICT" });
+    expect(
+      (await snapshot(owner)).wines.find((x) => x.id === w.id)?.has_photo,
+    ).toBe(true);
+    const ctx = { params: Promise.resolve({ id: String(w.id) }) };
+    expect(
+      (
+        await getPhoto(
+          new Request("http://localhost:3000/api/wine/" + w.id + "/photo"),
+          ctx,
+        )
+      ).status,
+    ).toBe(401);
+    const response = await getPhoto(
+      new Request("http://localhost:3000/api/wine/" + w.id + "/photo", {
+        headers: { cookie },
+      }),
+      ctx,
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    const metadata = await sharp(
+      Buffer.from(await response.arrayBuffer()),
+    ).metadata();
+    expect(metadata.format).toBe("webp");
+    expect(metadata.exif).toBeUndefined();
+  });
+  it("rejects oversized data and non-photo payloads", async () => {
+    await expect(normalizePhoto(Buffer.alloc(2100001))).rejects.toMatchObject({
+      code: "TOO_LARGE",
+    });
+    await expect(
+      normalizePhoto(Buffer.from('<svg onload="alert(1)"></svg>')),
+    ).rejects.toMatchObject({ code: "INVALID_PHOTO" });
   });
 });

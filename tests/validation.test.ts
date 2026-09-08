@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { commandSchemas } from "../src/lib/contracts";
 import { kgPrice, dateLabel } from "../src/lib/format";
-import { parseAirtable } from "../scripts/import";
+import { hasImportedTasting, parseAirtable } from "../scripts/import";
 import { seedBrands, seedBeans } from "../src/lib/seed-data";
 describe("input and migration semantics", () => {
   it("preserves calendar dates and displays timestamps in Korea time", () => {
@@ -81,5 +81,50 @@ describe("input and migration semantics", () => {
       score: 0,
       vintage: null,
     });
+  });
+  it("preserves Airtable field names without spaces and unchecked repurchase", () => {
+    const [record] = parseAirtable(
+      {
+        records: [
+          {
+            id: "source-1",
+            fields: {
+              "한글 이름": "이관 와인",
+              종류: "레드",
+              수량: 0,
+              시음노트: "(2026-05-21) 첫 기록\n두 번째 줄",
+              재구매의사: false,
+              구매가: 45000,
+              구매일: "2026-04-01",
+            },
+          },
+        ],
+      },
+      "wines",
+    );
+    expect(record).toMatchObject({
+      quantity: 0,
+      note: "(2026-05-21) 첫 기록\n두 번째 줄",
+      repurchase: false,
+      raw: { 구매가: 45000, 구매일: "2026-04-01" },
+    });
+  });
+  it("does not invent tasting history from a default unchecked field", () => {
+    expect(
+      hasImportedTasting({ note: "", score: null, repurchase: false }),
+    ).toBe(false);
+    expect(
+      hasImportedTasting({ note: "", score: null, repurchase: true }),
+    ).toBe(true);
+    expect(hasImportedTasting({ note: "", score: 0, repurchase: false })).toBe(
+      true,
+    );
+    expect(
+      hasImportedTasting({
+        note: "재구매 안 함",
+        score: null,
+        repurchase: false,
+      }),
+    ).toBe(true);
   });
 });

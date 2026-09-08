@@ -247,3 +247,54 @@ test("AI connection keeps OAuth context through login, consent and disconnect", 
     (await request.post("/api/mcp", { headers, data: rpc })).status(),
   ).toBe(401);
 });
+
+test("wine photo upload and expanded filters work on both platforms", async ({
+  page,
+}, info) => {
+  await login(page);
+  await page.goto("/wine?stock=all");
+  await expect(page.getByLabel("셀러 대시보드")).toBeVisible();
+  await page.getByLabel("와인 정렬").selectOption("price_desc");
+  await page.getByText("상세 필터", { exact: true }).click();
+  await page.getByLabel("최소 구입가", { exact: true }).fill("30000");
+  await expect(page.locator(".cellar-row").first()).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("최소 구입가", { exact: true })).toHaveValue(
+    "30000",
+  );
+  await expect(page.getByLabel("와인 정렬")).toHaveValue("price_desc");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await expect(
+    page.getByRole("heading", { name: /우리 집 와인 셀러/ }),
+  ).toBeVisible();
+  await expect(page.locator(".cellar-row").first()).toBeVisible();
+  await page.screenshot({
+    path: `test-results/visual/${info.project.name}-cellar.png`,
+    fullPage: true,
+  });
+  await page.locator(".cellar-product").first().click();
+  const sharp = (await import("sharp")).default;
+  const buffer = await sharp({
+    create: { width: 240, height: 360, channels: 3, background: "#a34e67" },
+  })
+    .png()
+    .toBuffer();
+  await page
+    .getByLabel("와인 사진 업로드")
+    .setInputFiles({ name: "bottle.png", mimeType: "image/png", buffer });
+  await expect(
+    page.getByText("사진을 저장했습니다.", { exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  const img = page.locator(".wine-detail .product-art img");
+  await expect(img).toBeVisible();
+  expect(
+    await img.evaluate(
+      (el: HTMLImageElement) => el.complete && el.naturalWidth > 0,
+    ),
+  ).toBe(true);
+});
