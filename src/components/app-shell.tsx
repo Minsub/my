@@ -1122,7 +1122,7 @@ export function AppShell({
         )}
         {tabs("wine")}
         <WineCellar
-          key={String(stockOnly)}
+          key={`${stockOnly}:${data.wines.length}`}
           data={data}
           initialQuery={{ ...initialQuery, stock: stockOnly ? "" : "all" }}
           href={href}
