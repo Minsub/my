@@ -114,3 +114,6 @@ Airtable 이관은 JSON만 지원하고 `--apply` 없이 사전 검증합니다.
 운영 비밀 값은 Git에서 제외된 `.env.vercel.local`과 Vercel Production에 저장합니다. Next.js가 자동으로 불러오는 파일명이 아니므로 로컬 실행이 운영 DB로 바뀌지 않습니다. 운영 마이그레이션·초기 데이터 명령은 이 파일을 명시적으로 읽은 환경에서 실행해야 합니다. 비밀 값을 소스 코드나 공개 문서에 복사하지 않습니다.
 
 Google OAuth 콜백은 운영 `/api/auth/callback/google`과 `http://localhost:3000/api/auth/callback/google`을 허용합니다. 관리자 첫 Google 로그인 및 운영 원두 11개 초기 등록을 완료했습니다. 와인 셀러는 실제 이관 데이터가 없어 비어 있습니다.
+
+
+Google OAuth는 **Production**으로 전환했습니다. Google Cloud에 가족을 테스트 사용자로 따로 등록할 필요 없이 앱의 가족 초대로 접근을 제어합니다. 개인정보 안내는 `/privacy`에 공개됩니다. 로컬 development의 서명 secret은 운영과 분리했으며, DB 브랜치를 운영에서 다시 복제할 때는 인증 데이터와 secret의 호환성을 함께 점검합니다.
