@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Copy, Check, Sparkles, Unplug, ArrowUpRight } from "lucide-react";
+import { McpGuide } from "./mcp-guide";
 import { authClient } from "@/lib/auth-client";
 const subscribe = () => () => {};
 const getConnectionUrl = () => `${window.location.origin}/api/mcp`;
@@ -118,6 +119,7 @@ export function ConnectionSettings({ demo = false }: { demo?: boolean }) {
       ) : (
         <p className="muted small">아직 연결한 AI가 없습니다.</p>
       )}
+      <McpGuide />
       {error && (
         <p className="error-box" role="alert">
           {error}
