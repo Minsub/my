@@ -110,3 +110,50 @@ describe("cashbook parsing and analysis", () => {
     ]);
   });
 });
+
+describe("cash flow views", () => {
+  it("keeps partial-year calendar averages, refunds, zero categories and child shares aligned", async () => {
+    const { cashView } = await import("../src/lib/cash-analysis");
+    const rows = parseCashWorkbook(cashWorkbook(22000), "a.xlsx").rows;
+    const all = [
+      ...rows,
+      { ...rows[1], id: "prior", date: "2025-12-12", amount: 12000 },
+    ];
+    const data = aggregateCash(
+      all,
+      [],
+      { ...filter, from: "2025-12" },
+      "month",
+    );
+    const year = cashView(data, "year", "2026");
+    expect(year.periods).toEqual(["2025", "2026"]);
+    expect(year.source.map((r) => r.months)).toEqual([1, 3]);
+    expect(year.expense.find((r) => r.name === "식비")?.values).toEqual([
+      12000, 20000,
+    ]);
+    const monthly = cashView(data, "month", "2026");
+    expect(monthly.periods).toEqual(["2026-01", "2026-02", "2026-03"]);
+    const food = monthly.expense.find((r) => r.name === "식비")!;
+    expect(food.children[0].values).toEqual([20000, 0, 0]);
+    expect(food.amount / monthly.source.length).toBeCloseTo(6666.6667);
+    expect(monthly.expense.find((r) => r.name === "기타")?.values).toEqual([
+      0, 0, 0,
+    ]);
+  });
+  it("summarizes every matching transaction for a chart before pagination", async () => {
+    const { cashTimeline } = await import("../src/lib/cash-analysis");
+    const rows = filteredCash(
+      parseCashWorkbook(cashWorkbook(), "a.xlsx").rows,
+      filter,
+    );
+    const timeline = cashTimeline(rows);
+    expect(timeline).toEqual([
+      { period: "2026-01", income: 100000, expense: 10000 },
+      { period: "2026-03", income: 0, expense: 9000 },
+    ]);
+    expect(cashTimeline(rows.filter((r) => r.category === "식비"))).toEqual([
+      { period: "2026-01-12", income: 0, expense: 12000 },
+      { period: "2026-01-13", income: 0, expense: -2000 },
+    ]);
+  });
+});

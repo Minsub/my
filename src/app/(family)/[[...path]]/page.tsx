@@ -24,6 +24,7 @@ export default async function Page({
       "/wine/glasses",
       "/settings",
       "/cash",
+      "/cash/old",
     ].includes(path) &&
     !/^\/(coffee\/beans|wine)\/[0-9a-f-]{36}$/.test(path)
   )

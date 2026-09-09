@@ -1,5 +1,7 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
+import { CashPlot } from "./cash-chart";
+import { cashTimeline } from "@/lib/cash-analysis";
 import { Download, X } from "lucide-react";
 import {
   cashMoney,
@@ -93,6 +95,7 @@ export function CashTransactions({ rows }: { rows: CashRow[] }) {
 }
 
 type Result = {
+  timeline: ReturnType<typeof cashTimeline>;
   rows: CashRow[];
   count: number;
   income: number;
@@ -108,6 +111,7 @@ export function CashDetail({
   onClose: () => void;
   demo?: { rows: CashRow[]; filter: CashFilter };
 }) {
+  const [showChart, setShowChart] = useState(false);
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState("date-desc");
   const [retry, setRetry] = useState(0);
@@ -156,6 +160,7 @@ export function CashDetail({
           body = {
             rows: rows.slice((page - 1) * 50, page * 50),
             count: rows.length,
+            timeline: cashTimeline(rows),
             income: rows
               .filter((r) => r.type === "수입")
               .reduce((n, r) => n + r.amount, 0),
@@ -195,6 +200,13 @@ export function CashDetail({
         현재 분석 조건에 해당하는 거래입니다. 닫으면 보던 위치로 돌아갑니다.
       </p>
       <div className="cash-transaction-toolbar">
+        <button
+          className="cash-action"
+          aria-pressed={showChart}
+          onClick={() => setShowChart(!showChart)}
+        >
+          {showChart ? "그래프 숨기기" : "그래프 보기"}
+        </button>
         <select
           aria-label="상세 거래 정렬"
           value={sort}
@@ -237,6 +249,24 @@ export function CashDetail({
             {data.count.toLocaleString()}건 · 수입 {cashMoney(data.income)} ·
             지출 {cashMoney(data.expense)}
           </p>
+          {showChart && data.timeline && (
+            <CashPlot
+              periods={data.timeline.map((p) => p.period)}
+              kind="bar"
+              series={[
+                {
+                  name: "수입",
+                  color: "#059669",
+                  values: data.timeline.map((p) => p.income),
+                },
+                {
+                  name: "지출",
+                  color: "#ef5261",
+                  values: data.timeline.map((p) => p.expense),
+                },
+              ]}
+            />
+          )}
           <CashTransactions rows={data.rows} />
           {!data.rows.length && (
             <p className="cash-empty">조건에 맞는 거래가 없습니다.</p>

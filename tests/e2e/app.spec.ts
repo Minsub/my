@@ -1,4 +1,4 @@
-import { cashWorkbook } from "../cash-fixture";
+import { cashWorkbook, cashHistoryWorkbook } from "../cash-fixture";
 import { randomUUID } from "node:crypto";
 import { test, expect } from "@playwright/test";
 import { today, dateLabel } from "../../src/lib/format";
@@ -429,104 +429,123 @@ test("cash workbook upload, replacement, drilldown and platform layout", async (
   ).toHaveCount(1);
   const nav = page.getByRole("navigation", { name: "가계부 메뉴" });
   await nav.getByRole("button", { name: "요약", exact: true }).click();
+  await page.locator(".cash-filter-panel > summary").click();
   await page
     .getByLabel("가계부 자료")
     .selectOption(filename.replace(".xlsx", ""));
+  await page.getByLabel("종료 월").fill("2026-03");
   await page.getByLabel("시작 월").fill("2026-01");
   await expect(page.locator(".cash-refreshing")).toHaveCount(0);
-  await expect(page.locator(".cash-kpis")).toContainText("2.9만원");
+  await expect(page.locator(".cash-year-table")).toContainText("29,000원");
+  await expect(page.locator(".cash-kpis")).toHaveCount(0);
+  await expect(page.getByText("결제수단별 지출")).toHaveCount(0);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+  await page.getByLabel("시작 월").fill("2025-01");
+  await expect(page.locator(".cash-year-table tbody tr")).toHaveCount(2);
+  await page.locator(".cash-filter-panel > summary").click();
   await page.screenshot({
     path: `test-results/visual/${info.project.name}-cash-summary.png`,
     fullPage: true,
   });
-  await page.getByLabel("시작 월").fill("2025-01");
-  await expect(page.locator(".cash-year-table tbody tr")).toHaveCount(2);
-  await expect(page.locator(".cash-year-table tbody tr").first()).toContainText(
-    "2025",
-  );
-  await expect(page.locator(".cash-year-table tbody tr").last()).toContainText(
-    "3개월",
-  );
+  await page.locator(".cash-filter-panel > summary").click();
   await page.getByLabel("시작 월").fill("2026-01");
   await expect(page.locator(".cash-year-table tbody tr")).toHaveCount(1);
+  await page.locator(".cash-filter-panel > summary").click();
   const summaryUrl = page.url();
-  const yearTable = page.getByRole("table", {
-    name: "연도별 수입·지출 비교 (원)",
-  });
-  await expect(yearTable).toBeVisible();
-  const yearExpense = yearTable.getByRole("button", {
-    name: "29,000원",
+  const average = page.getByRole("button", {
+    name: "2026년 항목별 월 평균 지출",
     exact: true,
   });
-  await yearExpense.scrollIntoViewIfNeeded();
+  await average.scrollIntoViewIfNeeded();
   const summaryScroll = await page.evaluate(() => window.scrollY);
-  await yearExpense.click();
-  await expect(page.getByRole("dialog")).toBeVisible();
+  await average.click();
+  const averageDialog = page.getByRole("dialog", {
+    name: "2026년 항목별 월 평균 지출",
+    exact: true,
+  });
+  await expect(averageDialog).toBeVisible();
+  const foodAverage = averageDialog
+    .locator(".cash-breakdown-group")
+    .filter({ hasText: "식비" });
+  await expect(foodAverage).toContainText("6,667원");
+  await expect(foodAverage).toContainText("69.0%");
+  await foodAverage.getByRole("button", { name: "식비", exact: true }).click();
+  await expect(foodAverage.locator(".cash-breakdown-child")).toContainText(
+    "식사",
+  );
+  await page.screenshot({
+    path: `test-results/visual/${info.project.name}-cash-average.png`,
+    animations: "disabled",
+  });
+  await foodAverage
+    .locator(".cash-breakdown-child")
+    .getByRole("button")
+    .click();
   await expect(
-    page.getByRole("dialog").locator(".cash-result-count"),
-  ).toContainText("29,000원");
-  expect(page.url()).toBe(summaryUrl);
-  await page.getByRole("button", { name: "거래 내역 닫기" }).click();
+    page.getByRole("dialog", { name: "식비 · 식사 · 지출 · 거래 내역" }),
+  ).toBeVisible();
+  await expect(page.locator(".cash-result-count")).toContainText("20,000원");
+  await page.keyboard.press("Escape");
+  await expect(averageDialog).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(yearExpense).toBeFocused();
+  await expect(average).toBeFocused();
+  expect(page.url()).toBe(summaryUrl);
   expect(await page.evaluate(() => window.scrollY)).toBe(summaryScroll);
   await nav.getByRole("button", { name: "분류 분석" }).click();
   await expect(page.locator(".cash-refreshing")).toHaveCount(0);
-  if (info.project.name === "mobile")
-    await page
-      .locator(".cash-category-item")
-      .filter({ hasText: "식비" })
-      .getByRole("button", { name: "추이 보기" })
-      .click();
-  else
-    await page.getByRole("button", { name: "식비 추이", exact: true }).click();
-  await expect(page.getByRole("dialog")).toBeVisible();
+  await page
+    .getByRole("button", { name: "식비 추이", exact: true })
+    .filter({ visible: true })
+    .click();
+  const trendDialog = page.getByRole("dialog");
+  await trendDialog.getByRole("button", { name: "비중", exact: true }).click();
+  await expect(trendDialog.locator(".cash-share")).toContainText(["69.0%"]);
+  await expect(
+    trendDialog.getByRole("img", { name: "식비 비중 추이" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page
+    .getByRole("button", { name: "전체 항목 비교", exact: true })
+    .first()
+    .click();
+  await expect(page.getByRole("dialog").getByRole("img")).toHaveAccessibleName(
+    /식비.*여행.*추이/,
+  );
   await page
     .getByRole("dialog")
-    .getByRole("button", { name: "비중", exact: true })
+    .getByRole("button", { name: "식비", exact: true })
     .click();
-  await expect(page.getByRole("dialog").locator(".cash-share")).toContainText([
-    "69.0%",
-  ]);
-  await expect(page.getByRole("dialog").getByRole("img")).toContainText(
-    "비중 (%)",
-  );
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: "식비", exact: true }),
+  ).toHaveAttribute("aria-pressed", "false");
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("button", { name: "월별", exact: true }).click();
+  await expect(page.getByLabel("분석 연도")).toHaveValue("2026");
   await page.screenshot({
     path: `test-results/visual/${info.project.name}-cash-categories.png`,
     fullPage: true,
   });
   const analysisUrl = page.url();
-  if (info.project.name === "mobile")
-    await page
-      .locator(".cash-category-item")
-      .filter({ hasText: "식비" })
-      .getByRole("button", { name: "거래 2건" })
-      .click();
-  else
-    await page
-      .locator(".cash-pivot tbody tr")
-      .filter({ has: page.getByRole("button", { name: "식비", exact: true }) })
-      .getByRole("button", { name: "2만원", exact: true })
-      .first()
-      .click();
+  // Period composition opens matching transactions while leaving all analysis controls intact.
+  await page.getByLabel("비교 기간", { exact: true }).selectOption("2026-01");
+  await page
+    .locator(".cash-composition-list")
+    .getByRole("button")
+    .filter({ hasText: "식비" })
+    .click();
   await expect(page.locator(".cash-result-count")).toContainText("2건");
   await expect(page.locator(".cash-result-count")).toContainText("20,000원");
-  await expect(page.locator(".cash-transaction")).toHaveCount(2);
   const detailDialog = page.getByRole("dialog", {
     name: "식비 · 지출 · 거래 내역",
   });
   await expect(detailDialog).toBeVisible();
-  expect(page.url()).toBe(analysisUrl);
-  await expect
-    .poll(async () => Math.round((await detailDialog.boundingBox())!.x))
-    .toBe(info.project.name === "mobile" ? 0 : 720);
+  await page.getByRole("button", { name: "그래프 보기", exact: true }).click();
+  await expect(detailDialog.getByRole("img")).toBeVisible();
   await page.getByLabel("상세 거래 정렬").selectOption("amount-asc");
   await expect(page.locator(".cash-transaction").first()).toContainText(
     "-2,000원",
@@ -537,22 +556,18 @@ test("cash workbook upload, replacement, drilldown and platform layout", async (
     animations: "disabled",
   });
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByLabel("비교 기간", { exact: true })).toHaveValue(
+    "2026-01",
+  );
+  await expect(page.getByLabel("분석 연도")).toHaveValue("2026");
   expect(page.url()).toBe(analysisUrl);
-  await page.reload();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
   await nav.getByRole("button", { name: "거래 내역", exact: true }).click();
   await expect(page.locator(".cash-result-count")).toContainText("5건");
-  await expect(page.locator(".cash-result-count")).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await page.screenshot({
-    path: `test-results/visual/${info.project.name}-cash-transactions.png`,
-    fullPage: true,
-  });
   await nav.getByRole("button", { name: "파일 관리" }).click();
   await input.setInputFiles({
     name: filename,
@@ -567,4 +582,150 @@ test("cash workbook upload, replacement, drilldown and platform layout", async (
   await expect(
     page.locator(".cash-file-card").filter({ hasText: filename }),
   ).toHaveCount(1);
+});
+
+test("single HTML cash page loads private originals once and keeps original analysis", async ({
+  page,
+}, info) => {
+  const unauth = await page.request.get("/api/html-pages/cash-old");
+  expect(unauth.status()).toBe(401);
+  await login(page);
+  const upload = await page.request.post(
+    `/api/cash/files?filename=${encodeURIComponent(`원본 연결 ${info.project.name}.xlsx`)}&version=0`,
+    {
+      headers: {
+        Origin: "http://localhost:3100",
+        "Content-Type": "application/octet-stream",
+      },
+      data: cashWorkbook(),
+    },
+  );
+  expect(upload.ok()).toBe(true);
+  expect((await page.request.get("/api/html-pages/__proto__")).status()).toBe(
+    404,
+  );
+  const requests: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().includes("/api/cash/files?id=")) requests.push(r.url());
+  });
+  await page.goto("/cash/old");
+  const frame = page.frameLocator('iframe[title="가계부 원본 HTML"]');
+  await expect(frame.locator("#year-summary-table table")).toBeVisible();
+  await expect(page.getByRole("status")).toHaveCount(0);
+  expect(requests.length).toBeGreaterThan(0);
+  expect(new Set(requests).size).toBe(requests.length);
+  const fileCount = requests.length;
+  await frame.locator('[data-avg-year="2026"]').click();
+  await expect(frame.locator("#detail-title")).toHaveText(
+    "2026년 항목별 월 평균 지출",
+  );
+  await frame.locator("#detail-chart-toggle").click();
+  await expect(frame.locator("#detailChart")).toBeVisible();
+  expect(requests).toHaveLength(fileCount);
+  const iframe = page.locator("iframe");
+  await expect(iframe).toHaveAttribute(
+    "sandbox",
+    "allow-scripts allow-downloads",
+  );
+  expect(
+    await iframe.evaluate(
+      (el: HTMLIFrameElement) => el.contentDocument === null,
+    ),
+  ).toBe(true);
+  await expect(frame.locator("#btn-folder")).toBeHidden();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: `test-results/visual/${info.project.name}-cash-old.png`,
+    animations: "disabled",
+  });
+});
+
+test("cash dense history keeps mobile comparisons readable and all detail pages scoped", async ({
+  page,
+}, info) => {
+  await login(page);
+  const filename = `흐름 검증 ${info.project.name}.xlsx`;
+  const upload = await page.request.post(
+    `/api/cash/files?filename=${encodeURIComponent(filename)}&version=0`,
+    {
+      headers: {
+        Origin: "http://localhost:3100",
+        "Content-Type": "application/octet-stream",
+      },
+      data: cashHistoryWorkbook(),
+    },
+  );
+  expect(upload.ok()).toBe(true);
+  if (info.project.name === "mobile")
+    await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto(
+    `/cash?member=${encodeURIComponent(filename.replace(".xlsx", ""))}`,
+  );
+  await expect(page.locator(".cash-year-table tbody tr")).toHaveCount(6);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: `test-results/visual/${info.project.name}-cash-history.png`,
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "2025년 지출 내역" }).click();
+  await expect(
+    page.getByRole("dialog").locator(".cash-result-count"),
+  ).toContainText("84건");
+  await expect(
+    page.getByRole("dialog").locator(".cash-transaction"),
+  ).toHaveCount(50);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "다음", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog").locator(".cash-transaction"),
+  ).toHaveCount(34);
+  await page.getByLabel("상세 거래 정렬").selectOption("amount-desc");
+  await expect(
+    page.getByRole("dialog").locator(".cash-pagination"),
+  ).toContainText("1 / 2");
+  await page.keyboard.press("Escape");
+  await page
+    .getByRole("navigation", { name: "가계부 메뉴" })
+    .getByRole("button", { name: "분류 분석" })
+    .click();
+  await page.getByRole("button", { name: "월별", exact: true }).click();
+  await page.getByLabel("분석 연도").selectOption("2025");
+  const categoryButton = page
+    .getByRole("button", {
+      name: "생활용품과 정기 구독 서비스 추이",
+      exact: true,
+    })
+    .filter({ visible: true });
+  await categoryButton.click();
+  await expect(
+    page.getByRole("dialog").locator(".cash-insight-values details"),
+  ).toHaveCount(12);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "비중", exact: true })
+    .click();
+  await page.screenshot({
+    path: `test-results/visual/${info.project.name}-cash-history-trend.png`,
+    animations: "disabled",
+  });
+  await page.keyboard.press("Escape");
+  await page.locator(".cash-category-panel").scrollIntoViewIfNeeded();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: `test-results/visual/${info.project.name}-cash-history-comparison.png`,
+  });
 });

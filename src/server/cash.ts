@@ -1,3 +1,4 @@
+import { cashTimeline } from "@/lib/cash-analysis";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import type { Actor } from "@/lib/types";
@@ -230,6 +231,7 @@ export async function readCash(actor: Actor, params: URLSearchParams) {
     }
     return {
       rows: rows.slice((page - 1) * 50, page * 50),
+      timeline: cashTimeline(rows),
       count: rows.length,
       income: rows
         .filter((r) => r.type === "수입")

@@ -82,3 +82,7 @@ UI 숨김은 보안 검사가 아니다. 쿠키 기반 변경은 sameOrigin, 모
 ## 가계부 원본 파일
 
 `/cash`는 전용 `/api/cash` 및 `/api/cash/files`를 사용한다. cash_files의 공간·정규화 파일명 키로 bytea 최신 1개만 저장하며 005 migration이 필요하다. 파싱 결과는 최대 8개 파일의 5분 메모리 캐시이고 거래별 영속 저장은 없다. 신규 데이터는 기존 OAuth scope나 snapshot에 추가하지 않았다. 자세한 업로드·권한·평균 규칙은 [가계부 문서](cash-money/README.md)를 따른다.
+
+## 단일 HTML 실행
+
+`/cash/old`는 보호된 `/api/html-pages/cash-old` 소스를 `SingleHtmlPage`가 opaque-origin sandbox iframe으로 실행한다. 서버 등록 목록의 HTML만 사용한다. 부모 앱은 인증된 파일 API에서 엑셀을 한 번씩 받아 지정 iframe에 전달하고, iframe은 앱 저장소/인증/API/외부 네트워크에 직접 접근하지 않는다. 기존 frame 보안 헤더는 유지한다. 라이브러리는 로컬 패키지를 인라인으로 공급하며 Vercel tracing에 명시한다. [추가 절차와 제한](single-html-pages.md).

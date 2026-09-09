@@ -1,4 +1,5 @@
 "use client";
+import { CashOld } from "./cash-old";
 import { CashDashboard } from "./cash-dashboard";
 import { WorkspaceHome } from "./workspace-home";
 import { WineCellar } from "./wine-cellar";
@@ -1513,6 +1514,7 @@ export function AppShell({
   else if (path === "/wine") content = renderWine();
   else if (path === "/wine/glasses") content = renderGlasses();
   else if (selectedWine) content = renderWineDetail(selectedWine);
+  else if (path === "/cash/old") content = <CashOld demo={demo} />;
   else if (path === "/cash")
     content = <CashDashboard initialQuery={initialQuery} demo={demo} />;
   else if (path === "/settings") content = renderSettings();

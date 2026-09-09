@@ -3,6 +3,13 @@ const config: NextConfig = {
   poweredByHeader: false,
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
   devIndicators: false,
+  outputFileTracingIncludes: {
+    "/api/html-pages/*": [
+      "./docs/cash-money/cash-money.html",
+      "./node_modules/xlsx/dist/xlsx.full.min.js",
+      "./node_modules/chart.js/dist/chart.umd.js",
+    ],
+  },
   serverExternalPackages: ["pg"],
   async headers() {
     return [

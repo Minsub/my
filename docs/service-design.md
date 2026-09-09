@@ -17,7 +17,8 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | `/wine` | 보유량 대시보드, 확장 필터·정렬·가격 목록 | wine-cellar.tsx |
 | `/wine/{uuid}` | 정보·입고·소비·취소·시음·사진 | app-shell.tsx, wine-photo-upload.tsx |
 | `/wine/glasses` | 와인잔 등록·수정 | app-shell.tsx |
-| `/cash` | 엑셀 원본 기반 요약·분류 분석·거래 조회·파일 관리 | cash-dashboard.tsx, cash-files.tsx |
+| `/cash` | 연·월별 흐름·항목별 평균/비중·거래 조회·파일 관리 | cash-dashboard.tsx, cash-analysis.tsx, cash-files.tsx |
+| `/cash/old` | 원본 단일 HTML 분석 + 엑셀 API 자동 연결 | cash-old.tsx, single-html-page.tsx |
 | `/settings` | 구성원·머신·AI 연결·도구별 MCP 안내 | app-shell.tsx, connections.tsx, mcp-guide.tsx |
 | `/login`, `/consent`, `/privacy`, `/setup` | 인증·동의·개인정보·미설정 안내 | src/app 하위 경로 |
 | `/demo?view=/wine` 등 | 읽기 전용 샘플 둘러보기. 실제 DB를 읽지 않음 | demo/page.tsx, lib/demo.ts |
