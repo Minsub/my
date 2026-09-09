@@ -282,7 +282,7 @@ export function CashDashboard({
       <div className="cash-version-links">
         <span>새 분석</span>
         <Link href={demo ? "/demo?view=/cash/old" : "/cash/old"}>
-          가계부(old) ↗
+          가계부(old) 바로가기 ↗
         </Link>
       </div>
       <nav className="section-tabs cash-tabs" aria-label="가계부 메뉴">
