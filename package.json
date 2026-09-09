@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:e2e:ci": "playwright test --project=desktop --grep \"platform navigation, filters, details and preferences\"",
+    "test:e2e:ci": "playwright test --project=desktop --grep \"protects data and MCP while demo stays read-only\"",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:export": "tsx scripts/export.ts",
