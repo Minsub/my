@@ -7,5 +7,18 @@ export default async function Demo({
 }) {
   const p = await searchParams;
   const view = typeof p.view === "string" ? p.view : "/";
-  return <AppShell key={view} initial={demoSnapshot()} path={view} demo />;
+  const initialQuery = Object.fromEntries(
+    Object.entries(p).filter(
+      ([key, value]) => key !== "view" && typeof value === "string",
+    ),
+  ) as Record<string, string>;
+  return (
+    <AppShell
+      key={view + JSON.stringify(initialQuery)}
+      initial={demoSnapshot()}
+      path={view}
+      initialQuery={initialQuery}
+      demo
+    />
+  );
 }

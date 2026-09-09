@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { test, expect } from "@playwright/test";
 import { today, dateLabel } from "../../src/lib/format";
 import { query, getPool } from "../../src/server/db";
@@ -29,7 +30,7 @@ test("protects data and MCP while demo stays read-only", async ({
     "oauth-protected-resource",
   );
   await page.goto("/demo?view=%2Fcoffee");
-  await expect(page.locator(".bean-card")).toHaveCount(11);
+  await expect(page.locator(".coffee-row")).toHaveCount(11);
   await page.getByRole("button", { name: "원두 등록", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("둘러보기");
   await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -49,7 +50,7 @@ test("platform navigation, filters, details and preferences", async ({
     ),
   ).toBe(true);
   await page.getByLabel("원두 검색").fill("프루티봉봉");
-  await expect(page.locator(".bean-card")).toHaveCount(1);
+  await expect(page.locator(".coffee-row")).toHaveCount(1);
   await page.getByRole("heading", { name: "프루티봉봉", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "머신 세팅 기록" }),
@@ -293,4 +294,94 @@ test("wine photo upload and expanded filters work on both platforms", async ({
       (el: HTMLImageElement) => el.complete && el.naturalWidth > 0,
     ),
   ).toBe(true);
+});
+
+test("coffee prices without weight, sorting and brand round trips", async ({
+  page,
+}, info) => {
+  await login(page);
+  const brandName = `가격 검증 ${info.project.name}`;
+  async function command(operation: string, input: Record<string, unknown>) {
+    const response = await page.request.post("/api/commands", {
+      data: { operation, input: { ...input, idempotency_key: randomUUID() } },
+      headers: { Origin: "http://localhost:3100" },
+    });
+    expect(response.ok(), await response.text()).toBe(true);
+    return response.json();
+  }
+  const created = await command("coffee_create_brand", { name: brandName });
+  const brandId = created.data.id;
+  for (const [name, price, weight_g] of [
+    ["부산 테스트", 48000, null],
+    ["무료 테스트", 0, 200],
+    ["미입력 테스트", null, null],
+  ] as const) {
+    await command("coffee_create_bean", {
+      brand_id: brandId,
+      name,
+      price,
+      weight_g,
+    });
+  }
+  await page.goto("/coffee/brands");
+  const brandLink = page.getByRole("link", { name: `${brandName} 원두 보기` });
+  await expect(brandLink).toContainText("원두 3개 보기");
+  await brandLink.click();
+  await expect(page.locator(".coffee-row")).toHaveCount(3);
+  const busan = page.locator(".coffee-row").filter({
+    has: page.getByRole("heading", { name: "부산 테스트", exact: true }),
+  });
+  await expect(busan.locator(".coffee-price strong")).toHaveText("48,000원");
+  await expect(busan).toContainText("중량 미입력");
+  await expect(
+    page.locator(".coffee-row img, .coffee-row .product-art"),
+  ).toHaveCount(0);
+  await page.getByLabel("원두 정렬").selectOption("price-asc");
+  await expect(page.locator(".coffee-row h3")).toHaveText([
+    "무료 테스트",
+    "부산 테스트",
+    "미입력 테스트",
+  ]);
+  await page.getByLabel("원두 정렬").selectOption("kg");
+  await expect(page.locator(".coffee-row").first()).toContainText(
+    "무료 테스트",
+  );
+  await page.getByLabel("원두 정렬").selectOption("price-desc");
+  await expect(page.locator(".coffee-row h3")).toHaveText([
+    "부산 테스트",
+    "무료 테스트",
+    "미입력 테스트",
+  ]);
+  await busan.getByRole("heading").click();
+  await expect(
+    page.locator(".detail-facts").getByText("48,000원", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "원두 컬렉션", exact: true }).click();
+  await expect(page.getByLabel("원두 정렬")).toHaveValue("price-desc");
+  await expect(page.locator(".coffee-row")).toHaveCount(3);
+  await page
+    .locator(".section-tabs")
+    .getByRole("link", { name: "브랜드 스토어" })
+    .click();
+  await page
+    .locator(".section-tabs")
+    .getByRole("link", { name: /원두 컬렉션/ })
+    .click();
+  await expect(page.getByLabel("브랜드 필터")).toHaveValue(brandId);
+  await expect(page.getByLabel("원두 정렬")).toHaveValue("price-desc");
+  await page.reload();
+  await expect(page.locator(".coffee-row")).toHaveCount(3);
+  await expect(page.locator(".coffee-row").first()).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: `test-results/visual/${info.project.name}-coffee-prices.png`,
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "초기화", exact: true }).click();
+  await expect(page.getByLabel("브랜드 필터")).toHaveValue("");
+  await expect(page.getByLabel("원두 정렬")).toHaveValue("name");
 });

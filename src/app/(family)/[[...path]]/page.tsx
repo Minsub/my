@@ -42,5 +42,12 @@ export default async function Page({
       (x): x is [string, string] => typeof x[1] === "string",
     ),
   );
-  return <AppShell key={path} initial={data} path={path} initialQuery={q} />;
+  return (
+    <AppShell
+      key={path + JSON.stringify(q)}
+      initial={data}
+      path={path}
+      initialQuery={q}
+    />
+  );
 }

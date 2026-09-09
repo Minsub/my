@@ -3504,3 +3504,125 @@ input[type="checkbox"] {
     margin-top: 20px;
   }
 }
+
+/* Coffee is a text collection: compact columns on desktop, paired facts on mobile. */
+.coffee-list {
+  border-top: 1px solid var(--line);
+}
+.coffee-row {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 2fr) minmax(120px, 0.85fr) minmax(0, 1.3fr)
+    minmax(130px, 1fr);
+  gap: 24px;
+  padding: 24px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.coffee-row > div {
+  min-width: 0;
+}
+.coffee-row h3 {
+  margin: 6px 0;
+  font-size: 19px;
+  overflow-wrap: anywhere;
+}
+.coffee-flavor {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 6px 0 10px;
+  overflow-wrap: anywhere;
+}
+.coffee-price,
+.coffee-brew,
+.coffee-preferences {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 13px;
+}
+.coffee-price strong {
+  font-size: 17px;
+}
+.coffee-column-label {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+.coffee-text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--green);
+  background: none;
+  border: 0;
+  padding: 4px 0;
+  font-size: 12px;
+  cursor: pointer;
+}
+.coffee-text-button:hover,
+.coffee-identity a:hover {
+  text-decoration: underline;
+}
+.view-controls select {
+  max-width: 160px;
+  padding: 7px;
+  background: var(--paper, #fff);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.coffee-detail {
+  display: block;
+  max-width: 960px;
+}
+.brand-card {
+  scroll-margin-top: 24px;
+}
+.brand-card:target {
+  outline: 2px solid var(--green);
+}
+@media (max-width: 760px) {
+  .coffee-row {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    gap: 18px 16px;
+    padding: 22px 0;
+  }
+  .coffee-row h3 {
+    font-size: 18px;
+  }
+  .coffee-price {
+    align-items: flex-end;
+    text-align: right;
+  }
+  .coffee-preferences,
+  .coffee-brew {
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
+  }
+  .coffee-detail .detail-facts {
+    flex-wrap: wrap;
+  }
+  .collection-controls .view-controls {
+    flex-wrap: wrap;
+  }
+}
+.view-controls > .coffee-text-button {
+  display: inline-flex;
+  width: auto;
+  height: auto;
+  min-width: 44px;
+  min-height: 36px;
+  white-space: nowrap;
+  color: var(--green);
+}
+@media (max-width: 760px) {
+  .coffee-row .setting-pill,
+  .coffee-row .coffee-text-button,
+  .brand-card .coffee-text-button,
+  .view-controls > .coffee-text-button,
+  .view-controls select {
+    min-height: 44px;
+  }
+}

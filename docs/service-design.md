@@ -11,8 +11,8 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | URL | 현재 역할 | 구현 위치 |
 |---|---|---|
 | `/` | 도구 진입 카드, 모듈별 요약, 최근 활동, MCP 안내 이동 | workspace-home.tsx |
-| `/coffee` | 원두 카드/목록, 브랜드·상태·추천·사용자·검색·보관함 | app-shell.tsx renderCoffee |
-| `/coffee/brands` | 브랜드 목록·등록·수정 | app-shell.tsx |
+| `/coffee` | 정보형 원두 목록, 가격 정렬·브랜드·상태·추천·사용자·검색·보관함 | app-shell.tsx renderCoffee |
+| `/coffee/brands` | 브랜드 목록·등록·수정·브랜드별 원두 바로가기 | app-shell.tsx |
 | `/coffee/beans/{uuid}` | 상품·kg 환산 가격·사용자별 평가·추출 설정 | app-shell.tsx |
 | `/wine` | 보유량 대시보드, 확장 필터·정렬·가격 목록 | wine-cellar.tsx |
 | `/wine/{uuid}` | 정보·입고·소비·취소·시음·사진 | app-shell.tsx, wine-photo-upload.tsx |
@@ -28,14 +28,14 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 - PC는 사이드바·비교 가능한 넓은 행, 모바일은 하단 내비게이션·카드·44px 이상 주요 터치 영역이다. 새 메뉴가 늘면 하단 5개 이상을 억지로 밀어넣지 말고 더보기/도구 목록 구조를 설계한다.
 - `globals.css`의 변수와 button/panel/폼을 재사용하고 새 화면은 접두사 있는 클래스로 한정한다. 전역 태그 스타일 변경은 기존 페이지도 확인한다.
 - 빈 값, 재고 없음, 긴 이름, 데이터 없음, 로딩·실패·충돌 상태를 제공한다. 미입력과 0/false를 구분한다.
-- 필터는 URL에 보존한다. 현재 상세의 뒤로 링크는 일부 필터를 보존하지 않으므로 전체 이동에서 복원이 보장된다고 가정하지 않는다.
+- 필터는 URL에 보존한다. 커피는 두 탭과 상세의 목록 복귀에서 필터·정렬을 보존한다. 다른 도메인은 실제 링크 구현을 확인한다.
 - 연결과 권한 처리는 UI만으로 끝내지 않는다. 서버 검증이 기준이다.
 
 ## 커피 데이터 의미
 
 `coffee_brands`, `coffee_beans`, `coffee_preferences`, `coffee_machines`, `coffee_brew_settings`를 사용한다. 실제 컬럼/제약은 migrations와 types.ts를 확인한다. 상품과 본인의 평가를 분리하며 세팅은 누적 기록이다.
 
-가격은 포장 가격(원)과 중량(g)으로 저장한다. kg 환산은 price×1000/weight_g, 중량 미입력이면 계산하지 않는다. `grind`, `dose`는 기기 설정 숫자이며 실제 g으로 추정하지 않는다. 현재 가격 확인일·가격 이력·원두 재고·자동 상품 수집 기능은 없다. 원두 이미지는 HTTPS 주소를 표시한다.
+가격은 포장 가격(원)과 중량(g)으로 저장한다. kg 환산은 price×1000/weight_g, 중량 미입력이면 계산하지 않는다. `grind`, `dose`는 기기 설정 숫자이며 실제 g으로 추정하지 않는다. 현재 가격 확인일·가격 이력·원두 재고·자동 상품 수집 기능은 없다. 원두 목록과 상세는 이미지 없이 표시한다. 판매 가격은 중량과 무관하게 표시하며 기존 image_url 값은 보존한다. 세부 동작은 [커피 기능](home-cafe/coffee-features.md)을 따른다.
 
 초기 원본 10개 브랜드·11개 원두는 [원본 요구사항](home-cafe/DESIGN.md)과 seed-data.ts에서 확인한다. 데모와 실제 DB를 혼동하지 않는다. seed는 운영 소유자 생성 뒤 필요할 때만 실행한다.
 
