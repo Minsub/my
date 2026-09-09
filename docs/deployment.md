@@ -75,7 +75,7 @@ node --env-file=.env.vercel.local node_modules/tsx/dist/cli.mjs scripts/export.t
 
 ## 백업과 복구
 
-`db:export`는 현재 소유자의 공간 Snapshot과 photos 배열을 JSON으로 저장한다. 인증·OAuth 키·이관 원본 전체 및 자동 restore 명령은 포함하지 않는다. 사진까지 포함하는 전체 복구는 PostgreSQL 백업을 사용한다.
+`db:export`는 현재 소유자의 공간 Snapshot과 photos 배열을 JSON으로 저장한다. 인증·OAuth 키·이관 원본 전체·가계부 XLSX 및 자동 restore 명령은 포함하지 않는다. 가계부는 웹의 원본 다운로드나 PostgreSQL 백업으로 보관한다. 사진까지 포함하는 전체 복구는 PostgreSQL 백업을 사용한다.
 
 PGSERVICE는 운영자가 로컬 `.pg_service.conf`에 만든 이름이다. direct host, database, user, sslmode를 지정하고 비밀번호는 권한 600의 `.pgpass`나 비밀 관리 도구로 제공한다. 다음의 mono_backup/mono_restore_test는 미리 구성한 service 이름 예시다. PostgreSQL 18 서버 백업에는 pg_dump 18 이상을 사용한다.
 
@@ -109,3 +109,7 @@ Airtable JSON `{records:[{id,fields}]}`만 지원한다. `npm run db:import -- /
 | 변경이 안 보임 | 다른 DB 환경, 새로고침, 정확한 commit 배포 여부 |
 
 구성원 재활성화/관리자 이전 UI, 앱 내 LLM, 예약 작업, 메일 발송은 현재 없다. 인증 테이블을 수동 수정해 우회하기보다 목적에 맞는 운영 절차를 별도로 설계한다.
+
+## 가계부 최초 등록·교체
+
+005_cash_files.sql 적용 후 웹 `/cash`의 파일 관리에서 등록한다. 운영자 최초 적재는 Node 22에서 `node --env-file=.env.vercel.local node_modules/tsx/dist/cli.mjs scripts/cash-upload.ts docs/cash-money/*.xlsx`로 실행한다. 기본 `.env.local`은 개발 DB이므로 운영은 명시한다. 같은 파일명은 최신으로 교체되며 앱 내 이전 버전 복원은 없다. 자료 원본은 Git에 올리지 않는다.

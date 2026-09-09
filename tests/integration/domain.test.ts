@@ -1,3 +1,10 @@
+import { cashWorkbook } from "../cash-fixture";
+import {
+  saveCashFile,
+  cashFiles,
+  downloadCash,
+  readCash,
+} from "../../src/server/cash";
 import sharp from "sharp";
 import { uploadWinePhoto, normalizePhoto } from "../../src/server/wine-photos";
 import { GET as getPhoto } from "../../src/app/api/wine/[id]/photo/route";
@@ -557,5 +564,57 @@ describe("private wine photos", () => {
     await expect(
       normalizePhoto(Buffer.from('<svg onload="alert(1)"></svg>')),
     ).rejects.toMatchObject({ code: "INVALID_PHOTO" });
+  });
+});
+
+describe("cash file isolation and replacement", () => {
+  it("replaces one filename atomically and rejects unauthorized writes, stale versions and invalid files", async () => {
+    const a = cashWorkbook();
+    const p = await saveCashFile(owner, "검증.xlsx", a, 0, true);
+    expect(p.expectedVersion).toBe(0);
+    expect(await cashFiles(owner)).toHaveLength(0);
+    await saveCashFile(owner, "검증.xlsx", a, 0);
+    const [file] = await cashFiles(owner);
+    expect(file.version).toBe(1);
+    expect((await downloadCash(owner, file.id)).content.equals(a)).toBe(true);
+    await expect(downloadCash(outsider, file.id)).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    expect(await cashFiles(outsider)).toHaveLength(0);
+    await expect(
+      saveCashFile(member, "검증.xlsx", cashWorkbook(14000), 1),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      saveCashFile({ ...owner, channel: "mcp" }, "검증.xlsx", a, 1),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    const initial = await readCash(
+      owner,
+      new URLSearchParams({ from: "2026-01", to: "2026-03" }),
+    );
+    expect(initial).toMatchObject({ total: { expense: 19000 } });
+    await saveCashFile(
+      owner,
+      "검증.xlsx".normalize("NFD"),
+      cashWorkbook(22000),
+      1,
+    );
+    expect(await cashFiles(owner)).toHaveLength(1);
+    expect((await cashFiles(owner))[0].version).toBe(2);
+    const after = await readCash(
+      owner,
+      new URLSearchParams({ from: "2026-01", to: "2026-03" }),
+    );
+    expect(after).toMatchObject({ total: { expense: 29000 } });
+    await expect(
+      saveCashFile(owner, "검증.xlsx", cashWorkbook(32000), 1),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(
+      saveCashFile(owner, "검증.xlsx", Buffer.from("bad"), 2),
+    ).rejects.toMatchObject({ code: "INVALID_WORKBOOK" });
+    await saveCashFile(owner, "검증.xlsx", cashWorkbook(22000), 1);
+    expect((await cashFiles(owner))[0].version).toBe(2);
+    expect(
+      (await downloadCash(owner, file.id)).content.equals(cashWorkbook(22000)),
+    ).toBe(true);
   });
 });

@@ -1,4 +1,5 @@
 "use client";
+import { CashDashboard } from "./cash-dashboard";
 import { WorkspaceHome } from "./workspace-home";
 import { WineCellar } from "./wine-cellar";
 import { WinePhotoUpload } from "./wine-photo-upload";
@@ -17,6 +18,7 @@ import {
   ExternalLink,
   Heart,
   Home,
+  Wallet,
   LogOut,
   Plus,
   RefreshCw,
@@ -42,6 +44,7 @@ const nav = [
   { href: "/", label: "홈", icon: Home },
   { href: "/coffee", label: "커피 원두", icon: Coffee },
   { href: "/wine", label: "와인 셀러", icon: WineIcon },
+  { href: "/cash", label: "가계부", icon: Wallet },
   { href: "/settings", label: "설정", icon: Settings },
 ];
 const select = (values: string[]) =>
@@ -112,11 +115,13 @@ export function AppShell({
     [coffeeSort, setCoffeeSort] = useState(initialQuery.sort ?? "name");
   const active = path.startsWith("/coffee")
     ? "/coffee"
-    : path.startsWith("/wine")
-      ? "/wine"
-      : path.startsWith("/settings")
-        ? "/settings"
-        : "/";
+    : path.startsWith("/cash")
+      ? "/cash"
+      : path.startsWith("/wine")
+        ? "/wine"
+        : path.startsWith("/settings")
+          ? "/settings"
+          : "/";
   const href = (url: string) => {
     if (!demo) return url;
     const target = new URL(url, "https://mono.local");
@@ -1508,6 +1513,8 @@ export function AppShell({
   else if (path === "/wine") content = renderWine();
   else if (path === "/wine/glasses") content = renderGlasses();
   else if (selectedWine) content = renderWineDetail(selectedWine);
+  else if (path === "/cash")
+    content = <CashDashboard initialQuery={initialQuery} demo={demo} />;
   else if (path === "/settings") content = renderSettings();
   else
     content = empty(

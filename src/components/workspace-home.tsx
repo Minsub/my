@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { ArrowUpRight, Coffee, Wine, Sparkles, Activity } from "lucide-react";
+import {
+  ArrowUpRight,
+  Coffee,
+  Wine,
+  Sparkles,
+  Activity,
+  Wallet,
+} from "lucide-react";
 import type { Snapshot } from "@/lib/types";
 import { dateLabel } from "@/lib/format";
 export function WorkspaceHome({
@@ -25,6 +32,14 @@ export function WorkspaceHome({
       description: "보유 와인부터 구매와 시음 기록까지.",
       icon: Wine,
       value: `${data.wines.filter((w) => !w.archived).reduce((s, w) => s + w.stock, 0)}병 보유`,
+    },
+    {
+      path: "/cash",
+      label: "가계부",
+      eyebrow: "CASH",
+      description: "엑셀로 모으고, 수입과 지출의 흐름을 확인하세요.",
+      icon: Wallet,
+      value: "파일로 갱신하는 대시보드",
     },
   ];
   return (

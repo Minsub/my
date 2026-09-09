@@ -1,3 +1,4 @@
+import { cashWorkbook } from "../cash-fixture";
 import { randomUUID } from "node:crypto";
 import { test, expect } from "@playwright/test";
 import { today, dateLabel } from "../../src/lib/format";
@@ -24,6 +25,8 @@ test("protects data and MCP while demo stays read-only", async ({
   request,
 }) => {
   expect((await request.get("/api/data")).status()).toBe(401);
+  expect((await request.get("/api/cash")).status()).toBe(401);
+  expect((await request.get("/api/cash/files")).status()).toBe(401);
   const mcp = await request.get("/api/mcp");
   expect(mcp.status()).toBe(401);
   expect(mcp.headers()["www-authenticate"]).toContain(
@@ -136,6 +139,7 @@ test("keyboard closes forms and all main pages fit the viewport", async ({
     "/",
     "/coffee",
     "/coffee/brands",
+    "/cash",
     "/wine?stock=all",
     "/wine/glasses",
     "/settings",
@@ -384,4 +388,123 @@ test("coffee prices without weight, sorting and brand round trips", async ({
   await page.getByRole("button", { name: "초기화", exact: true }).click();
   await expect(page.getByLabel("브랜드 필터")).toHaveValue("");
   await expect(page.getByLabel("원두 정렬")).toHaveValue("name");
+});
+
+test("cash workbook upload, replacement, drilldown and platform layout", async ({
+  page,
+}, info) => {
+  await login(page);
+  await page.goto("/cash?tab=files");
+  const filename = `가계부 ${info.project.name}.xlsx`;
+  const input = page.getByLabel("가계부 엑셀 파일");
+  await input.setInputFiles({
+    name: filename,
+    mimeType:
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: cashWorkbook(),
+  });
+  await expect(
+    page.getByRole("heading", { name: "업로드 미리보기" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "확인한 파일 적용" }).click();
+  await expect(page.getByText("반영 완료", { exact: true })).toBeVisible();
+  await expect(
+    page.locator(".cash-file-card").filter({ hasText: filename }),
+  ).toBeVisible();
+  await input.setInputFiles({
+    name: filename.normalize("NFD"),
+    mimeType:
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: cashWorkbook(22000),
+  });
+  await expect(page.getByText("기존 파일 교체", { exact: true })).toBeVisible();
+  await page.screenshot({
+    path: `test-results/visual/${info.project.name}-cash-upload.png`,
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "확인한 파일 적용" }).click();
+  await expect(page.getByText("반영 완료", { exact: true })).toBeVisible();
+  await expect(
+    page.locator(".cash-file-card").filter({ hasText: filename }),
+  ).toHaveCount(1);
+  const nav = page.getByRole("navigation", { name: "가계부 메뉴" });
+  await nav.getByRole("button", { name: "요약", exact: true }).click();
+  await page
+    .getByLabel("가계부 자료")
+    .selectOption(filename.replace(".xlsx", ""));
+  await page.getByLabel("시작 월").fill("2026-01");
+  await expect(page.locator(".cash-refreshing")).toHaveCount(0);
+  await expect(page.locator(".cash-kpis")).toContainText("2.9만원");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: `test-results/visual/${info.project.name}-cash-summary.png`,
+    fullPage: true,
+  });
+  await nav.getByRole("button", { name: "분류 분석" }).click();
+  await expect(page.locator(".cash-refreshing")).toHaveCount(0);
+  if (info.project.name === "mobile")
+    await page
+      .locator(".cash-category-item")
+      .filter({ hasText: "식비" })
+      .getByRole("button", { name: "추이 보기" })
+      .click();
+  else
+    await page.getByRole("button", { name: "식비 추이", exact: true }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.screenshot({
+    path: `test-results/visual/${info.project.name}-cash-categories.png`,
+    fullPage: true,
+  });
+  if (info.project.name === "mobile")
+    await page
+      .locator(".cash-category-item")
+      .filter({ hasText: "식비" })
+      .getByRole("button", { name: "거래 2건" })
+      .click();
+  else
+    await page
+      .locator(".cash-pivot tbody tr")
+      .filter({ has: page.getByRole("button", { name: "식비", exact: true }) })
+      .getByRole("button", { name: "2만원", exact: true })
+      .first()
+      .click();
+  await expect(page.locator(".cash-result-count")).toContainText("2건");
+  await expect(page.locator(".cash-result-count")).toContainText("20,000원");
+  await expect(page.locator(".cash-transaction")).toHaveCount(2);
+  await page.getByLabel("거래 정렬").selectOption("amount-asc");
+  await expect(page.locator(".cash-transaction").first()).toContainText(
+    "-2,000원",
+  );
+  await page.reload();
+  await expect(page.locator(".cash-result-count")).toContainText("2건");
+  await expect(page.locator(".cash-result-count")).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: `test-results/visual/${info.project.name}-cash-transactions.png`,
+    fullPage: true,
+  });
+  await nav.getByRole("button", { name: "파일 관리" }).click();
+  await input.setInputFiles({
+    name: filename,
+    mimeType:
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from("invalid workbook"),
+  });
+  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "확인한 파일 적용" }),
+  ).toBeDisabled();
+  await expect(
+    page.locator(".cash-file-card").filter({ hasText: filename }),
+  ).toHaveCount(1);
 });

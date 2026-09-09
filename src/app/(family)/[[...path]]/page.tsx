@@ -23,6 +23,7 @@ export default async function Page({
       "/wine",
       "/wine/glasses",
       "/settings",
+      "/cash",
     ].includes(path) &&
     !/^\/(coffee\/beans|wine)\/[0-9a-f-]{36}$/.test(path)
   )
@@ -42,6 +43,14 @@ export default async function Page({
       (x): x is [string, string] => typeof x[1] === "string",
     ),
   );
+  if (path === "/cash") {
+    const p = new URLSearchParams();
+    for (const [key, value] of Object.entries(raw)) {
+      if (Array.isArray(value)) value.forEach((v) => p.append(key, v));
+      else if (value) p.set(key, value);
+    }
+    q.cashQuery = p.toString();
+  }
   return (
     <AppShell
       key={path + JSON.stringify(q)}

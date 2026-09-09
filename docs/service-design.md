@@ -17,6 +17,7 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | `/wine` | 보유량 대시보드, 확장 필터·정렬·가격 목록 | wine-cellar.tsx |
 | `/wine/{uuid}` | 정보·입고·소비·취소·시음·사진 | app-shell.tsx, wine-photo-upload.tsx |
 | `/wine/glasses` | 와인잔 등록·수정 | app-shell.tsx |
+| `/cash` | 엑셀 원본 기반 요약·분류 분석·거래 조회·파일 관리 | cash-dashboard.tsx, cash-files.tsx |
 | `/settings` | 구성원·머신·AI 연결·도구별 MCP 안내 | app-shell.tsx, connections.tsx, mcp-guide.tsx |
 | `/login`, `/consent`, `/privacy`, `/setup` | 인증·동의·개인정보·미설정 안내 | src/app 하위 경로 |
 | `/demo?view=/wine` 등 | 읽기 전용 샘플 둘러보기. 실제 DB를 읽지 않음 | demo/page.tsx, lib/demo.ts |
@@ -50,3 +51,7 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 ## 지금 없는 기능
 
 내장 AI 채팅, OCR/자동 라벨 판독, 웹 사진 자동 검색·매칭, 실시간 구독, 구매 로트별 원가, 예약 작업, 메일 발송, 공개 회원가입, 여러 공간을 전환하는 UI는 없다. 이런 기능을 추가할 때 실제 스키마·권한·비용·비동기 처리 요구를 먼저 정한다.
+
+## 가계부 데이터 의미
+
+가계부는 거래 행 대신 파일명별 최신 XLSX 원본을 Neon bytea에 저장한다. 같은 이름 업로드는 원본 교체이며 이전 버전은 보관하지 않는다. 웹 전용이며 기존 MCP에는 노출하지 않는다. 원화·음수·날짜·평균 분모·제외 규칙과 파일 접근은 [가계부 기능](cash-money/README.md)을 따른다.

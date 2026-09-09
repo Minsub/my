@@ -46,6 +46,7 @@ flowchart LR
 | `src/lib/mcp-guide.ts`, `src/components/mcp-guide.tsx` | 설정에서 보여주는 도구 목록과 사용 안내 |
 | `src/server/wine-photos.ts` | 사진 검증·압축·권한·버전·중복 방지·저장 |
 | `src/lib/wine-cellar.ts` | 웹·MCP가 공유하는 최근 구입가/평점 계산, 필터·정렬 |
+| `src/server/cash.ts`, `cash-parser.ts`, `src/lib/cash.ts` | 웹 전용 XLSX 원본 저장·검증·집계. 공통 snapshot과 분리 |
 | `db/migrations/*.sql` | 적용 순서가 있는 실제 도메인 스키마 |
 
 `(family)`는 URL에 포함되지 않는다. 별도 `(family)/layout.tsx`나 `modules/*/repository.ts`, `/api/coffee/*`는 현재 없다. 새 페이지 파일 하나를 추가하는 것만으로 기존 공통 메뉴가 자동 연결되지는 않는다.
@@ -77,3 +78,7 @@ UI 숨김은 보안 검사가 아니다. 쿠키 기반 변경은 sameOrigin, 모
 ## 환경과 변경 정책
 
 로컬 `.env.local`은 개발 DB, `.env.vercel.local`은 명시 실행용 운영 값이다. 자동화 테스트는 로컬 `_test` DB를 초기화한다. 운영/개발/테스트를 섞지 않는다. 적용한 SQL은 수정하지 않고 새 migration을 추가한다. 빌드는 DB를 변경하지 않는다. 코드 롤백과 DB 복구는 별개다. 자세한 절차는 [운영 문서](deployment.md)에 있다.
+
+## 가계부 원본 파일
+
+`/cash`는 전용 `/api/cash` 및 `/api/cash/files`를 사용한다. cash_files의 공간·정규화 파일명 키로 bytea 최신 1개만 저장하며 005 migration이 필요하다. 파싱 결과는 최대 8개 파일의 5분 메모리 캐시이고 거래별 영속 저장은 없다. 신규 데이터는 기존 OAuth scope나 snapshot에 추가하지 않았다. 자세한 업로드·권한·평균 규칙은 [가계부 문서](cash-money/README.md)를 따른다.

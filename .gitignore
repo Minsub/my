@@ -13,3 +13,6 @@ test-results/
 backups/
 
 .next-e2e/
+
+# Personal cashbook source workbooks remain local and are uploaded only to the authenticated database.
+docs/cash-money/*.xlsx

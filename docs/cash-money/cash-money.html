@@ -1,0 +1,1985 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>가족 가계부</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+  --text: #111827;
+  --muted: #6b7280;
+  --primary: #2563eb;
+  --income: #059669;
+  --expense: #dc2626;
+  --savings: #2563eb;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+.app { max-width: 1400px; margin: 0 auto; padding: 24px; }
+h1 { font-size: 24px; margin-bottom: 4px; font-weight: 700; }
+h2 { font-size: 17px; margin: 0; font-weight: 600; }
+h3 { font-size: 14px; font-weight: 600; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .03em; }
+.muted { color: var(--muted); font-size: 13px; }
+.spacer { height: 16px; }
+
+header.app-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin-bottom: 16px; }
+
+.controls { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; }
+.control-row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 6px 0; }
+.control-row + .control-row { border-top: 1px solid var(--border); }
+.control-label { font-weight: 600; min-width: 70px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+
+button { padding: 8px 14px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-family: inherit; }
+button:hover { opacity: 0.92; }
+button.secondary { background: white; color: var(--text); border: 1px solid var(--border-strong); }
+button.secondary:hover { background: #f9fafb; }
+
+.pill-group { display: inline-flex; background: #f3f4f6; padding: 3px; border-radius: 8px; gap: 2px; }
+.pill-group-wrap { display: flex; flex-wrap: wrap; background: #f3f4f6; padding: 4px; border-radius: 8px; gap: 4px; }
+.pill { padding: 6px 14px; cursor: pointer; border-radius: 6px; font-size: 14px; color: var(--muted); user-select: none; transition: background .12s; }
+.pill-group-wrap .pill { padding: 4px 10px; font-size: 13px; }
+.pill:hover { color: var(--text); }
+.pill.active { background: white; color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.pill.selected-inc { background: #dbeafe; color: #1d4ed8; font-weight: 600; }
+.pill.selected-inc:hover { color: #1e40af; background: #bfdbfe; }
+.pill.excluded { background: #fee2e2; color: #dc2626; font-weight: 600; text-decoration: line-through; }
+.pill.excluded:hover { color: #dc2626; }
+.btn-clear-exclude { background: none; border: none; color: var(--primary); font-size: 12.5px; cursor: pointer; text-decoration: underline; padding: 0; font-family: inherit; }
+
+select { padding: 6px 10px; border: 1px solid var(--border-strong); border-radius: 6px; font-size: 14px; font-family: inherit; background: white; cursor: pointer; }
+
+.checkbox-label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px; user-select: none; }
+
+.section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; }
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 12px; flex-wrap: wrap; }
+.section-header-controls { display: flex; align-items: center; gap: 10px; }
+.section-hint { font-size: 12px; color: var(--muted); }
+
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { background: #f9fafb; font-weight: 600; color: var(--muted); font-size: 12px; position: sticky; top: 0; z-index: 1; }
+tr.clickable td, td.clickable { cursor: pointer; }
+tr.clickable:hover { background: #f9fafb; }
+td.clickable:hover { background: #eef2ff; }
+td.pos { color: var(--income); }
+td.neg { color: var(--expense); }
+.total-row td { font-weight: 700; background: #f9fafb; border-top: 2px solid var(--border-strong); }
+.total-col { background: #fafafa; font-weight: 700; }
+
+.cat-cell { display: inline-flex; align-items: center; gap: 6px; }
+
+.cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+.card-title { font-size: 11.5px; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; }
+.card-value { font-size: 20px; font-weight: 700; }
+
+.chart-wrap { position: relative; height: 320px; margin-top: 14px; }
+.chart-wrap.tall { height: 380px; }
+
+.welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh; text-align: center; padding: 24px; }
+.welcome-icon { font-size: 56px; margin-bottom: 16px; }
+.welcome h1 { font-size: 32px; margin-bottom: 12px; }
+.welcome p { color: var(--muted); margin-bottom: 24px; line-height: 1.6; }
+.welcome button { padding: 12px 28px; font-size: 16px; }
+
+.detail-panel {
+  position: fixed; right: 0; top: 0; bottom: 0; width: min(560px, 94vw);
+  background: white; border-left: 1px solid var(--border);
+  box-shadow: -8px 0 24px rgba(0,0,0,.1);
+  transform: translateX(100%); transition: transform .22s ease;
+  overflow-y: auto; z-index: 100;
+}
+.detail-panel.open { transform: translateX(0); }
+.detail-header {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: white; z-index: 2;
+}
+.detail-title { font-weight: 600; font-size: 16px; }
+.detail-subtitle { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.detail-close { background: none; color: var(--muted); padding: 4px 10px; cursor: pointer; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
+.detail-close:hover { background: #f9fafb; color: var(--text); }
+.detail-body { padding: 12px 20px 32px; }
+.detail-summary { display: flex; gap: 12px; margin-bottom: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.detail-summary > div { flex: 1; }
+.detail-summary .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.detail-summary .val { font-weight: 600; font-size: 15px; margin-top: 2px; }
+.detail-table th, .detail-table td { padding: 5px 6px; font-size: 12.5px; }
+.detail-table .memo { white-space: normal; word-break: break-word; max-width: 180px; line-height: 1.4; }
+.detail-table .sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.sortable { cursor: pointer; user-select: none; }
+.sortable:hover { color: var(--text); }
+.sort-indicator { margin-left: 4px; color: var(--border-strong); }
+.sort-indicator.active { color: var(--primary); }
+
+.collapsible { cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 6px; }
+.collapsible:hover .chevron { color: var(--text); }
+.chevron { display: inline-block; width: 14px; color: var(--muted); font-size: 11px; transition: transform .15s; }
+
+.cell-change { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; gap: 1px; }
+.cell-change .pct { font-size: 10px; opacity: 0.75; }
+td.change-up { color: #b91c1c; background: rgba(220, 38, 38, 0.07); }
+td.change-up .pct { color: #b91c1c; opacity: 1; }
+td.change-down { color: #1d4ed8; background: rgba(37, 99, 235, 0.07); }
+td.change-down .pct { color: #1d4ed8; opacity: 1; }
+td.change-neutral { color: var(--text); }
+td.change-neutral .pct { color: var(--muted); }
+
+.detail-header-actions { display: flex; gap: 6px; align-items: flex-start; }
+.btn-chart-toggle { background: white; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; font-family: inherit; }
+.btn-chart-toggle:hover { background: #f9fafb; }
+.btn-chart-toggle.active { background: #eef2ff; border-color: var(--primary); color: var(--primary); }
+.detail-chart-area { margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.detail-chart-area .chart-wrap { height: 240px; margin: 0; }
+
+.error { color: var(--expense); padding: 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; margin: 16px 0; }
+.notice { padding: 10px 14px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 13px; color: #1e40af; margin-bottom: 12px; }
+
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* Central Chart Modal */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(17, 24, 39, 0.6);
+  backdrop-filter: blur(3px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 200;
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s ease;
+}
+.modal-overlay.open {
+  opacity: 1; pointer-events: auto;
+}
+.modal-card {
+  background: white; border-radius: 12px;
+  width: min(960px, 92vw); max-height: 88vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 20px 40px rgba(0,0,0,.22);
+  transform: scale(0.96); transition: transform .2s ease;
+}
+.modal-overlay.open .modal-card {
+  transform: scale(1);
+}
+.modal-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 18px 24px; border-bottom: 1px solid var(--border);
+}
+.modal-title { font-size: 18px; font-weight: 700; color: var(--text); }
+.modal-subtitle { font-size: 13px; color: var(--muted); margin-top: 3px; }
+.modal-close {
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 12px; font-size: 14px; cursor: pointer; color: var(--muted);
+  font-family: inherit;
+}
+.modal-close:hover { background: #f9fafb; color: var(--text); }
+.modal-scale-btn {
+  background: #f3f4f6; border: 1px solid var(--border-strong); border-radius: 6px;
+  padding: 5px 11px; font-size: 12.5px; cursor: pointer; color: var(--text);
+  font-family: inherit; transition: all .12s ease;
+}
+.modal-scale-btn:hover { background: #e5e7eb; }
+.modal-scale-btn.active { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; font-weight: 600; }
+.modal-body { padding: 20px 24px 28px; overflow-y: auto; flex: 1; }
+.modal-chart-wrap { position: relative; height: 460px; width: 100%; }
+
+/* subcategory inline rows */
+tr.sub-row td { background: #f5f7ff; font-size: 12.5px; }
+tr.sub-row td:first-child { padding-left: 28px; color: var(--muted); }
+tr.sub-row.change-up td { background: rgba(220,38,38,0.05); }
+tr.sub-row.change-down td { background: rgba(37,99,235,0.05); }
+td.cat-toggle { cursor: pointer; user-select: none; }
+td.cat-toggle:hover { background: #eef2ff; }
+.cat-toggle-icon { display: inline-block; width: 14px; font-size: 10px; color: var(--muted); margin-right: 2px; transition: transform .15s; }
+.cat-toggle-icon.open { transform: rotate(90deg); }
+
+@media (max-width: 800px) {
+  .app { padding: 16px; }
+  .modal-chart-wrap { height: 320px; }
+}
+</style>
+</head>
+<body>
+<div id="app" class="app"></div>
+<div id="detail" class="detail-panel">
+  <div class="detail-header">
+    <div>
+      <div class="detail-title" id="detail-title"></div>
+      <div class="detail-subtitle" id="detail-subtitle"></div>
+    </div>
+    <div class="detail-header-actions">
+      <button class="btn-chart-toggle" id="detail-chart-toggle">📊 그래프 보기</button>
+      <button class="detail-close" id="detail-close">✕</button>
+    </div>
+  </div>
+  <div class="detail-body" id="detail-body"></div>
+</div>
+
+<div id="chart-modal" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-chart-title"></div>
+        <div class="modal-subtitle" id="modal-chart-subtitle"></div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="modal-scale-btn" id="modal-scale-toggle" title="작은 값과 큰 값의 차이가 클 때 작은 항목을 확대하여 보기">📈 작은값 확대 (로그)</button>
+        <button class="modal-close" id="modal-chart-close">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-chart-wrap">
+        <canvas id="modalChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+'use strict';
+
+const FIXED_START_YEAR = 2021;
+const LARGE_EXPENSE_THRESHOLD = 10_000_000;
+const DB_NAME = 'cashmoney_db';
+const STORE = 'handles';
+const HANDLE_KEY = 'dirHandle';
+
+const state = {
+  dirHandle: null,
+  members: [],
+  transactions: [],
+  selectedMember: 'all',
+  yearFrom: FIXED_START_YEAR,
+  yearTo: null,
+  expandEtc: false,
+  excludeLargeExpense: false,
+  includedIncomeCategories: [],
+  excludedExpenseCategories: [],
+  incomeGran: 'year',
+  incomeMonthYear: null,
+  expenseGran: 'year',
+  expenseMonthYear: null,
+  computedStart: null,
+  computedEnd: null,
+  inProgressMonth: null,
+  collapsed: { year: false, income: false, expense: false },
+};
+
+let currentDetail = { mode: 'transactions', rows: [], sort: 'none', title: '', subtitle: '', chartVisible: false, monthlyAvgData: null, year: null };
+const DETAIL_CHART_ID = 'detailChart';
+
+const CATEGORY_PALETTE = ['#6366f1','#ec4899','#10b981','#f59e0b','#06b6d4','#8b5cf6','#ef4444','#84cc16','#3b82f6','#f97316','#14b8a6','#a855f7','#eab308','#0ea5e9','#22c55e','#d946ef','#f43f5e','#0891b2','#65a30d','#7c3aed','#059669','#db2777','#9333ea','#0284c7'];
+const _catColors = new Map();
+function categoryColor(name) {
+  if (!_catColors.has(name)) {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+    _catColors.set(name, CATEGORY_PALETTE[Math.abs(hash) % CATEGORY_PALETTE.length]);
+  }
+  return _catColors.get(name);
+}
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function fmt(won) {
+  if (won == null || isNaN(won)) return '-';
+  if (won === 0) return '-';
+  const abs = Math.abs(won);
+  const sign = won < 0 ? '-' : '';
+  if (abs < 10000) return `${sign}${Math.round(abs).toLocaleString()}원`;
+  const man = abs / 10000;
+  if (man >= 10000) {
+    const eok = Math.floor(man / 10000);
+    const remainMan = Math.round(man - eok * 10000);
+    if (remainMan === 0) return `${sign}${eok}억`;
+    return `${sign}${eok}억 ${remainMan.toLocaleString()}만원`;
+  }
+  if (man >= 1000) return `${sign}${Math.round(man).toLocaleString()}만원`;
+  return `${sign}${man.toFixed(1)}만원`;
+}
+function fmtPct(v) { return `${(v * 100).toFixed(1)}%`; }
+function dateString(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function lastDayOfMonth(y, m) { return new Date(y, m, 0).getDate(); }
+
+// ===== IndexedDB =====
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbPut(key, val) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put(val, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function idbGet(key) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// ===== Folder & files =====
+async function verifyPermission(handle, mode = 'read') {
+  const opts = { mode };
+  if (await handle.queryPermission(opts) === 'granted') return true;
+  if (await handle.requestPermission(opts) === 'granted') return true;
+  return false;
+}
+
+async function pickFolder() {
+  if (!window.showDirectoryPicker) throw new Error('이 브라우저는 폴더 선택을 지원하지 않습니다. Chrome 또는 Edge에서 열어주세요.');
+  const handle = await window.showDirectoryPicker();
+  state.dirHandle = handle;
+  await idbPut(HANDLE_KEY, handle);
+  await loadFromHandle(handle);
+}
+
+async function loadStoredHandle() {
+  try {
+    const handle = await idbGet(HANDLE_KEY);
+    if (!handle) return false;
+    if (!await verifyPermission(handle)) return false;
+    state.dirHandle = handle;
+    await loadFromHandle(handle);
+    return true;
+  } catch (e) { console.error(e); return false; }
+}
+
+async function refresh() {
+  if (!state.dirHandle) return;
+  if (!await verifyPermission(state.dirHandle)) { alert('폴더 권한이 거부되었습니다.'); return; }
+  await loadFromHandle(state.dirHandle);
+}
+
+async function loadFromHandle(handle) {
+  const entries = [];
+  for await (const entry of handle.values()) {
+    if (entry.kind !== 'file') continue;
+    if (!/\.xlsx$/i.test(entry.name)) continue;
+    if (entry.name.startsWith('~$') || entry.name.startsWith('.')) continue;
+    entries.push(entry);
+  }
+  entries.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+
+  const members = [];
+  const allRows = [];
+  for (const entry of entries) {
+    const file = await entry.getFile();
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array', cellDates: true });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { raw: true, defval: null });
+    const name = entry.name.replace(/\.xlsx$/i, '');
+    const normalized = normalizeRows(rows, name);
+    let lastDate = null;
+    for (const r of normalized) if (!lastDate || r.date > lastDate) lastDate = r.date;
+    members.push({ name, count: normalized.length, lastDate });
+    allRows.push(...normalized);
+  }
+  state.members = members;
+  state.transactions = allRows;
+  state.computedStart = { year: FIXED_START_YEAR, month: 1, ym: `${FIXED_START_YEAR}-01` };
+  const endInfo = computeLastCompleteMonth(members);
+  state.computedEnd = endInfo.completeEnd;
+  state.inProgressMonth = endInfo.inProgress;
+  if (state.computedEnd) {
+    state.yearTo = state.computedEnd.year;
+    if (state.incomeMonthYear == null) state.incomeMonthYear = state.computedEnd.year;
+    if (state.expenseMonthYear == null) state.expenseMonthYear = state.computedEnd.year;
+  } else {
+    state.yearTo = new Date().getFullYear();
+  }
+  if (state.yearFrom > state.yearTo) state.yearFrom = state.yearTo;
+  if (state.selectedMember !== 'all' && !members.find(m => m.name === state.selectedMember)) {
+    state.selectedMember = 'all';
+  }
+  render();
+}
+
+function normalizeRows(rows, memberName) {
+  const out = [];
+  for (const r of rows) {
+    const type = r['수입/지출'];
+    if (type !== '수입' && type !== '지출') continue;
+    let dateRaw = r['기간'];
+    let date;
+    if (dateRaw instanceof Date) date = dateRaw;
+    else if (typeof dateRaw === 'string') date = new Date(dateRaw);
+    else if (typeof dateRaw === 'number') date = new Date((dateRaw - 25569) * 86400 * 1000);
+    else continue;
+    if (!date || isNaN(date.getTime())) continue;
+    const amount = Number(r['금액']) || Number(r['KRW']) || 0;
+    if (!amount) continue;
+    out.push({
+      date,
+      ds: dateString(date),
+      year: date.getFullYear(),
+      month: date.getMonth() + 1,
+      ym: `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`,
+      member: memberName,
+      type,
+      category: (r['분류'] ?? '').toString().trim() || '미분류',
+      subCategory: (r['소분류'] ?? '').toString().trim(),
+      memo: (r['내용'] ?? '').toString().trim(),
+      asset: (r['자산'] ?? '').toString().trim(),
+      amount: Math.abs(Number(amount)),
+    });
+  }
+  return out;
+}
+
+function computeLastCompleteMonth(members) {
+  if (!members.length) return { completeEnd: null, inProgress: null };
+  const memberCompletes = [];
+  let latestAny = null;
+  for (const m of members) {
+    if (!m.lastDate) continue;
+    if (!latestAny || m.lastDate > latestAny) latestAny = m.lastDate;
+    const y = m.lastDate.getFullYear();
+    const mo = m.lastDate.getMonth() + 1;
+    const lastDay = lastDayOfMonth(y, mo);
+    let cy, cm;
+    if (m.lastDate.getDate() >= lastDay) { cy = y; cm = mo; }
+    else { cy = y; cm = mo - 1; if (cm < 1) { cy--; cm = 12; } }
+    memberCompletes.push({ year: cy, month: cm });
+  }
+  if (!memberCompletes.length) return { completeEnd: null, inProgress: null };
+  memberCompletes.sort((a, b) => b.year - a.year || b.month - a.month);
+  const max = memberCompletes[0];
+  const completeEnd = { year: max.year, month: max.month, ym: `${max.year}-${String(max.month).padStart(2,'0')}` };
+  let inProgress = null;
+  if (latestAny) {
+    const ly = latestAny.getFullYear();
+    const lm = latestAny.getMonth() + 1;
+    const inProgressYm = `${ly}-${String(lm).padStart(2,'0')}`;
+    if (inProgressYm > completeEnd.ym) inProgress = inProgressYm;
+  }
+  return { completeEnd, inProgress };
+}
+
+// ===== Filtering =====
+function getFilteredTransactions() {
+  const start = state.computedStart, end = state.computedEnd;
+  if (!start || !end) return [];
+  const yFrom = Math.max(state.yearFrom, FIXED_START_YEAR);
+  const yTo = state.yearTo;
+  return state.transactions.filter(t => {
+    if (state.selectedMember !== 'all' && t.member !== state.selectedMember) return false;
+    if (t.year < yFrom || t.year > yTo) return false;
+    if (t.ym > end.ym || t.ym < start.ym) return false;
+    if (t.type === '지출' && t.category === '선물' && t.subCategory === '계좌이체') return false;
+    if (state.excludeLargeExpense && t.type === '지출' && t.amount >= LARGE_EXPENSE_THRESHOLD) return false;
+    if (t.type === '수입' && state.includedIncomeCategories.length > 0 && !state.includedIncomeCategories.includes(t.category)) return false;
+    if (t.type === '지출' && state.excludedExpenseCategories.includes(t.category)) return false;
+    return true;
+  });
+}
+
+function effectiveCategory(t) {
+  if (state.expandEtc && t.category === '기타') {
+    return t.memo ? `기타·${t.memo}` : '기타·미기입';
+  }
+  return t.category;
+}
+
+// ===== Aggregations =====
+function monthsInYearWithinRange(year) {
+  if (!state.computedEnd) return 12;
+  if (year < state.computedEnd.year) return 12;
+  if (year === state.computedEnd.year) return state.computedEnd.month;
+  return 0;
+}
+
+function aggregateYearSummary(rows) {
+  const m = new Map();
+  for (const t of rows) {
+    if (!m.has(t.year)) m.set(t.year, { income: 0, expense: 0 });
+    if (t.type === '수입') m.get(t.year).income += t.amount;
+    else m.get(t.year).expense += t.amount;
+  }
+  return [...m.entries()].sort((a, b) => a[0] - b[0]).map(([year, v]) => {
+    const months = monthsInYearWithinRange(year);
+    return {
+      year, income: v.income, expense: v.expense, saving: v.income - v.expense,
+      rate: v.income > 0 ? (v.income - v.expense) / v.income : 0,
+      months,
+      monthlyAvgExpense: months > 0 ? v.expense / months : 0,
+    };
+  });
+}
+function aggregateMonthSummary(rows) {
+  const m = new Map();
+  for (const t of rows) {
+    if (!m.has(t.ym)) m.set(t.ym, { income: 0, expense: 0 });
+    if (t.type === '수입') m.get(t.ym).income += t.amount;
+    else m.get(t.ym).expense += t.amount;
+  }
+  return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([ym, v]) => ({
+    ym, income: v.income, expense: v.expense, saving: v.income - v.expense,
+  }));
+}
+
+// Categories on rows, time on columns
+function aggregateCategoryPivot(rows, type, gran, monthYear) {
+  const filtered = rows.filter(t => t.type === type);
+  let timeKeys;
+  let timeLabels;
+  let dataset;
+  let getTk;
+  if (gran === 'month') {
+    dataset = filtered.filter(t => t.year === monthYear);
+    timeKeys = [];
+    timeLabels = [];
+    for (let m = 1; m <= 12; m++) { timeKeys.push(m); timeLabels.push(`${m}월`); }
+    getTk = t => t.month;
+  } else {
+    dataset = filtered;
+    const ySet = new Set();
+    for (const t of dataset) ySet.add(t.year);
+    timeKeys = [...ySet].sort((a, b) => a - b);
+    timeLabels = timeKeys.map(y => `${y}년`);
+    getTk = t => t.year;
+  }
+  const catTotals = new Map();
+  const cells = new Map();
+  for (const t of dataset) {
+    const c = effectiveCategory(t);
+    const tk = getTk(t);
+    catTotals.set(c, (catTotals.get(c) || 0) + t.amount);
+    const k = `${c}|${tk}`;
+    cells.set(k, (cells.get(k) || 0) + t.amount);
+  }
+  const categories = [...catTotals.keys()].sort((a, b) => catTotals.get(b) - catTotals.get(a));
+  const grid = categories.map(c => {
+    const cellRow = timeKeys.map(tk => cells.get(`${c}|${tk}`) || 0);
+    return { category: c, cells: cellRow, total: catTotals.get(c) };
+  });
+  const timeSums = timeKeys.map(tk => {
+    let s = 0;
+    for (const c of categories) s += cells.get(`${c}|${tk}`) || 0;
+    return s;
+  });
+  const grandTotal = timeSums.reduce((s, v) => s + v, 0);
+  return { categories, timeKeys, timeLabels, grid, timeSums, grandTotal };
+}
+
+// ===== Charts registry =====
+const charts = {};
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+function destroyAllCharts() { Object.keys(charts).forEach(destroyChart); }
+
+function chartOpts({ stacked = false, title = null, dualY = false } = {}) {
+  const opts = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+      tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` } },
+    },
+    scales: {
+      x: { stacked, grid: { display: false } },
+      y: { stacked, ticks: { callback: v => fmt(v), font: { size: 11 } } },
+    },
+  };
+  if (title) opts.plugins.title = { display: true, text: title, font: { size: 13, weight: '600' } };
+  if (dualY) {
+    opts.scales.y1 = { position: 'right', ticks: { callback: v => fmt(v), font: { size: 11 } }, grid: { drawOnChartArea: false } };
+  }
+  return opts;
+}
+
+// ===== Rendering =====
+function render() {
+  destroyAllCharts();
+  if (!state.dirHandle) { renderWelcome(); return; }
+  if (!state.transactions.length) { renderEmpty(); return; }
+  renderMain();
+}
+
+function renderWelcome() {
+  const supported = !!window.showDirectoryPicker;
+  document.getElementById('app').innerHTML = `
+    <div class="welcome">
+      <div class="welcome-icon">💰</div>
+      <h1>가족 가계부</h1>
+      <p>같은 폴더 안의 <code>{이름}.xlsx</code> 파일을 자동으로 읽어<br>
+         수입·지출을 시각화합니다.<br>
+         시작하려면 폴더를 선택하세요.</p>
+      ${supported ? `<button id="btn-pick">폴더 선택</button>` : `<div class="error">이 브라우저는 폴더 선택 기능을 지원하지 않습니다. Chrome 또는 Edge로 열어주세요.</div>`}
+    </div>
+  `;
+  if (supported) document.getElementById('btn-pick').onclick = () => pickFolder().catch(e => alert(e.message));
+}
+
+function renderEmpty() {
+  document.getElementById('app').innerHTML = `
+    <header class="app-header">
+      <div><h1>가족 가계부</h1></div>
+      <div style="display:flex;gap:8px;">
+        <button class="secondary" id="btn-folder">폴더 변경</button>
+      </div>
+    </header>
+    <div class="error">선택한 폴더에 분석 가능한 xlsx 데이터가 없습니다.</div>
+  `;
+  document.getElementById('btn-folder').onclick = () => pickFolder().catch(e => alert(e.message));
+}
+
+function renderMain() {
+  // Clamp month-year selectors within range
+  if (state.incomeMonthYear < state.yearFrom) state.incomeMonthYear = state.yearFrom;
+  if (state.incomeMonthYear > state.yearTo) state.incomeMonthYear = state.yearTo;
+  if (state.expenseMonthYear < state.yearFrom) state.expenseMonthYear = state.yearFrom;
+  if (state.expenseMonthYear > state.yearTo) state.expenseMonthYear = state.yearTo;
+
+  const rows = getFilteredTransactions();
+  const yearSummary = aggregateYearSummary(rows);
+  const monthSummary = aggregateMonthSummary(rows);
+
+  document.getElementById('app').innerHTML = `
+    <header class="app-header">
+      <div>
+        <h1>가족 가계부</h1>
+        <div class="muted">${esc(renderStatusLine())}</div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="secondary" id="btn-refresh">↻ 새로고침</button>
+        <button class="secondary" id="btn-export">⬇ Export Summary</button>
+        <button class="secondary" id="btn-folder">폴더 변경</button>
+      </div>
+    </header>
+
+    ${state.inProgressMonth ? `<div class="notice">진행 중인 달: <strong>${state.inProgressMonth}</strong> (월말이 채워지지 않아 집계에서 제외됨)</div>` : ''}
+
+    <div class="controls">${renderControls()}</div>
+
+    <div class="section">
+      <div class="section-header">
+        <h2 class="collapsible" data-collapse="year"><span class="chevron">${state.collapsed.year ? '▶' : '▼'}</span> 1. 연도 요약</h2>
+        <span class="section-hint">행 클릭 → 연간 상세 · 월 평균 셀 클릭 → 항목별 월평균</span>
+      </div>
+      ${state.collapsed.year ? '' : `<div class="section-content"><div class="table-wrap" id="year-summary-table"></div></div>`}
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <h2 class="collapsible" data-collapse="income"><span class="chevron">${state.collapsed.income ? '▶' : '▼'}</span> 2. 수입 분류</h2>
+        <div class="section-header-controls">
+          <div class="pill-group">
+            <div class="pill ${state.incomeGran === 'year' ? 'active' : ''}" data-gran="income-year">연도별</div>
+            <div class="pill ${state.incomeGran === 'month' ? 'active' : ''}" data-gran="income-month">월별</div>
+          </div>
+          ${state.incomeGran === 'month' ? `<select id="income-year-select">${yearSelectOptions(state.incomeMonthYear)}</select>` : ''}
+        </div>
+      </div>
+      ${state.collapsed.income ? '' : `<div class="section-content"><div class="table-wrap" id="income-pivot-table"></div></div>`}
+    </div>
+
+    <div class="section">
+      <div class="section-header">
+        <h2 class="collapsible" data-collapse="expense"><span class="chevron">${state.collapsed.expense ? '▶' : '▼'}</span> 3. 지출 분류</h2>
+        <div class="section-header-controls">
+          <div class="pill-group">
+            <div class="pill ${state.expenseGran === 'year' ? 'active' : ''}" data-gran="expense-year">연도별</div>
+            <div class="pill ${state.expenseGran === 'month' ? 'active' : ''}" data-gran="expense-month">월별</div>
+          </div>
+          ${state.expenseGran === 'month' ? `<select id="expense-year-select">${yearSelectOptions(state.expenseMonthYear)}</select>` : ''}
+        </div>
+      </div>
+      ${state.collapsed.expense ? '' : `<div class="section-content"><div class="table-wrap" id="expense-pivot-table"></div></div>`}
+    </div>
+
+    <div class="spacer"></div>
+    <div class="muted" style="text-align:center; padding: 20px 0;">
+      ⓘ 분석 시작일은 <strong>${FIXED_START_YEAR}-01-01</strong> 고정. 종료는 폴더 안 전체 구성원이 월말까지 채운 마지막 월.
+    </div>
+  `;
+
+  document.getElementById('btn-refresh').onclick = () => refresh().catch(e => alert(e.message));
+  document.getElementById('btn-folder').onclick = () => pickFolder().catch(e => alert(e.message));
+  document.getElementById('btn-export').onclick = () => { try { exportSummaryMd(); } catch (e) { alert('Export 실패: ' + e.message); } };
+  wireControls();
+
+  renderYearSummary(yearSummary);
+  renderCategorySection('income', '수입', rows);
+  renderCategorySection('expense', '지출', rows);
+}
+
+function yearSelectOptions(selectedYear) {
+  let html = '';
+  for (let y = state.yearFrom; y <= state.yearTo; y++) {
+    html += `<option value="${y}" ${y === selectedYear ? 'selected' : ''}>${y}년</option>`;
+  }
+  return html;
+}
+
+function renderStatusLine() {
+  if (!state.computedEnd || !state.members.length) return '데이터 없음';
+  return `분석 범위: ${state.computedStart.ym} ~ ${state.computedEnd.ym} (월말 완료 기준)`;
+}
+
+function renderControls() {
+  const memberOpts = ['all', ...state.members.map(m => m.name)];
+  const memberLabel = (k) => k === 'all' ? '전체' : k;
+  const yearOpts = [];
+  for (let y = FIXED_START_YEAR; y <= state.computedEnd.year; y++) yearOpts.push(y);
+  const expenseCategoryList = [...new Set(state.transactions.filter(t => t.type === '지출').map(t => t.category))].sort((a, b) => a.localeCompare(b, 'ko'));
+  const incomeCategoryList = [...new Set(state.transactions.filter(t => t.type === '수입').map(t => t.category))].sort((a, b) => a.localeCompare(b, 'ko'));
+
+  return `
+    <div class="control-row">
+      <div class="control-label">구성원</div>
+      <div class="pill-group" role="radiogroup">
+        ${memberOpts.map(k => `<div class="pill ${state.selectedMember === k ? 'active' : ''}" role="radio" aria-checked="${state.selectedMember === k}" data-member="${esc(k)}">${esc(memberLabel(k))}</div>`).join('')}
+      </div>
+    </div>
+    <div class="control-row">
+      <div class="control-label">기간</div>
+      <select id="year-from">${yearOpts.map(y => `<option value="${y}" ${y === state.yearFrom ? 'selected' : ''}>${y}년</option>`).join('')}</select>
+      <span class="muted">~</span>
+      <select id="year-to">${yearOpts.map(y => `<option value="${y}" ${y === state.yearTo ? 'selected' : ''}>${y}년</option>`).join('')}</select>
+    </div>
+    <div class="control-row">
+      <div class="control-label">옵션</div>
+      <label class="checkbox-label"><input type="checkbox" id="cb-etc" ${state.expandEtc ? 'checked' : ''}> "기타" 분류 펼치기 (내용별)</label>
+      <label class="checkbox-label"><input type="checkbox" id="cb-large" ${state.excludeLargeExpense ? 'checked' : ''}> 1000만원 이상 지출 제외</label>
+    </div>
+    <div class="control-row">
+      <div class="control-label">수입항목 선택</div>
+      <div class="pill-group-wrap" role="group" id="include-inc-group">
+        ${incomeCategoryList.map(c => `<div class="pill ${state.includedIncomeCategories.includes(c) ? 'selected-inc' : ''}" data-include-inc="${esc(c)}" title="클릭하여 ${state.includedIncomeCategories.includes(c) ? '선택 해제' : '선택 (해당 항목만 포함)'}">${esc(c)}</div>`).join('')}
+      </div>
+      ${state.includedIncomeCategories.length ? `<button class="btn-clear-exclude" id="btn-clear-inc-select">전체 보기 (${state.includedIncomeCategories.length}개 선택 중)</button>` : ''}
+    </div>
+    <div class="control-row">
+      <div class="control-label">지출항목 제외</div>
+      <div class="pill-group-wrap" role="group" id="exclude-cat-group">
+        ${expenseCategoryList.map(c => `<div class="pill ${state.excludedExpenseCategories.includes(c) ? 'excluded' : ''}" data-exclude-cat="${esc(c)}" title="클릭하여 ${state.excludedExpenseCategories.includes(c) ? '포함' : '제외'}">${esc(c)}</div>`).join('')}
+      </div>
+      ${state.excludedExpenseCategories.length ? `<button class="btn-clear-exclude" id="btn-clear-exclude">전체 해제 (${state.excludedExpenseCategories.length}개 제외 중)</button>` : ''}
+    </div>
+  `;
+}
+
+function wireControls() {
+  document.querySelectorAll('[data-member]').forEach(el => {
+    el.onclick = () => { state.selectedMember = el.dataset.member; render(); };
+  });
+  document.getElementById('year-from').onchange = e => { state.yearFrom = Number(e.target.value); render(); };
+  document.getElementById('year-to').onchange = e => { state.yearTo = Number(e.target.value); render(); };
+  document.getElementById('cb-etc').onchange = e => { state.expandEtc = e.target.checked; render(); };
+  document.getElementById('cb-large').onchange = e => { state.excludeLargeExpense = e.target.checked; render(); };
+
+  document.querySelectorAll('[data-include-inc]').forEach(el => {
+    el.onclick = () => {
+      const cat = el.dataset.includeInc;
+      const idx = state.includedIncomeCategories.indexOf(cat);
+      if (idx >= 0) state.includedIncomeCategories.splice(idx, 1);
+      else state.includedIncomeCategories.push(cat);
+      render();
+    };
+  });
+  const clearIncBtn = document.getElementById('btn-clear-inc-select');
+  if (clearIncBtn) clearIncBtn.onclick = () => { state.includedIncomeCategories = []; render(); };
+
+  document.querySelectorAll('[data-exclude-cat]').forEach(el => {
+    el.onclick = () => {
+      const cat = el.dataset.excludeCat;
+      const idx = state.excludedExpenseCategories.indexOf(cat);
+      if (idx >= 0) state.excludedExpenseCategories.splice(idx, 1);
+      else state.excludedExpenseCategories.push(cat);
+      render();
+    };
+  });
+  const clearBtn = document.getElementById('btn-clear-exclude');
+  if (clearBtn) clearBtn.onclick = () => { state.excludedExpenseCategories = []; render(); };
+
+  document.querySelectorAll('[data-gran]').forEach(el => {
+    el.onclick = () => {
+      const [section, gran] = el.dataset.gran.split('-');
+      if (section === 'income') state.incomeGran = gran;
+      else state.expenseGran = gran;
+      render();
+    };
+  });
+  const incomeYs = document.getElementById('income-year-select');
+  if (incomeYs) incomeYs.onchange = e => { state.incomeMonthYear = Number(e.target.value); render(); };
+  const expenseYs = document.getElementById('expense-year-select');
+  if (expenseYs) expenseYs.onchange = e => { state.expenseMonthYear = Number(e.target.value); render(); };
+
+  document.querySelectorAll('[data-collapse]').forEach(el => {
+    el.onclick = () => {
+      const k = el.dataset.collapse;
+      state.collapsed[k] = !state.collapsed[k];
+      render();
+    };
+  });
+}
+
+
+
+// ===== Year summary =====
+function renderYearSummary(yearSummary) {
+  const tbl = document.getElementById('year-summary-table');
+  if (!tbl) return;
+  if (!yearSummary.length) { tbl.innerHTML = '<div class="muted">데이터 없음</div>'; return; }
+  const totalIncome = yearSummary.reduce((s, r) => s + r.income, 0);
+  const totalExpense = yearSummary.reduce((s, r) => s + r.expense, 0);
+  const totalMonths = yearSummary.reduce((s, r) => s + r.months, 0);
+  tbl.innerHTML = `
+    <table>
+      <thead><tr><th>연도</th><th>수입</th><th>지출</th><th>월 평균 지출</th><th>모은돈</th><th>저축률</th></tr></thead>
+      <tbody>
+        ${yearSummary.map(r => `
+          <tr class="clickable" data-year="${r.year}">
+            <td><strong>${r.year}년</strong></td>
+            <td class="pos clickable" data-inc-year="${r.year}">${fmt(r.income)}</td>
+            <td class="neg clickable" data-exp-year="${r.year}">${fmt(r.expense)}</td>
+            <td class="neg clickable" data-avg-year="${r.year}" title="${r.months}개월 기준">${fmt(r.monthlyAvgExpense)}<span class="muted" style="font-size:11px;"> /${r.months}개월</span></td>
+            <td class="${r.saving >= 0 ? 'pos' : 'neg'}"><strong>${fmt(r.saving)}</strong></td>
+            <td>${r.income > 0 ? fmtPct(r.rate) : '-'}</td>
+          </tr>
+        `).join('')}
+        <tr class="total-row">
+          <td>합계</td>
+          <td class="pos">${fmt(totalIncome)}</td>
+          <td class="neg">${fmt(totalExpense)}</td>
+          <td class="neg">${totalMonths > 0 ? fmt(totalExpense / totalMonths) : '-'}<span class="muted" style="font-size:11px;font-weight:400;"> /${totalMonths}개월</span></td>
+          <td>${fmt(totalIncome - totalExpense)}</td>
+          <td>-</td>
+        </tr>
+      </tbody>
+    </table>
+  `;
+  tbl.querySelectorAll('tr.clickable[data-year]').forEach(tr => {
+    tr.onclick = (e) => {
+      if (e.target.closest('[data-avg-year], [data-inc-year], [data-exp-year]')) return;
+      openDetail(`${tr.dataset.year}년 전체 내역`, '연도 합계', t => t.year === Number(tr.dataset.year));
+    };
+  });
+  tbl.querySelectorAll('[data-avg-year]').forEach(td => {
+    td.onclick = (e) => {
+      e.stopPropagation();
+      openMonthlyAvgDetail(Number(td.dataset.avgYear));
+    };
+  });
+  tbl.querySelectorAll('[data-inc-year]').forEach(td => {
+    td.onclick = (e) => {
+      e.stopPropagation();
+      const y = Number(td.dataset.incYear);
+      openDetail(`${y}년 수입 내역`, '연도 수입', t => t.year === y && t.type === '수입');
+    };
+  });
+  tbl.querySelectorAll('[data-exp-year]').forEach(td => {
+    td.onclick = (e) => {
+      e.stopPropagation();
+      const y = Number(td.dataset.expYear);
+      openDetail(`${y}년 지출 내역`, '연도 지출', t => t.year === y && t.type === '지출');
+    };
+  });
+}
+
+// ===== Subcategory helpers =====
+function getSubCategories(type, category, allRows, timeFn) {
+  const filtered = allRows.filter(t =>
+    t.type === type &&
+    effectiveCategory(t) === category &&
+    timeFn(t)
+  );
+  const subMap = new Map();
+  for (const t of filtered) {
+    const sub = t.subCategory || '';
+    subMap.set(sub, (subMap.get(sub) || 0) + t.amount);
+  }
+  return [...subMap.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+// ===== Category section (income or expense) =====
+function renderCategorySection(key, type, allRows) {
+  const wrap = document.getElementById(`${key}-pivot-table`);
+  if (!wrap) return;
+  const gran = key === 'income' ? state.incomeGran : state.expenseGran;
+  const monthYear = key === 'income' ? state.incomeMonthYear : state.expenseMonthYear;
+  const piv = aggregateCategoryPivot(allRows, type, gran, monthYear);
+  const isExpense = type === '지출';
+  const baseCellClass = isExpense ? '' : 'pos';
+
+  if (!piv.categories.length) {
+    wrap.innerHTML = '<div class="muted">데이터 없음</div>';
+    return;
+  }
+
+  // 어떤 분류가 펼쳐져 있는지 추적 (Set of ri)
+  const expandedCats = new Set();
+  
+  // 실제 입력 데이터 기간 개수 계산 (월별이면 입력된 월 수: 예: 6월까지면 / 6)
+  let timeCount = 1;
+  if (gran === 'month') {
+    const rowsInYear = allRows.filter(t => t.type === type && t.year === monthYear);
+    const monthsInData = new Set(rowsInYear.map(t => t.month));
+    const maxMonth = monthsInData.size ? Math.max(...monthsInData) : 0;
+    timeCount = maxMonth || monthsInYearWithinRange(monthYear) || 1;
+  } else {
+    timeCount = piv.timeKeys.length || 1;
+  }
+
+  function subRows(r, ri) {
+    // 해당 분류의 소분류를 timeKey별로 집계
+    const timeRangeFn = (t) => gran === 'month' ? t.year === monthYear : true;
+    const catRows = allRows.filter(t => t.type === type && effectiveCategory(t) === r.category && timeRangeFn(t));
+    const subTimeMap = new Map(); // sub -> [tk -> amount]
+    for (const t of catRows) {
+      const sub = t.subCategory || '';
+      if (!subTimeMap.has(sub)) subTimeMap.set(sub, new Map());
+      const tk = gran === 'month' ? t.month : t.year;
+      const m = subTimeMap.get(sub);
+      m.set(tk, (m.get(tk) || 0) + t.amount);
+    }
+    // 소분류 합계 내림차순 정렬
+    const subTotals = [...subTimeMap.entries()]
+      .map(([sub, tkMap]) => ({ sub, tkMap, total: [...tkMap.values()].reduce((s,v)=>s+v,0) }))
+      .sort((a,b) => b.total - a.total);
+
+    if (!subTotals.length) return '';
+
+    return subTotals.map(({ sub, tkMap, total }) => {
+      const subAvg = timeCount > 0 ? total / timeCount : 0;
+      const cells = piv.timeKeys.map((tk, ci) => {
+        const curr = tkMap.get(tk) || 0;
+        const prev = ci > 0 ? (tkMap.get(piv.timeKeys[ci-1]) || 0) : null;
+        if (!isExpense) {
+          return `<td class="${baseCellClass} clickable" data-sec="${key}" data-sub="${esc(sub)}" data-cat="${esc(r.category)}" data-ci="${ci}">${curr ? fmt(curr) : '-'}</td>`;
+        }
+        if (!curr) return `<td class="change-neutral clickable" data-sec="${key}" data-sub="${esc(sub)}" data-cat="${esc(r.category)}" data-ci="${ci}">-</td>`;
+        let cc = 'change-neutral'; let ph = '';
+        if (prev && prev > 0) {
+          const pct = (curr - prev) / prev * 100;
+          const sign = pct >= 0 ? '+' : '';
+          ph = `<span class="pct">${sign}${pct.toFixed(1)}%</span>`;
+          cc = pct >= 20 ? 'change-up' : pct <= -20 ? 'change-down' : 'change-neutral';
+        }
+        return `<td class="${cc} clickable" data-sec="${key}" data-sub="${esc(sub)}" data-cat="${esc(r.category)}" data-ci="${ci}"><div class="cell-change"><span>${curr ? fmt(curr) : '-'}</span>${ph}</div></td>`;
+      });
+      return `<tr class="sub-row" data-sub-row="${ri}">
+        <td><span class="cat-cell" style="padding-left:4px">↳ ${esc(sub) || '<span style="opacity:.5">미분류</span>'}</span></td>
+        ${cells.join('')}
+        <td class="total-col clickable" data-sec="${key}" data-sub="${esc(sub)}" data-cat="${esc(r.category)}" data-ci="total">${fmt(total)}</td>
+        <td class="total-col clickable" data-sec="${key}" data-sub="${esc(sub)}" data-cat="${esc(r.category)}" data-ci="avg" title="클릭하여 시계열 그래프 보기">${fmt(subAvg)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function cellHtml(r, ri, ci) {
+    const curr = r.cells[ci];
+    const prev = ci > 0 ? r.cells[ci - 1] : null;
+    if (!isExpense) {
+      return `<td class="${baseCellClass} clickable" data-sec="${key}" data-ri="${ri}" data-ci="${ci}">${curr ? fmt(curr) : '-'}</td>`;
+    }
+    if (!curr) return `<td class="change-neutral clickable" data-sec="${key}" data-ri="${ri}" data-ci="${ci}">-</td>`;
+    let changeClass = 'change-neutral'; let pctHtml = '';
+    if (prev && prev > 0) {
+      const pct = (curr - prev) / prev * 100;
+      const sign = pct >= 0 ? '+' : '';
+      pctHtml = `<span class="pct">${sign}${pct.toFixed(1)}%</span>`;
+      if (pct >= 20) changeClass = 'change-up';
+      else if (pct <= -20) changeClass = 'change-down';
+    }
+    return `<td class="${changeClass} clickable" data-sec="${key}" data-ri="${ri}" data-ci="${ci}"><div class="cell-change"><span>${fmt(curr)}</span>${pctHtml}</div></td>`;
+  }
+
+  function buildTable() {
+    const tbody = piv.grid.map((r, ri) => {
+      const isExp = expandedCats.has(ri);
+      const avg = timeCount > 0 ? r.total / timeCount : 0;
+      // 소분류가 있는지 미리 체크
+      const timeRangeFn = (t) => gran === 'month' ? t.year === monthYear : true;
+      const hasSub = allRows.some(t => t.type === type && effectiveCategory(t) === r.category && timeRangeFn(t) && t.subCategory && t.subCategory.trim() !== '');
+      const toggleIcon = hasSub
+        ? `<span class="cat-toggle-icon${isExp ? ' open' : ''}">▶</span>`
+        : `<span class="cat-toggle-icon" style="opacity:0;pointer-events:none">▶</span>`;
+      const mainRow = `<tr>
+        <td class="cat-toggle${hasSub ? '' : ''}" data-cat-ri="${ri}">${toggleIcon}<span class="cat-cell"><span class="dot" style="background:${categoryColor(r.category)}"></span>${esc(r.category)}</span></td>
+        ${r.cells.map((_, ci) => cellHtml(r, ri, ci)).join('')}
+        <td class="${isExpense ? '' : baseCellClass} total-col clickable" data-sec="${key}" data-ri="${ri}" data-ci="total"><strong>${fmt(r.total)}</strong></td>
+        <td class="${isExpense ? '' : baseCellClass} total-col clickable" data-sec="${key}" data-ri="${ri}" data-ci="avg" title="클릭하여 시계열 그래프 보기 (${timeCount}${gran === 'month' ? '개월' : '개년'} 기준)"><strong>${fmt(avg)}</strong></td>
+      </tr>`;
+      const subHtml = (hasSub && isExp) ? subRows(r, ri) : '';
+      return mainRow + subHtml;
+    }).join('');
+
+    const grandAvg = timeCount > 0 ? piv.grandTotal / timeCount : 0;
+    const avgHeaderLabel = `평균 (${timeCount}${gran === 'month' ? '개월' : '개년'})`;
+
+    wrap.innerHTML = `<table>
+      <thead><tr>
+        <th>분류</th>
+        ${piv.timeLabels.map(l => `<th>${esc(l)}</th>`).join('')}
+        <th class="total-col">합계</th>
+        <th class="total-col" title="${timeCount}${gran === 'month' ? '개월' : '개년'} 기준 평균">${avgHeaderLabel}</th>
+      </tr></thead>
+      <tbody>
+        ${tbody}
+        <tr class="total-row">
+          <td>합계</td>
+          ${piv.timeSums.map((v, ci) => `<td class="clickable" data-sec="${key}" data-ri="total" data-ci="${ci}" title="클릭하여 분류별 막대 그래프 보기">${fmt(v)}</td>`).join('')}
+          <td class="total-col clickable" data-sec="${key}" data-ri="total" data-ci="total" title="클릭하여 총합계 추이 그래프 보기"><strong>${fmt(piv.grandTotal)}</strong></td>
+          <td class="total-col clickable" data-sec="${key}" data-ri="total" data-ci="avg" title="클릭하여 전체 분류 시계열 그래프 보기"><strong>${fmt(grandAvg)}</strong></td>
+        </tr>
+      </tbody>
+    </table>`;
+
+    // 금액 셀 및 차트 모달 클릭 이벤트 (대분류 & 합계 행)
+    wrap.querySelectorAll('[data-sec][data-ri]').forEach(td => {
+      td.onclick = (e) => {
+        e.stopPropagation();
+        const ri = td.dataset.ri;
+        const ci = td.dataset.ci;
+        const isRowTotal = ri === 'total';
+        const isColTotal = ci === 'total';
+        const isColAvg = ci === 'avg';
+        const timeTitle = gran === 'month' ? `${monthYear}년 월별` : '연도별';
+
+        // 1. 합계 row의 컬럼 클릭 시 -> 모달 차트
+        if (isRowTotal) {
+          if (isColAvg) {
+            // "평균" 클릭 -> 모든 분류가 시계열로 표시되는 다중 Line Chart
+            const datasets = piv.grid.map(r => ({
+              label: r.category,
+              data: r.cells,
+              borderColor: categoryColor(r.category),
+              backgroundColor: categoryColor(r.category),
+              tension: 0.2,
+              fill: false,
+            }));
+            openChartModal({
+              title: `${type} 전체 분류별 시계열 추이 (${timeTitle})`,
+              subtitle: `전체 ${piv.categories.length}개 분류 · 상단 범례를 클릭해 특정 항목을 On/Off 할 수 있습니다`,
+              type: 'line',
+              labels: piv.timeLabels,
+              xTitle: gran === 'month' ? '월' : '연도',
+              yTitle: '금액',
+              datasets,
+            });
+            return;
+          }
+
+          if (isColTotal) {
+            // "합계" 클릭 -> 총합계 시계열 Line Chart
+            openChartModal({
+              title: `${type} 전체 총합계 추이 (${timeTitle})`,
+              subtitle: `총합계: ${fmt(piv.grandTotal)} · 기간 평균: ${fmt(grandAvg)} (${timeCount}${gran === 'month' ? '개월' : '개년'} 기준)`,
+              type: 'line',
+              labels: piv.timeLabels,
+              xTitle: gran === 'month' ? '월' : '연도',
+              yTitle: '금액',
+              datasets: [{
+                label: `${type} 총합계`,
+                data: piv.timeSums,
+                borderColor: isExpense ? '#dc2626' : '#059669',
+                backgroundColor: isExpense ? 'rgba(220,38,38,0.1)' : 'rgba(5,150,105,0.1)',
+                fill: true,
+                tension: 0.2,
+              }],
+            });
+            return;
+          }
+
+          // 각 년도 or 월 컬럼 클릭 -> 그 시점의 각 분류별 항목을 Bar 차트로 표시
+          const ciNum = Number(ci);
+          const timeVal = piv.timeKeys[ciNum];
+          const timeLabel = gran === 'month' ? `${monthYear}년 ${timeVal}월` : `${timeVal}년`;
+          const barItems = piv.grid
+            .map(r => ({ category: r.category, amount: r.cells[ciNum] }))
+            .filter(d => d.amount > 0)
+            .sort((a, b) => b.amount - a.amount);
+
+          const isHorizontal = barItems.length > 8;
+
+          openChartModal({
+            title: `${timeLabel} · ${type} 분류별 현황 (합계: ${fmt(piv.timeSums[ciNum])})`,
+            subtitle: `${barItems.length}개 분류 · 금액 순`,
+            type: 'bar',
+            labels: barItems.map(d => d.category),
+            xTitle: isHorizontal ? '금액' : '분류',
+            yTitle: isHorizontal ? '분류' : '금액',
+            datasets: [{
+              label: `${type} 금액`,
+              data: barItems.map(d => d.amount),
+              backgroundColor: barItems.map(d => categoryColor(d.category)),
+            }],
+            options: {
+              indexAxis: isHorizontal ? 'y' : 'x',
+              plugins: { legend: { display: false } },
+            },
+          });
+          return;
+        }
+
+        // 2. 특정 분류 행의 "평균" 클릭 -> 해당 분류의 시계열 Line Chart 모달
+        if (isColAvg) {
+          const r = piv.grid[Number(ri)];
+          const catAvg = timeCount > 0 ? r.total / timeCount : 0;
+          openChartModal({
+            title: `${r.category} · ${type} 추이 (${timeTitle})`,
+            subtitle: `합계: ${fmt(r.total)} · 기간 평균: ${fmt(catAvg)} (${timeCount}${gran === 'month' ? '개월' : '개년'} 기준)`,
+            type: 'line',
+            labels: piv.timeLabels,
+            xTitle: gran === 'month' ? '월' : '연도',
+            yTitle: '금액',
+            datasets: [{
+              label: r.category,
+              data: r.cells,
+              borderColor: categoryColor(r.category),
+              backgroundColor: categoryColor(r.category),
+              tension: 0.2,
+              fill: false,
+            }],
+          });
+          return;
+        }
+
+        // 3. 그 외 셀 클릭 -> 우측 슬라이드 패널 상세
+        const category = piv.categories[Number(ri)];
+        const timeLabel = (tk) => gran === 'month' ? `${monthYear}년 ${tk}월` : `${tk}년`;
+        const timeRangeMatch = (t) => gran === 'month' ? t.year === monthYear : true;
+        let title, filterFn;
+        if (!isColTotal) {
+          const timeVal = piv.timeKeys[Number(ci)];
+          const timeMatch = (t) => gran === 'month' ? (t.year === monthYear && t.month === timeVal) : (t.year === timeVal);
+          title = `${category} · ${timeLabel(timeVal)}`;
+          filterFn = t => t.type === type && effectiveCategory(t) === category && timeMatch(t);
+        } else {
+          title = `${category} · 전체 합계`;
+          filterFn = t => t.type === type && effectiveCategory(t) === category && timeRangeMatch(t);
+        }
+        openDetail(title, `${type} 상세`, filterFn);
+      };
+    });
+
+    // 금액 셀 및 차트 모달 클릭 이벤트 (소분류 행)
+    wrap.querySelectorAll('[data-sec][data-sub]').forEach(td => {
+      td.onclick = (e) => {
+        e.stopPropagation();
+        const sub = td.dataset.sub;
+        const cat = td.dataset.cat;
+        const ci = td.dataset.ci;
+        const isColAvg = ci === 'avg';
+        const timeTitle = gran === 'month' ? `${monthYear}년 월별` : '연도별';
+        const timeLabel = (tk) => gran === 'month' ? `${monthYear}년 ${tk}월` : `${tk}년`;
+        const timeRangeMatch = (t) => gran === 'month' ? t.year === monthYear : true;
+
+        if (isColAvg) {
+          // 소분류 "평균" 클릭 -> 소분류 시계열 Line Chart 모달
+          const catRows = allRows.filter(t => t.type === type && effectiveCategory(t) === cat && (t.subCategory || '') === sub && timeRangeMatch(t));
+          const subValues = piv.timeKeys.map(tk => {
+            const match = catRows.filter(t => (gran === 'month' ? t.month : t.year) === tk);
+            return match.reduce((s, t) => s + t.amount, 0);
+          });
+          const subTotal = subValues.reduce((s, v) => s + v, 0);
+          const subAvg = timeCount > 0 ? subTotal / timeCount : 0;
+
+          openChartModal({
+            title: `${cat} › ${sub || '미분류'} · ${type} 추이 (${timeTitle})`,
+            subtitle: `합계: ${fmt(subTotal)} · 기간 평균: ${fmt(subAvg)} (${timeCount}${gran === 'month' ? '개월' : '개년'} 기준)`,
+            type: 'line',
+            labels: piv.timeLabels,
+            xTitle: gran === 'month' ? '월' : '연도',
+            yTitle: '금액',
+            datasets: [{
+              label: `${cat} › ${sub || '미분류'}`,
+              data: subValues,
+              borderColor: categoryColor(cat),
+              backgroundColor: categoryColor(cat),
+              tension: 0.2,
+              fill: false,
+            }],
+          });
+          return;
+        }
+
+        let filterFn, title;
+        if (ci === 'total') {
+          title = `${cat} › ${sub || '미분류'} · 전체`;
+          filterFn = t => t.type === type && effectiveCategory(t) === cat && (t.subCategory || '') === sub && timeRangeMatch(t);
+        } else {
+          const timeVal = piv.timeKeys[Number(ci)];
+          const timeMatch = (t) => gran === 'month' ? (t.year === monthYear && t.month === timeVal) : (t.year === timeVal);
+          title = `${cat} › ${sub || '미분류'} · ${timeLabel(timeVal)}`;
+          filterFn = t => t.type === type && effectiveCategory(t) === cat && (t.subCategory || '') === sub && timeMatch(t);
+        }
+        openDetail(title, `${type} 소분류 상세`, filterFn);
+      };
+    });
+
+    // 분류명 td 클릭 → 소분류 인라인 토글
+    wrap.querySelectorAll('[data-cat-ri]').forEach(td => {
+      td.onclick = (e) => {
+        e.stopPropagation();
+        const ri = Number(td.dataset.catRi);
+        if (expandedCats.has(ri)) expandedCats.delete(ri);
+        else expandedCats.add(ri);
+        buildTable();
+      };
+    });
+  }
+
+  buildTable();
+}
+
+// ===== Export Summary =====
+function exportSummaryMd() {
+  const rows = getFilteredTransactions();
+  if (!rows.length) throw new Error('export할 데이터가 없습니다');
+
+  const today = dateString(new Date());
+  const ys = aggregateYearSummary(rows);
+  const ms = aggregateMonthSummary(rows);
+  const incPivot = aggregateCategoryPivot(rows, '수입', 'year', null);
+  const expPivot = aggregateCategoryPivot(rows, '지출', 'year', null);
+
+  const memberInfo = state.members.map(m => `${m.name} (최종 ${dateString(m.lastDate)})`).join(', ');
+  const filterSummary = [
+    `구성원 뷰: ${state.selectedMember === 'all' ? '전체' : state.selectedMember}`,
+    `기간: ${state.yearFrom}년 ~ ${state.yearTo}년`,
+    `"기타" 펼치기: ${state.expandEtc ? '예' : '아니오'}`,
+    `1000만원 이상 지출 제외: ${state.excludeLargeExpense ? '예' : '아니오'}`,
+    `수입항목 선택: ${state.includedIncomeCategories.length ? state.includedIncomeCategories.join(', ') : '전체 포함'}`,
+    `지출항목 제외: ${state.excludedExpenseCategories.length ? state.excludedExpenseCategories.join(', ') : '없음'}`,
+  ].join('\n  - ');
+
+  const lines = [];
+  lines.push(`# 가족 가계부 요약`);
+  lines.push('');
+  lines.push(`- 생성일: ${today}`);
+  lines.push(`- 분석 범위: ${state.computedStart.ym} ~ ${state.computedEnd.ym} (월말 완료 기준)`);
+  lines.push(`- 구성원: ${memberInfo}`);
+  lines.push(`- 적용 필터:`);
+  lines.push(`  - ${filterSummary}`);
+  lines.push('');
+  lines.push(`> 본 문서는 거래 단위 상세를 제외한 집계 데이터만 포함합니다. 다른 AI 세션에 가족의 소비/수입 패턴 분석용 컨텍스트로 사용됩니다.`);
+  lines.push('');
+
+  // 1. Year summary
+  lines.push('## 1. 연도별 요약');
+  lines.push('');
+  lines.push('| 연도 | 수입 | 지출 | 모은돈 | 저축률 | 월 평균 지출 | 기준 개월 |');
+  lines.push('|---|---|---|---|---|---|---|');
+  let totIn = 0, totEx = 0, totMo = 0;
+  for (const r of ys) {
+    lines.push(`| ${r.year} | ${fmt(r.income)} | ${fmt(r.expense)} | ${fmt(r.saving)} | ${r.income > 0 ? fmtPct(r.rate) : '-'} | ${fmt(r.monthlyAvgExpense)} | ${r.months} |`);
+    totIn += r.income; totEx += r.expense; totMo += r.months;
+  }
+  lines.push(`| **합계** | **${fmt(totIn)}** | **${fmt(totEx)}** | **${fmt(totIn - totEx)}** | - | ${totMo > 0 ? fmt(totEx / totMo) : '-'} | ${totMo} |`);
+  lines.push('');
+
+  // 2. Month summary
+  lines.push('## 2. 월별 요약');
+  lines.push('');
+  lines.push('| 년월 | 수입 | 지출 | 모은돈 |');
+  lines.push('|---|---|---|---|');
+  for (const r of ms) {
+    lines.push(`| ${r.ym} | ${fmt(r.income)} | ${fmt(r.expense)} | ${fmt(r.saving)} |`);
+  }
+  lines.push('');
+
+  // 3. Income category by year
+  lines.push('## 3. 수입 분류 × 연도');
+  lines.push('');
+  if (incPivot.categories.length) {
+    lines.push(`| 분류 | ${incPivot.timeLabels.join(' | ')} | 합계 |`);
+    lines.push(`|${'---|'.repeat(incPivot.timeLabels.length + 2)}`);
+    for (const r of incPivot.grid) {
+      lines.push(`| ${r.category} | ${r.cells.map(v => v ? fmt(v) : '-').join(' | ')} | ${fmt(r.total)} |`);
+    }
+    lines.push(`| **합계** | ${incPivot.timeSums.map(v => `**${fmt(v)}**`).join(' | ')} | **${fmt(incPivot.grandTotal)}** |`);
+  } else {
+    lines.push('데이터 없음');
+  }
+  lines.push('');
+
+  // 4. Expense category by year
+  lines.push('## 4. 지출 분류 × 연도');
+  lines.push('');
+  if (expPivot.categories.length) {
+    lines.push(`| 분류 | ${expPivot.timeLabels.join(' | ')} | 합계 |`);
+    lines.push(`|${'---|'.repeat(expPivot.timeLabels.length + 2)}`);
+    for (const r of expPivot.grid) {
+      lines.push(`| ${r.category} | ${r.cells.map(v => v ? fmt(v) : '-').join(' | ')} | ${fmt(r.total)} |`);
+    }
+    lines.push(`| **합계** | ${expPivot.timeSums.map(v => `**${fmt(v)}**`).join(' | ')} | **${fmt(expPivot.grandTotal)}** |`);
+  } else {
+    lines.push('데이터 없음');
+  }
+  lines.push('');
+
+  // 5. Latest year monthly average by category
+  const latestYear = state.computedEnd.year;
+  const latestMonths = monthsInYearWithinRange(latestYear);
+  const latestRows = rows.filter(t => t.type === '지출' && t.year === latestYear);
+  const catMap = new Map();
+  for (const t of latestRows) {
+    const c = effectiveCategory(t);
+    catMap.set(c, (catMap.get(c) || 0) + t.amount);
+  }
+  const latestTotal = [...catMap.values()].reduce((s, v) => s + v, 0);
+  const avgList = [...catMap.entries()]
+    .map(([cat, total]) => ({ cat, total, avg: latestMonths > 0 ? total / latestMonths : 0, share: latestTotal > 0 ? total / latestTotal : 0 }))
+    .sort((a, b) => b.avg - a.avg);
+  lines.push(`## 5. 최근 완료 연도(${latestYear}) 항목별 월 평균 지출 (${latestMonths}개월 기준)`);
+  lines.push('');
+  if (avgList.length) {
+    lines.push(`전체 ${latestMonths}개월 합계: ${fmt(latestTotal)} · 전체 월 평균: ${latestMonths > 0 ? fmt(latestTotal / latestMonths) : '-'}`);
+    lines.push('');
+    lines.push('| 분류 | 월 평균 | 연 합계 | 비중 |');
+    lines.push('|---|---|---|---|');
+    for (const r of avgList) {
+      lines.push(`| ${r.cat} | ${fmt(r.avg)} | ${fmt(r.total)} | ${(r.share * 100).toFixed(1)}% |`);
+    }
+  } else {
+    lines.push('데이터 없음');
+  }
+  lines.push('');
+
+  // 6. Latest month key metrics
+  const lastM = ms[ms.length - 1];
+  if (lastM) {
+    const prevYm = `${Number(lastM.ym.slice(0,4)) - 1}-${lastM.ym.slice(5,7)}`;
+    const prevM = ms.find(m => m.ym === prevYm);
+    const thisY = Number(lastM.ym.slice(0,4));
+    const lastY = thisY - 1;
+    const monthNum = Number(lastM.ym.slice(5,7));
+    let ytdThisExp = 0, ytdThisInc = 0, ytdLastExp = 0, ytdLastInc = 0;
+    for (const t of rows) {
+      if (t.month > monthNum) continue;
+      if (t.year === thisY) { if (t.type === '지출') ytdThisExp += t.amount; else ytdThisInc += t.amount; }
+      if (t.year === lastY) { if (t.type === '지출') ytdLastExp += t.amount; else ytdLastInc += t.amount; }
+    }
+    function pctStr(now, prev) {
+      if (!prev) return '비교 불가 (전기 데이터 없음)';
+      const diff = now - prev;
+      const pct = (diff / prev) * 100;
+      return `${diff >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
+    }
+    lines.push(`## 6. 최근 완료 월(${lastM.ym}) 핵심 지표`);
+    lines.push('');
+    lines.push(`- 이번 달 수입: ${fmt(lastM.income)} (전년 동월 대비 ${pctStr(lastM.income, prevM ? prevM.income : null)})`);
+    lines.push(`- 이번 달 지출: ${fmt(lastM.expense)} (전년 동월 대비 ${pctStr(lastM.expense, prevM ? prevM.expense : null)})`);
+    lines.push(`- 이번 달 모은돈: ${fmt(lastM.saving)} (저축률 ${lastM.income > 0 ? fmtPct(lastM.saving / lastM.income) : '-'})`);
+    lines.push('');
+    lines.push(`- ${thisY}년 1~${monthNum}월 누적 수입: ${fmt(ytdThisInc)} (작년 동기간 대비 ${pctStr(ytdThisInc, ytdLastInc || null)})`);
+    lines.push(`- ${thisY}년 1~${monthNum}월 누적 지출: ${fmt(ytdThisExp)} (작년 동기간 대비 ${pctStr(ytdThisExp, ytdLastExp || null)})`);
+    lines.push(`- ${thisY}년 1~${monthNum}월 누적 모은돈: ${fmt(ytdThisInc - ytdThisExp)}`);
+
+    // Top expense categories last month
+    const lastMRows = rows.filter(t => t.ym === lastM.ym && t.type === '지출');
+    const lastCatMap = new Map();
+    for (const t of lastMRows) {
+      const c = effectiveCategory(t);
+      lastCatMap.set(c, (lastCatMap.get(c) || 0) + t.amount);
+    }
+    const top5 = [...lastCatMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+    if (top5.length) {
+      lines.push('');
+      lines.push(`### ${lastM.ym} 지출 TOP 5 분류`);
+      lines.push('');
+      lines.push('| 순위 | 분류 | 금액 |');
+      lines.push('|---|---|---|');
+      top5.forEach(([c, a], i) => lines.push(`| ${i + 1} | ${c} | ${fmt(a)} |`));
+    }
+  }
+  lines.push('');
+
+  const md = lines.join('\n');
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `cashmoney-summary-${today}.md`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+// ===== Detail panel =====
+function openMonthlyAvgDetail(year) {
+  const months = monthsInYearWithinRange(year);
+  const filtered = getFilteredTransactions().filter(t => t.type === '지출' && t.year === year);
+  const catMap = new Map();
+  for (const t of filtered) {
+    const c = effectiveCategory(t);
+    catMap.set(c, (catMap.get(c) || 0) + t.amount);
+  }
+  const totalExpense = [...catMap.values()].reduce((s, v) => s + v, 0);
+  const data = [...catMap.entries()]
+    .map(([cat, total]) => ({ cat, total, avg: months > 0 ? total / months : 0, share: totalExpense > 0 ? total / totalExpense : 0 }))
+    .sort((a, b) => b.avg - a.avg);
+
+  currentDetail = {
+    mode: 'monthly-avg',
+    rows: filtered,
+    sort: 'none',
+    title: `${year}년 항목별 월 평균 지출`,
+    subtitle: `${months}개월 기준 · ${data.length}개 분류 · 행 클릭 → 거래 상세`,
+    chartVisible: false,
+    monthlyAvgData: data,
+    year,
+    months,
+    totalExpense,
+  };
+  renderDetailBody();
+  document.getElementById('detail').classList.add('open');
+}
+
+function openDetail(title, subtitle, filterFn) {
+  const rows = getFilteredTransactions().filter(filterFn);
+  rows.sort((a, b) => b.date - a.date);
+  currentDetail = {
+    mode: 'transactions',
+    rows,
+    sort: 'none',
+    title,
+    subtitle,
+    chartVisible: false,
+    monthlyAvgData: null,
+    year: null,
+  };
+  renderDetailBody();
+  document.getElementById('detail').classList.add('open');
+}
+
+function renderDetailBody() {
+  destroyChart(DETAIL_CHART_ID);
+  const { mode, title, subtitle, chartVisible } = currentDetail;
+  document.getElementById('detail-title').textContent = title;
+  if (mode === 'monthly-avg' || mode === 'sub-list') {
+    document.getElementById('detail-subtitle').textContent = subtitle;
+  } else {
+    document.getElementById('detail-subtitle').textContent = `${subtitle} · ${currentDetail.rows.length}건`;
+  }
+  const toggleBtn = document.getElementById('detail-chart-toggle');
+  toggleBtn.textContent = chartVisible ? '📊 그래프 숨기기' : '📊 그래프 보기';
+  toggleBtn.classList.toggle('active', chartVisible);
+
+  const body = document.getElementById('detail-body');
+  if (mode === 'monthly-avg') {
+    renderMonthlyAvgBody(body);
+  } else if (mode === 'sub-list') {
+    renderSubListBody(body);
+  } else {
+    renderTransactionsBody(body);
+  }
+  if (chartVisible) renderDetailChart();
+}
+
+function renderTransactionsBody(body) {
+  const { rows, sort, chartVisible } = currentDetail;
+  if (!rows.length) {
+    body.innerHTML = `${chartVisible ? '<div class="detail-chart-area"><div class="chart-wrap"><canvas id="' + DETAIL_CHART_ID + '"></canvas></div></div>' : ''}<div class="muted" style="padding: 24px 0; text-align: center;">상세 내역 없음</div>`;
+    return;
+  }
+  let displayRows = rows;
+  if (sort === 'desc') displayRows = [...rows].sort((a, b) => b.amount - a.amount);
+  else if (sort === 'asc') displayRows = [...rows].sort((a, b) => a.amount - b.amount);
+  const sortIndicator = sort === 'desc' ? '↓' : sort === 'asc' ? '↑' : '↕';
+  const sortActive = sort !== 'none';
+  const inc = rows.filter(r => r.type === '수입').reduce((s, r) => s + r.amount, 0);
+  const exp = rows.filter(r => r.type === '지출').reduce((s, r) => s + r.amount, 0);
+
+  body.innerHTML = `
+    ${chartVisible ? `<div class="detail-chart-area"><div class="chart-wrap"><canvas id="${DETAIL_CHART_ID}"></canvas></div></div>` : ''}
+    <div class="detail-summary">
+      ${inc > 0 ? `<div><div class="lbl">수입</div><div class="val" style="color:var(--income)">${fmt(inc)}</div></div>` : ''}
+      ${exp > 0 ? `<div><div class="lbl">지출</div><div class="val" style="color:var(--expense)">${fmt(exp)}</div></div>` : ''}
+      ${(inc > 0 || exp > 0) ? `<div><div class="lbl">차액</div><div class="val">${fmt(inc - exp)}</div></div>` : ''}
+    </div>
+    <table class="detail-table">
+      <thead>
+        <tr>
+          <th>날짜</th><th>구성원</th><th>분류</th><th>메모</th>
+          <th class="sortable" id="detail-sort-amount">금액 <span class="sort-indicator ${sortActive ? 'active' : ''}">${sortIndicator}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${displayRows.map(r => {
+          const c = effectiveCategory(r);
+          return `
+          <tr>
+            <td>${r.ds}</td>
+            <td>${esc(r.member)}</td>
+            <td><span class="cat-cell"><span class="dot" style="background:${categoryColor(c)}"></span>${esc(c)}</span>${r.subCategory ? `<div class="sub">${esc(r.subCategory)}</div>` : ''}</td>
+            <td class="memo">${esc(r.memo) || '<span class="muted">-</span>'}</td>
+            <td class="${r.type === '지출' ? 'neg' : 'pos'}"><strong>${fmt(r.amount)}</strong></td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+  document.getElementById('detail-sort-amount').onclick = () => {
+    currentDetail.sort = currentDetail.sort === 'none' ? 'desc'
+      : currentDetail.sort === 'desc' ? 'asc'
+      : 'none';
+    renderDetailBody();
+  };
+}
+
+function renderMonthlyAvgBody(body) {
+  const { monthlyAvgData: data, year, months, totalExpense, chartVisible } = currentDetail;
+  if (!data || !data.length) {
+    body.innerHTML = `${chartVisible ? '<div class="detail-chart-area"><div class="chart-wrap"><canvas id="' + DETAIL_CHART_ID + '"></canvas></div></div>' : ''}<div class="muted" style="padding: 24px 0; text-align: center;">상세 내역 없음</div>`;
+    return;
+  }
+
+  const expandedAvgCats = new Set();
+
+  function buildAvgTable() {
+    const allFilteredRows = getFilteredTransactions();
+
+    const tbody = data.map((r, idx) => {
+      const isExp = expandedAvgCats.has(idx);
+      // 소분류 있는지 체크
+      const hasSub = allFilteredRows.some(t =>
+        t.type === '지출' && t.year === year && effectiveCategory(t) === r.cat &&
+        t.subCategory && t.subCategory.trim() !== ''
+      );
+      const toggleIcon = hasSub
+        ? `<span class="cat-toggle-icon${isExp ? ' open' : ''}">▶</span>`
+        : `<span class="cat-toggle-icon" style="opacity:0;pointer-events:none">▶</span>`;
+
+      const mainRow = `<tr>
+        <td class="cat-toggle" data-avg-ri="${idx}">${toggleIcon}<span class="cat-cell"><span class="dot" style="background:${categoryColor(r.cat)}"></span>${esc(r.cat)}</span></td>
+        <td class="neg clickable" data-avg-amt-ri="${idx}" data-avg-col="avg"><strong>${fmt(r.avg)}</strong></td>
+        <td class="neg clickable" data-avg-amt-ri="${idx}" data-avg-col="total">${fmt(r.total)}</td>
+        <td>${(r.share * 100).toFixed(1)}%</td>
+      </tr>`;
+
+      if (!hasSub || !isExp) return mainRow;
+
+      // 소분류 집계
+      const subMap = new Map();
+      for (const t of allFilteredRows) {
+        if (t.type !== '지출' || t.year !== year || effectiveCategory(t) !== r.cat) continue;
+        const sub = t.subCategory || '';
+        if (!subMap.has(sub)) subMap.set(sub, 0);
+        subMap.set(sub, subMap.get(sub) + t.amount);
+      }
+      const subList = [...subMap.entries()]
+        .map(([sub, total]) => ({ sub, total, avg: months > 0 ? total / months : 0 }))
+        .sort((a, b) => b.total - a.total);
+
+      const subRows = subList.map(s => `<tr class="sub-row">
+        <td><span class="cat-cell" style="padding-left:4px">↳ ${esc(s.sub) || '<span style="opacity:.5">미분류</span>'}</span></td>
+        <td class="neg clickable" data-avg-sub="${esc(s.sub)}" data-avg-sub-cat="${esc(r.cat)}" data-avg-col="avg">${fmt(s.avg)}</td>
+        <td class="neg clickable" data-avg-sub="${esc(s.sub)}" data-avg-sub-cat="${esc(r.cat)}" data-avg-col="total">${fmt(s.total)}</td>
+        <td>${r.total > 0 ? (s.total / r.total * 100).toFixed(1) + '%' : '-'}</td>
+      </tr>`).join('');
+
+      return mainRow + subRows;
+    }).join('');
+
+    body.innerHTML = `
+      ${chartVisible ? `<div class="detail-chart-area"><div class="chart-wrap"><canvas id="${DETAIL_CHART_ID}"></canvas></div></div>` : ''}
+      <div class="detail-summary">
+        <div><div class="lbl">${months}개월 합계</div><div class="val" style="color:var(--expense)">${fmt(totalExpense)}</div></div>
+        <div><div class="lbl">전체 월 평균</div><div class="val" style="color:var(--expense)">${months > 0 ? fmt(totalExpense / months) : '-'}</div></div>
+      </div>
+      <table class="detail-table">
+        <thead><tr><th>분류</th><th>월 평균</th><th>${year}년 합계</th><th>비중</th></tr></thead>
+        <tbody>${tbody}</tbody>
+      </table>
+    `;
+
+    // 분류명 클릭 → 소분류 인라인 토글
+    body.querySelectorAll('[data-avg-ri]').forEach(td => {
+      td.onclick = (e) => {
+        e.stopPropagation();
+        const idx = Number(td.dataset.avgRi);
+        if (expandedAvgCats.has(idx)) expandedAvgCats.delete(idx);
+        else expandedAvgCats.add(idx);
+        buildAvgTable();
+        if (chartVisible) renderDetailChart();
+      };
+    });
+
+    // 대분류 금액 셀 클릭 → 거래 상세
+    body.querySelectorAll('[data-avg-amt-ri]').forEach(td => {
+      td.onclick = (e) => {
+        e.stopPropagation();
+        const r = data[Number(td.dataset.avgAmtRi)];
+        openDetail(`${year}년 · ${r.cat}`, '월 평균 → 거래 상세',
+          t => t.type === '지출' && t.year === year && effectiveCategory(t) === r.cat);
+      };
+    });
+
+    // 소분류 금액 셀 클릭 → 거래 상세
+    body.querySelectorAll('[data-avg-sub]').forEach(td => {
+      td.onclick = (e) => {
+        e.stopPropagation();
+        const sub = td.dataset.avgSub;
+        const cat = td.dataset.avgSubCat;
+        openDetail(`${year}년 · ${cat} › ${sub || '미분류'}`, '월 평균 → 소분류 상세',
+          t => t.type === '지출' && t.year === year && effectiveCategory(t) === cat && (t.subCategory || '') === sub);
+      };
+    });
+  }
+
+  buildAvgTable();
+  if (chartVisible) renderDetailChart();
+}
+
+function renderDetailChart() {
+  const canvas = document.getElementById(DETAIL_CHART_ID);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (currentDetail.mode === 'monthly-avg') {
+    const top = currentDetail.monthlyAvgData.slice(0, 10);
+    charts[DETAIL_CHART_ID] = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: top.map(d => d.cat),
+        datasets: [{
+          label: '월 평균 지출',
+          data: top.map(d => d.avg),
+          backgroundColor: top.map(d => categoryColor(d.cat)),
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => fmt(ctx.parsed.x) } },
+          title: { display: true, text: `${currentDetail.year}년 분류별 월 평균 (Top ${top.length})`, font: { size: 12, weight: '600' } },
+        },
+        scales: {
+          x: { ticks: { callback: v => v === 0 ? '0원' : fmt(v), font: { size: 10 } } },
+          y: { ticks: { font: { size: 11 } } },
+        },
+      },
+    });
+    return;
+  }
+  // transactions mode: time-bucket bar chart
+  const rows = currentDetail.rows;
+  if (!rows.length) return;
+  const ymSet = new Set(rows.map(r => r.ym));
+  const ySet = new Set(rows.map(r => r.year));
+  let bucket;
+  if (ymSet.size === 1) bucket = 'day';
+  else if (ySet.size === 1) bucket = 'month';
+  else bucket = 'month';
+  const incMap = new Map();
+  const expMap = new Map();
+  for (const r of rows) {
+    let k;
+    if (bucket === 'day') k = r.ds;
+    else if (bucket === 'month') k = r.ym;
+    else k = String(r.year);
+    const map = r.type === '수입' ? incMap : expMap;
+    map.set(k, (map.get(k) || 0) + r.amount);
+  }
+  const labelSet = new Set([...incMap.keys(), ...expMap.keys()]);
+  const labels = [...labelSet].sort();
+  const datasets = [];
+  if (incMap.size) datasets.push({ label: '수입', data: labels.map(k => incMap.get(k) || 0), backgroundColor: 'rgba(5,150,105,0.75)' });
+  if (expMap.size) datasets.push({ label: '지출', data: labels.map(k => expMap.get(k) || 0), backgroundColor: 'rgba(220,38,38,0.75)' });
+  charts[DETAIL_CHART_ID] = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` } },
+        title: { display: true, text: bucket === 'day' ? '일별 추이' : bucket === 'month' ? '월별 추이' : '연도별 추이', font: { size: 12, weight: '600' } },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+        y: { ticks: { callback: v => v === 0 ? '0원' : fmt(v), font: { size: 10 } } },
+      },
+    },
+  });
+}
+
+// ===== Modal Chart State & Plugin =====
+const MODAL_CHART_ID = 'modalChart';
+let currentModalChartConfig = null;
+let modalChartUseLogScale = false;
+
+const modalDataLabelsPlugin = {
+  id: 'modalDataLabels',
+  afterDatasetsDraw(chart) {
+    const ctx = chart.ctx;
+    const isHorizontal = chart.options.indexAxis === 'y';
+    const isBar = chart.config.type === 'bar';
+    const isSingleLine = chart.config.type === 'line' && chart.data.datasets.length === 1;
+
+    if (!isBar && !isSingleLine) return;
+
+    chart.data.datasets.forEach((dataset, datasetIndex) => {
+      const meta = chart.getDatasetMeta(datasetIndex);
+      if (!meta || meta.hidden) return;
+
+      meta.data.forEach((element, index) => {
+        const val = dataset.data[index];
+        if (val == null || val === 0) return;
+        const text = fmt(val);
+
+        ctx.save();
+        ctx.font = '600 11.5px -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif';
+
+        if (isBar) {
+          if (isHorizontal) {
+            // 가로 막대: 막대 오른쪽 바깥에 표시
+            ctx.fillStyle = '#1f2937';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, Math.max(element.x + 8, 10), element.y);
+          } else {
+            // 세로 막대: 막대 위쪽에 표시
+            ctx.fillStyle = '#1f2937';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(text, element.x, Math.max(element.y - 4, 12));
+          }
+        } else if (isSingleLine) {
+          // 단일 라인: 포인트 위쪽에 표시
+          ctx.fillStyle = dataset.borderColor || '#2563eb';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(text, element.x, element.y - 8);
+        }
+
+        ctx.restore();
+      });
+    });
+  }
+};
+
+function renderModalChartInstance() {
+  destroyChart(MODAL_CHART_ID);
+  if (!currentModalChartConfig) return;
+
+  const { title, subtitle, type = 'line', labels, datasets, xTitle, yTitle, options = {} } = currentModalChartConfig;
+  document.getElementById('modal-chart-title').textContent = title;
+  document.getElementById('modal-chart-subtitle').textContent = subtitle || '';
+
+  const scaleBtn = document.getElementById('modal-scale-toggle');
+  if (scaleBtn) {
+    scaleBtn.classList.toggle('active', modalChartUseLogScale);
+    scaleBtn.textContent = modalChartUseLogScale ? '📊 일반 스케일로 보기' : '📈 작은값 확대 (로그)';
+  }
+
+  const canvas = document.getElementById(MODAL_CHART_ID);
+  const ctx = canvas.getContext('2d');
+
+  const isBarHorizontal = options.indexAxis === 'y';
+  const valAxisType = modalChartUseLogScale ? 'logarithmic' : 'linear';
+
+  const defaultOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    minBarLength: 8,
+    interaction: { mode: 'index', intersect: false },
+    layout: {
+      padding: {
+        top: type === 'line' ? 24 : (isBarHorizontal ? 12 : 24),
+        right: isBarHorizontal ? 75 : 20,
+        left: 10,
+        bottom: 10,
+      }
+    },
+    plugins: {
+      legend: {
+        display: datasets.length > 1,
+        position: 'top',
+        labels: { boxWidth: 12, font: { size: 12 } }
+      },
+      tooltip: {
+        callbacks: {
+          label: ctx => {
+            const val = isBarHorizontal ? ctx.parsed.x : ctx.parsed.y;
+            const prefix = ctx.dataset.label ? `${ctx.dataset.label}: ` : '';
+            return `${prefix}${fmt(val)}`;
+          }
+        }
+      },
+    },
+    scales: {
+      x: {
+        type: isBarHorizontal ? valAxisType : 'category',
+        grid: { display: isBarHorizontal },
+        grace: isBarHorizontal ? '12%' : undefined,
+        title: {
+          display: true,
+          text: xTitle || (isBarHorizontal ? '금액' : (type === 'bar' ? '분류' : '기간')),
+          font: { size: 12, weight: '600' },
+          color: '#374151'
+        },
+        ticks: {
+          callback: function(val, index) {
+            if (isBarHorizontal) {
+              return val === 0 ? '0원' : fmt(val);
+            }
+            if (typeof this.getLabelForValue === 'function') {
+              const l = this.getLabelForValue(val);
+              if (l != null && l !== '') return l;
+            }
+            return labels && labels[index] !== undefined ? labels[index] : (labels && labels[val] !== undefined ? labels[val] : val);
+          },
+          font: { size: 11.5 },
+          color: '#374151',
+          autoSkip: false,
+          maxRotation: isBarHorizontal ? 0 : (labels.length > 10 ? 45 : 0),
+        }
+      },
+      y: {
+        type: isBarHorizontal ? 'category' : valAxisType,
+        grid: { display: !isBarHorizontal },
+        grace: !isBarHorizontal ? '12%' : undefined,
+        title: {
+          display: true,
+          text: yTitle || (isBarHorizontal ? '분류' : '금액'),
+          font: { size: 12, weight: '600' },
+          color: '#374151'
+        },
+        ticks: {
+          callback: function(val, index) {
+            if (!isBarHorizontal) {
+              return val === 0 ? '0원' : fmt(val);
+            }
+            if (typeof this.getLabelForValue === 'function') {
+              const l = this.getLabelForValue(val);
+              if (l != null && l !== '') return l;
+            }
+            return labels && labels[index] !== undefined ? labels[index] : (labels && labels[val] !== undefined ? labels[val] : val);
+          },
+          font: { size: 11.5 },
+          color: '#374151',
+          autoSkip: false,
+        }
+      },
+    },
+    ...options,
+  };
+
+  // line datasets 스타일 보강 (점 크기 및 굵기)
+  const styledDatasets = datasets.map(d => {
+    if (type === 'line') {
+      return {
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        pointBackgroundColor: '#ffffff',
+        pointBorderWidth: 2.5,
+        borderWidth: 2.5,
+        ...d,
+      };
+    }
+    return d;
+  });
+
+  charts[MODAL_CHART_ID] = new Chart(ctx, {
+    type,
+    data: { labels, datasets: styledDatasets },
+    options: defaultOptions,
+    plugins: [modalDataLabelsPlugin],
+  });
+}
+
+function openChartModal(config) {
+  currentModalChartConfig = config;
+  modalChartUseLogScale = false; // 기본은 일반 스케일로 열림
+  const modal = document.getElementById('chart-modal');
+  modal.classList.add('open');
+  renderModalChartInstance();
+}
+
+function closeChartModal() {
+  destroyChart(MODAL_CHART_ID);
+  currentModalChartConfig = null;
+  const modal = document.getElementById('chart-modal');
+  if (modal) modal.classList.remove('open');
+}
+
+document.getElementById('modal-chart-close').onclick = closeChartModal;
+document.getElementById('modal-scale-toggle').onclick = () => {
+  modalChartUseLogScale = !modalChartUseLogScale;
+  renderModalChartInstance();
+};
+document.getElementById('chart-modal').onclick = (e) => {
+  if (e.target === document.getElementById('chart-modal')) {
+    closeChartModal();
+  }
+};
+
+document.getElementById('detail-close').onclick = () => {
+  destroyChart(DETAIL_CHART_ID);
+  document.getElementById('detail').classList.remove('open');
+};
+document.getElementById('detail-chart-toggle').onclick = () => {
+  currentDetail.chartVisible = !currentDetail.chartVisible;
+  renderDetailBody();
+};
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const modal = document.getElementById('chart-modal');
+    if (modal && modal.classList.contains('open')) {
+      closeChartModal();
+      return;
+    }
+    destroyChart(DETAIL_CHART_ID);
+    document.getElementById('detail').classList.remove('open');
+  }
+});
+
+
+
+// ===== Init =====
+(async function init() {
+  if (!window.showDirectoryPicker) {
+    document.getElementById('app').innerHTML = `
+      <div class="welcome">
+        <div class="welcome-icon">⚠️</div>
+        <h1>가족 가계부</h1>
+        <div class="error" style="max-width: 500px;">이 브라우저는 폴더 선택(File System Access API)을 지원하지 않습니다.<br>
+          <strong>Chrome 또는 Edge</strong>로 이 페이지를 열어주세요.</div>
+      </div>
+    `;
+    return;
+  }
+  const loaded = await loadStoredHandle();
+  if (!loaded) renderWelcome();
+})();
+</script>
+</body>
+</html>

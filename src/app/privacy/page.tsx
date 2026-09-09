@@ -6,7 +6,7 @@ export default function Privacy() {
   return (
     <main className="standalone-page" id="main-content">
       <article className="consent-card panel privacy-card">
-        <span className="eyebrow">MONO · 2026년 9월 8일</span>
+        <span className="eyebrow">MONO · 2026년 9월 9일</span>
         <h1>개인정보 처리 안내</h1>
         <p>
           MONO는 데이터와 도구를 관리하고 허용된 구성원과 공유할 수 있는 개인용
@@ -20,12 +20,22 @@ export default function Privacy() {
           정보는 가족 공간에 저장됩니다. 업로드한 와인 사진은 크기를 줄이고
           위치정보 등 메타데이터를 제거해 저장하며, 원본은 보관하지 않습니다.
         </p>
+        <p>
+          가계부 엑셀은 원본 파일 전체와 파일명·업로드 시각·거래 건수·기록
+          범위를 Neon에 저장합니다. 같은 이름으로 업로드하면 검증 후 최신 파일로
+          교체하며 이전 파일 버전은 앱에 보관하지 않습니다. 거래별 데이터베이스
+          행은 만들지 않고 조회할 때 원본을 분석합니다.
+        </p>
         <h2>가족 공유와 AI 연결</h2>
         <p>
           기록은 같은 가족 공간의 구성원에게 공유됩니다. AI 서비스를 직접
           연결하면 동의한 조회·쓰기 권한으로 해당 서비스가 기록을 읽거나 변경할
           수 있습니다. 설정에서 연결을 해제할 수 있으며, 이미 AI 서비스에 전달된
           정보는 해당 서비스에서 별도로 관리해야 합니다.
+        </p>
+        <p>
+          가계부는 같은 공간의 구성원에게 공유되며 웹에서만 조회·업로드할 수
+          있습니다. 기존 AI 연결에는 가계부 접근 권한을 제공하지 않습니다.
         </p>
         <h2>저장 위치와 쿠키</h2>
         <p>

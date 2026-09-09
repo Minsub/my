@@ -11,7 +11,7 @@
 ## 2. 기존 페이지 변경
 
 - 검색: `rg -n 'renderWine|renderCoffee|renderSettings|const nav' src/components/app-shell.tsx`.
-- 홈은 workspace-home.tsx, 와인 목록은 wine-cellar.tsx, MCP 안내는 mcp-guide.tsx / lib/mcp-guide.ts다. 기존 app-shell.tsx를 더 크게 만들기보다 변경할 화면을 별도 컴포넌트로 분리한다.
+- 가계부는 cash-dashboard.tsx/cash-files.tsx와 전용 API·서버 서비스, 홈은 workspace-home.tsx, 와인 목록은 wine-cellar.tsx, MCP 안내는 mcp-guide.tsx / lib/mcp-guide.ts다. 기존 app-shell.tsx를 더 크게 만들기보다 변경할 화면을 별도 컴포넌트로 분리한다.
 - AppShell의 `data`, `href`, `reload`, `save`, 폼 열기 함수를 재사용하거나 명시적인 props로 전달한다. 컴포넌트가 임의로 다른 사용자 데이터를 가져오지 않는다.
 - 상품 수정은 `expected_version`, 모든 공통 변경은 `idempotency_key`가 필요하다. FormSpec/RecordForm과 기존 오류 처리 흐름을 읽고 사용한다.
 - 목록 조회의 실제 의미를 바꾸면 웹과 MCP를 같이 확인한다. 와인 가격·필터는 lib/wine-cellar.ts가 공통 기준이다.
@@ -35,7 +35,7 @@
 
 | 계층 | 확인·수정할 파일과 기준 |
 |---|---|
-| 저장 | `db/migrations/005_*.sql` 이후 새 번호. household_id, UUID, 관계/유일 제약, created_by, 필요 시 version/index. 기존 적용 파일을 수정하지 않는다 |
+| 저장 | `db/migrations/006_*.sql` 이후 새 번호. household_id, UUID, 관계/유일 제약, created_by, 필요 시 version/index. 기존 적용 파일을 수정하지 않는다 |
 | 계약 | `src/lib/types.ts`의 도메인 타입과 Snapshot, `src/lib/contracts.ts`의 입력 검증과 명령 이름. 숫자 범위·nullable·단위 명시 |
 | 인증 | 새 Scope/allScopes, auth.ts의 OAuth scope/resource, security.ts, auth-screens.tsx의 동의 라벨, `/api/mcp`의 challenge와 discovery 응답을 전부 검색해 반영 |
 | 서비스 | service.ts의 테이블 매핑·record·execute·snapshot. 현재 execute의 scope 선택은 coffee 접두사/그 외 wine 분기이므로 새 도메인은 명시적으로 확장해야 함 |
