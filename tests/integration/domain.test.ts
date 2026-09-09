@@ -605,6 +605,30 @@ describe("cash file isolation and replacement", () => {
       new URLSearchParams({ from: "2026-01", to: "2026-03" }),
     );
     expect(after).toMatchObject({ total: { expense: 29000 } });
+    const detailQuery = new URLSearchParams({
+      from: "2026-01",
+      to: "2026-03",
+      mode: "transactions",
+      type: "지출",
+      category: "식비",
+      sub: "식사",
+      sort: "amount-asc",
+    });
+    expect(await readCash(owner, detailQuery)).toMatchObject({
+      count: 2,
+      income: 0,
+      expense: 20000,
+      rows: [{ amount: -2000 }, { amount: 22000 }],
+    });
+    expect(await readCash(outsider, detailQuery)).toMatchObject({
+      count: 0,
+      rows: [],
+    });
+    detailQuery.set("assetMissing", "true");
+    expect(await readCash(owner, detailQuery)).toMatchObject({
+      count: 0,
+      rows: [],
+    });
     await expect(
       saveCashFile(owner, "검증.xlsx", cashWorkbook(32000), 1),
     ).rejects.toMatchObject({ code: "CONFLICT" });

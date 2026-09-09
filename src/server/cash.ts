@@ -204,6 +204,8 @@ export async function readCash(actor: Actor, params: URLSearchParams) {
       );
     if (sub !== null)
       rows = rows.filter((r) => (r.subCategory || "미분류") === sub);
+    if (params.get("assetMissing") === "true")
+      rows = rows.filter((r) => !r.asset);
     const sort = params.get("sort");
     rows.sort((a, b) =>
       sort === "amount-asc"

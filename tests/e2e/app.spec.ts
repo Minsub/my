@@ -444,6 +444,37 @@ test("cash workbook upload, replacement, drilldown and platform layout", async (
     path: `test-results/visual/${info.project.name}-cash-summary.png`,
     fullPage: true,
   });
+  await page.getByLabel("시작 월").fill("2025-01");
+  await expect(page.locator(".cash-year-table tbody tr")).toHaveCount(2);
+  await expect(page.locator(".cash-year-table tbody tr").first()).toContainText(
+    "2025",
+  );
+  await expect(page.locator(".cash-year-table tbody tr").last()).toContainText(
+    "3개월",
+  );
+  await page.getByLabel("시작 월").fill("2026-01");
+  await expect(page.locator(".cash-year-table tbody tr")).toHaveCount(1);
+  const summaryUrl = page.url();
+  const yearTable = page.getByRole("table", {
+    name: "연도별 수입·지출 비교 (원)",
+  });
+  await expect(yearTable).toBeVisible();
+  const yearExpense = yearTable.getByRole("button", {
+    name: "29,000원",
+    exact: true,
+  });
+  await yearExpense.scrollIntoViewIfNeeded();
+  const summaryScroll = await page.evaluate(() => window.scrollY);
+  await yearExpense.click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(
+    page.getByRole("dialog").locator(".cash-result-count"),
+  ).toContainText("29,000원");
+  expect(page.url()).toBe(summaryUrl);
+  await page.getByRole("button", { name: "거래 내역 닫기" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(yearExpense).toBeFocused();
+  expect(await page.evaluate(() => window.scrollY)).toBe(summaryScroll);
   await nav.getByRole("button", { name: "분류 분석" }).click();
   await expect(page.locator(".cash-refreshing")).toHaveCount(0);
   if (info.project.name === "mobile")
@@ -455,12 +486,23 @@ test("cash workbook upload, replacement, drilldown and platform layout", async (
   else
     await page.getByRole("button", { name: "식비 추이", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "비중", exact: true })
+    .click();
+  await expect(page.getByRole("dialog").locator(".cash-share")).toContainText([
+    "69.0%",
+  ]);
+  await expect(page.getByRole("dialog").getByRole("img")).toContainText(
+    "비중 (%)",
+  );
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.screenshot({
     path: `test-results/visual/${info.project.name}-cash-categories.png`,
     fullPage: true,
   });
+  const analysisUrl = page.url();
   if (info.project.name === "mobile")
     await page
       .locator(".cash-category-item")
@@ -477,12 +519,30 @@ test("cash workbook upload, replacement, drilldown and platform layout", async (
   await expect(page.locator(".cash-result-count")).toContainText("2건");
   await expect(page.locator(".cash-result-count")).toContainText("20,000원");
   await expect(page.locator(".cash-transaction")).toHaveCount(2);
-  await page.getByLabel("거래 정렬").selectOption("amount-asc");
+  const detailDialog = page.getByRole("dialog", {
+    name: "식비 · 지출 · 거래 내역",
+  });
+  await expect(detailDialog).toBeVisible();
+  expect(page.url()).toBe(analysisUrl);
+  await expect
+    .poll(async () => Math.round((await detailDialog.boundingBox())!.x))
+    .toBe(info.project.name === "mobile" ? 0 : 720);
+  await page.getByLabel("상세 거래 정렬").selectOption("amount-asc");
   await expect(page.locator(".cash-transaction").first()).toContainText(
     "-2,000원",
   );
+  expect(page.url()).toBe(analysisUrl);
+  await page.screenshot({
+    path: `test-results/visual/${info.project.name}-cash-detail.png`,
+    animations: "disabled",
+  });
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(page.url()).toBe(analysisUrl);
   await page.reload();
-  await expect(page.locator(".cash-result-count")).toContainText("2건");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await nav.getByRole("button", { name: "거래 내역", exact: true }).click();
+  await expect(page.locator(".cash-result-count")).toContainText("5건");
   await expect(page.locator(".cash-result-count")).toBeVisible();
   expect(
     await page.evaluate(

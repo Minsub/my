@@ -11,7 +11,7 @@
 ## 2. 기존 페이지 변경
 
 - 검색: `rg -n 'renderWine|renderCoffee|renderSettings|const nav' src/components/app-shell.tsx`.
-- 가계부는 cash-dashboard.tsx/cash-files.tsx와 전용 API·서버 서비스, 홈은 workspace-home.tsx, 와인 목록은 wine-cellar.tsx, MCP 안내는 mcp-guide.tsx / lib/mcp-guide.ts다. 기존 app-shell.tsx를 더 크게 만들기보다 변경할 화면을 별도 컴포넌트로 분리한다.
+- 가계부는 cash-dashboard.tsx/cash-detail.tsx/cash-files.tsx와 전용 API·서버 서비스, 홈은 workspace-home.tsx, 와인 목록은 wine-cellar.tsx, MCP 안내는 mcp-guide.tsx / lib/mcp-guide.ts다. 기존 app-shell.tsx를 더 크게 만들기보다 변경할 화면을 별도 컴포넌트로 분리한다.
 - AppShell의 `data`, `href`, `reload`, `save`, 폼 열기 함수를 재사용하거나 명시적인 props로 전달한다. 컴포넌트가 임의로 다른 사용자 데이터를 가져오지 않는다.
 - 상품 수정은 `expected_version`, 모든 공통 변경은 `idempotency_key`가 필요하다. FormSpec/RecordForm과 기존 오류 처리 흐름을 읽고 사용한다.
 - 목록 조회의 실제 의미를 바꾸면 웹과 MCP를 같이 확인한다. 와인 가격·필터는 lib/wine-cellar.ts가 공통 기준이다.

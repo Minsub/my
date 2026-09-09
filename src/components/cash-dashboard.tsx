@@ -1,12 +1,11 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Download,
   SlidersHorizontal,
   ArrowUpRight,
   ChevronDown,
   Search,
-  X,
 } from "lucide-react";
 import {
   aggregateCash,
@@ -21,6 +20,12 @@ import {
   type CashFile,
 } from "@/lib/cash";
 import { CashFiles } from "./cash-files";
+import {
+  CashDetail,
+  CashModal as Modal,
+  CashTransactions,
+  type CashDetailSelection,
+} from "./cash-detail";
 function download(text: string, name: string) {
   const url = URL.createObjectURL(
     new Blob([text], { type: "text/markdown;charset=utf-8" }),
@@ -35,12 +40,16 @@ function Chart({
   periods,
   series,
   onPeriod,
+  unit = "money",
 }: {
   periods: string[];
-  series: { name: string; values: number[]; color: string }[];
+  series: { name: string; values: (number | null)[]; color: string }[];
+  unit?: "money" | "percent";
   onPeriod?: (period: string) => void;
 }) {
-  const values = series.flatMap((s) => s.values),
+  const values = series
+      .flatMap((s) => s.values)
+      .filter((v): v is number => v !== null),
     min = Math.min(0, ...values),
     max = Math.max(1, ...values),
     span = max - min;
@@ -54,7 +63,7 @@ function Chart({
         aria-label={`${series.map((s) => s.name).join(", ")} 기간별 추이. 상세 값은 아래 기간 버튼이나 표에서 확인할 수 있습니다.`}
       >
         <text x="4" y="15">
-          금액 (원)
+          {unit === "money" ? "금액 (원)" : "비중 (%)"}
         </text>
         {[0, 0.5, 1].map((v) => (
           <g key={v}>
@@ -66,25 +75,37 @@ function Chart({
               stroke="#e1e5e2"
             />
             <text x="0" y={y(min + span * v) + 4}>
-              {compactMoney(min + span * v)}
+              {unit === "money"
+                ? compactMoney(min + span * v)
+                : cashPct(min + span * v)}
             </text>
           </g>
         ))}
         {series.map((s) => (
           <g key={s.name}>
-            <polyline
+            <path
               fill="none"
               stroke={s.color}
               strokeWidth="2.5"
-              points={s.values.map((v, i) => `${x(i)},${y(v)}`).join(" ")}
+              d={s.values
+                .map((v, i) =>
+                  v === null
+                    ? ""
+                    : `${i === 0 || s.values[i - 1] === null ? "M" : "L"}${x(i)},${y(v)}`,
+                )
+                .join(" ")}
             />
-            {s.values.map((v, i) => (
-              <circle key={i} cx={x(i)} cy={y(v)} r="3.5" fill={s.color}>
-                <title>
-                  {periods[i]} · {s.name} {cashMoney(v)}
-                </title>
-              </circle>
-            ))}
+            {s.values.map(
+              (v, i) =>
+                v !== null && (
+                  <circle key={i} cx={x(i)} cy={y(v)} r="3.5" fill={s.color}>
+                    <title>
+                      {periods[i]} · {s.name}{" "}
+                      {unit === "money" ? cashMoney(v) : cashPct(v)}
+                    </title>
+                  </circle>
+                ),
+            )}
           </g>
         ))}
         {periods.map(
@@ -116,49 +137,6 @@ function Chart({
         </div>
       )}
     </div>
-  );
-}
-function Modal({
-  title,
-  children,
-  onClose,
-}: {
-  title: string;
-  children: React.ReactNode;
-  onClose: () => void;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const dialog = ref.current;
-    const previous = document.activeElement as HTMLElement;
-    dialog?.showModal();
-    return () => {
-      dialog?.close();
-      previous?.focus();
-    };
-  }, []);
-  return (
-    <dialog
-      ref={ref}
-      className="cash-dialog"
-      onCancel={onClose}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="cash-dialog-head">
-        <h2>{title}</h2>
-        <button
-          autoFocus
-          className="icon-button"
-          onClick={onClose}
-          aria-label="차트 닫기"
-        >
-          <X />
-        </button>
-      </div>
-      {children}
-    </dialog>
   );
 }
 const demoRows: CashRow[] = Array.from({ length: 12 }, (_, i) => ({
@@ -235,9 +213,12 @@ export function CashDashboard({
     [expanded, setExpanded] = useState<string[]>([]),
     [chart, setChart] = useState<{
       title: string;
+      totals?: number[];
       periods: string[];
       series: { name: string; values: number[]; color: string }[];
     } | null>(null);
+  const [chartUnit, setChartUnit] = useState<"money" | "percent">("money");
+  const [detail, setDetail] = useState<CashDetailSelection | null>(null);
   const [transactions, setTransactions] = useState<{
     rows: CashRow[];
     count: number;
@@ -344,6 +325,7 @@ export function CashDashboard({
     category?: string,
     kind?: string,
     sub?: string,
+    asset?: string,
   ) {
     const from = period
         ? period.length === 4
@@ -355,13 +337,34 @@ export function CashDashboard({
           ? `${period}-12`
           : period
         : f?.to || "";
-    update({
-      tab: "transactions",
-      from: from < f!.from ? f!.from : from,
-      to: to > f!.to ? f!.to : to,
-      category: category || "",
-      type: kind || "",
-      sub: sub || "",
+    if (!f) return;
+    const p = new URLSearchParams(query);
+    for (const key of [
+      "page",
+      "sort",
+      "category",
+      "type",
+      "sub",
+      "mode",
+      "export",
+      "assetMissing",
+    ])
+      p.delete(key);
+    p.set("from", from < f.from ? f.from : from);
+    p.set("to", to > f.to ? f.to : to);
+    if (category) p.set("category", category);
+    if (kind) p.set("type", kind);
+    if (sub) p.set("sub", sub);
+    if (asset !== undefined) {
+      p.delete("asset");
+      if (asset === "미입력") p.set("assetMissing", "true");
+      else p.set("asset", asset);
+    }
+    setDetail({
+      title: [category, sub, asset, kind, "거래 내역"]
+        .filter(Boolean)
+        .join(" · "),
+      query: p.toString(),
     });
     setChart(null);
   }
@@ -375,8 +378,12 @@ export function CashDashboard({
   }
   const categories = type === "수입" ? data?.income : data?.expense;
   function trend(row: CashCategory) {
+    setChartUnit("money");
     setChart({
       title: `${row.name} 추이`,
+      totals: data!.periods.map((_, i) =>
+        categories!.reduce((n, r) => n + r.values[i], 0),
+      ),
       periods: data!.periods,
       series: [{ name: row.name, values: row.values, color: "#496b5b" }],
     });
@@ -709,37 +716,89 @@ export function CashDashboard({
                     <div className="section-heading">
                       <h2>연도별 요약</h2>
                     </div>
-                    <div className="cash-year-grid">
-                      {data.years.map((y) => (
-                        <button
-                          key={y.period}
-                          className="cash-year"
-                          onClick={() => drill(y.period)}
-                        >
-                          <strong>
-                            {y.period}
-                            <small>{y.months}개월</small>
-                          </strong>
-                          <dl>
-                            <div>
-                              <dt>수입</dt>
-                              <dd>{compactMoney(y.income)}</dd>
-                            </div>
-                            <div>
-                              <dt>지출</dt>
-                              <dd>{compactMoney(y.expense)}</dd>
-                            </div>
-                            <div>
-                              <dt>수입 − 지출</dt>
-                              <dd>{compactMoney(y.saved)}</dd>
-                            </div>
-                            <div>
-                              <dt>월평균 지출</dt>
-                              <dd>{compactMoney(y.averageExpense)}</dd>
-                            </div>
-                          </dl>
-                        </button>
-                      ))}
+                    <p className="muted small">
+                      금액을 누르면 해당 연도의 거래를 확인할 수 있습니다. 전년
+                      대비는 양쪽 모두 12개월인 경우만 비교합니다.
+                    </p>
+                    <div
+                      className="cash-table-scroll"
+                      role="region"
+                      aria-label="연도별 요약 표"
+                      tabIndex={0}
+                    >
+                      <table className="cash-year-table">
+                        <caption>연도별 수입·지출 비교 (원)</caption>
+                        <thead>
+                          <tr>
+                            <th scope="col">연도</th>
+                            <th scope="col">수입</th>
+                            <th scope="col">지출</th>
+                            <th scope="col">전년 대비 지출</th>
+                            <th scope="col">수입 − 지출</th>
+                            <th scope="col">저축률</th>
+                            <th scope="col">월평균 지출</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {data.years.map((y, i) => {
+                            const previous = data.years[i - 1];
+                            const delta =
+                              previous &&
+                              previous.months === 12 &&
+                              y.months === 12
+                                ? changeRate(y.expense, previous.expense)
+                                : null;
+                            return (
+                              <tr key={y.period}>
+                                <th scope="row">
+                                  <button onClick={() => drill(y.period)}>
+                                    {y.period}
+                                    <small>{y.months}개월</small>
+                                  </button>
+                                </th>
+                                <td>
+                                  <button
+                                    onClick={() =>
+                                      drill(y.period, undefined, "수입")
+                                    }
+                                  >
+                                    {cashMoney(y.income)}
+                                  </button>
+                                </td>
+                                <td>
+                                  <button
+                                    onClick={() =>
+                                      drill(y.period, undefined, "지출")
+                                    }
+                                  >
+                                    {cashMoney(y.expense)}
+                                  </button>
+                                </td>
+                                <td className="muted">
+                                  {delta === null
+                                    ? "—"
+                                    : `${delta > 0 ? "+" : ""}${cashPct(delta)}`}
+                                </td>
+                                <td>
+                                  <button onClick={() => drill(y.period)}>
+                                    {cashMoney(y.saved)}
+                                  </button>
+                                </td>
+                                <td>{cashPct(y.savingRate)}</td>
+                                <td>
+                                  <button
+                                    onClick={() =>
+                                      drill(y.period, undefined, "지출")
+                                    }
+                                  >
+                                    {cashMoney(y.averageExpense)}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   </section>
                   <section className="panel">
@@ -751,11 +810,13 @@ export function CashDashboard({
                         <button
                           key={a.name}
                           onClick={() =>
-                            update({
-                              tab: "transactions",
-                              asset: a.name === "미입력" ? "" : a.name,
-                              type: "지출",
-                            })
+                            drill(
+                              undefined,
+                              undefined,
+                              "지출",
+                              undefined,
+                              a.name,
+                            )
                           }
                         >
                           <span>{a.name}</span>
@@ -818,8 +879,8 @@ export function CashDashboard({
                     </button>
                   </div>
                   <p className="muted small">
-                    금액을 누르면 해당 거래로 이동합니다. 월평균은 선택 기간{" "}
-                    {data.total.months}개월 기준입니다. 증감은 직전 열과
+                    금액을 누르면 상세 패널에서 거래를 확인합니다. 월평균은 선택
+                    기간 {data.total.months}개월 기준입니다. 증감은 직전 열과
                     비교하며, 부분 연도 간 증감은 표시하지 않습니다.
                   </p>
                   <div className="cash-category-mobile">
@@ -1005,33 +1066,7 @@ export function CashDashboard({
                         {cashMoney(transactions.income)} · 지출{" "}
                         {cashMoney(transactions.expense)}
                       </p>
-                      <div className="cash-transactions">
-                        {transactions.rows.map((r) => (
-                          <article className="cash-transaction" key={r.id}>
-                            <time>{r.date}</time>
-                            <div>
-                              <strong>{r.memo || r.category}</strong>
-                              <p>
-                                {r.member} · {r.category}
-                                {r.subCategory && ` / ${r.subCategory}`} ·{" "}
-                                {r.asset || "결제수단 미입력"}
-                              </p>
-                              {r.currency !== "KRW" && (
-                                <small>
-                                  원본 {r.originalAmount?.toLocaleString()}{" "}
-                                  {r.currency}
-                                </small>
-                              )}
-                            </div>
-                            <span
-                              className={r.type === "수입" ? "cash-income" : ""}
-                            >
-                              <small>{r.type}</small>
-                              <strong>{cashMoney(r.amount)}</strong>
-                            </span>
-                          </article>
-                        ))}
-                      </div>
+                      <CashTransactions rows={transactions.rows} />
                       {!transactions.rows.length && (
                         <p className="cash-empty">
                           조건에 맞는 거래가 없습니다.
@@ -1083,9 +1118,54 @@ export function CashDashboard({
           )}
         </div>
       )}
+      {detail && (
+        <CashDetail
+          key={detail.query}
+          selection={detail}
+          onClose={() => setDetail(null)}
+          demo={demo && f ? { rows: demoRows, filter: f } : undefined}
+        />
+      )}
       {chart && (
         <Modal title={chart.title} onClose={() => setChart(null)}>
-          <Chart periods={chart.periods} series={chart.series} />
+          {chart.totals && (
+            <div className="filter-chips" aria-label="추이 표시">
+              <button
+                className={chartUnit === "money" ? "active" : ""}
+                aria-pressed={chartUnit === "money"}
+                onClick={() => setChartUnit("money")}
+              >
+                금액
+              </button>
+              <button
+                className={chartUnit === "percent" ? "active" : ""}
+                aria-pressed={chartUnit === "percent"}
+                onClick={() => setChartUnit("percent")}
+              >
+                비중
+              </button>
+            </div>
+          )}
+          <Chart
+            periods={chart.periods}
+            unit={chart.totals ? chartUnit : "money"}
+            series={
+              chart.totals && chartUnit === "percent"
+                ? chart.series.map((s) => ({
+                    ...s,
+                    values: s.values.map((v, i) =>
+                      chart.totals![i] > 0 ? v / chart.totals![i] : null,
+                    ),
+                  }))
+                : chart.series
+            }
+          />
+          {chart.totals && (
+            <p className="muted small">
+              비중은 같은 기간·분석 조건의 전체 {type} 대비입니다. 합계가 0
+              이하인 기간은 비율을 계산하지 않습니다.
+            </p>
+          )}
           <div className="cash-chart-values">
             {chart.periods.map((p, i) => (
               <div key={p}>
@@ -1093,6 +1173,16 @@ export function CashDashboard({
                 {chart.series.map((s) => (
                   <strong key={s.name}>{cashMoney(s.values[i])}</strong>
                 ))}
+                {chart.totals && (
+                  <span className="cash-share">
+                    비중{" "}
+                    {cashPct(
+                      chart.totals[i] > 0
+                        ? chart.series[0].values[i] / chart.totals[i]
+                        : null,
+                    )}
+                  </span>
+                )}
               </div>
             ))}
           </div>
