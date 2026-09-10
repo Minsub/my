@@ -19,6 +19,8 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | `/wine/glasses` | 와인잔 등록·수정 | app-shell.tsx |
 | `/cash` | 연·월별 흐름·항목별 평균/비중·거래 조회·파일 관리 | cash-dashboard.tsx, cash-analysis.tsx, cash-files.tsx |
 | `/cash/old` | 원본 단일 HTML 분석 + 엑셀 API 자동 연결 | cash-old.tsx, single-html-page.tsx |
+| `/etc/html` | 등록된 단일 HTML 도구의 제목·설명·원본 파일 목록 | html-pages.tsx, lib/html-pages.ts |
+| `/etc/html/{등록키}` | 등록된 단일 HTML을 보호된 sandbox iframe으로 실행 | html-pages.tsx, server/html-pages.ts |
 | `/settings` | 구성원·머신·AI 연결·도구별 MCP 안내 | app-shell.tsx, connections.tsx, mcp-guide.tsx |
 | `/login`, `/consent`, `/privacy`, `/setup` | 인증·동의·개인정보·미설정 안내 | src/app 하위 경로 |
 | `/demo?view=/wine` 등 | 읽기 전용 샘플 둘러보기. 실제 DB를 읽지 않음 | demo/page.tsx, lib/demo.ts |

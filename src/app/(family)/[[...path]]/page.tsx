@@ -4,6 +4,7 @@ import { configured } from "@/server/auth";
 import { webActor, AppError } from "@/server/security";
 import { snapshot } from "@/server/service";
 import { AppShell } from "@/components/app-shell";
+import { findHtmlPage } from "@/lib/html-pages";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export default async function Page({
@@ -15,6 +16,9 @@ export default async function Page({
 }) {
   const { path: parts = [] } = await params;
   const path = "/" + parts.join("/");
+  const isRegisteredHtml =
+    /^\/etc\/html\/[^/]+$/.test(path) &&
+    Boolean(findHtmlPage(parts[2] ?? ""));
   if (
     ![
       "/",
@@ -25,7 +29,9 @@ export default async function Page({
       "/settings",
       "/cash",
       "/cash/old",
+      "/etc/html",
     ].includes(path) &&
+    !isRegisteredHtml &&
     !/^\/(coffee\/beans|wine)\/[0-9a-f-]{36}$/.test(path)
   )
     notFound();

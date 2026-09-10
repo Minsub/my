@@ -1,6 +1,7 @@
 "use client";
 import { CashOld } from "./cash-old";
 import { CashDashboard } from "./cash-dashboard";
+import { HtmlPageList, HtmlPageView } from "./html-pages";
 import { WorkspaceHome } from "./workspace-home";
 import { WineCellar } from "./wine-cellar";
 import { WinePhotoUpload } from "./wine-photo-upload";
@@ -31,9 +32,11 @@ import {
   X,
   GlassWater,
   Archive,
+  FileCode2,
   Undo2,
   Pencil,
 } from "lucide-react";
+import { findHtmlPage } from "@/lib/html-pages";
 import type { Bean, Snapshot, Wine } from "@/lib/types";
 import { wineTypes, glassTypes } from "@/lib/types";
 import { money, kgPrice, today, dateLabel, vintageLabel } from "@/lib/format";
@@ -46,6 +49,7 @@ const nav = [
   { href: "/coffee", label: "커피 원두", icon: Coffee },
   { href: "/wine", label: "와인 셀러", icon: WineIcon },
   { href: "/cash", label: "가계부", icon: Wallet },
+  { href: "/etc/html", label: "기타", icon: FileCode2 },
   { href: "/settings", label: "설정", icon: Settings },
 ];
 const select = (values: string[]) =>
@@ -118,6 +122,8 @@ export function AppShell({
     ? "/coffee"
     : path.startsWith("/cash")
       ? "/cash"
+      : path.startsWith("/etc")
+        ? "/etc/html"
       : path.startsWith("/wine")
         ? "/wine"
         : path.startsWith("/settings")
@@ -1517,6 +1523,11 @@ export function AppShell({
   else if (path === "/cash/old") content = <CashOld demo={demo} />;
   else if (path === "/cash")
     content = <CashDashboard initialQuery={initialQuery} demo={demo} />;
+  else if (path === "/etc/html") content = <HtmlPageList href={href} />;
+  else if (path.startsWith("/etc/html/")) {
+    const page = findHtmlPage(path.split("/")[3] ?? "");
+    content = page ? <HtmlPageView page={page} href={href} demo={demo} /> : null;
+  }
   else if (path === "/settings") content = renderSettings();
   else
     content = empty(
@@ -1645,7 +1656,7 @@ export function AppShell({
         </main>
       </div>
       <nav className="mobile-nav" aria-label="모바일 주 메뉴">
-        {nav.map((n) => (
+        {nav.filter((n) => n.href !== "/etc/html").map((n) => (
           <Link
             className={active === n.href ? "active" : ""}
             key={n.href}

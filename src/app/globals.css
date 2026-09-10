@@ -2926,6 +2926,87 @@ input[type="checkbox"] {
   color: var(--green);
 }
 
+.html-pages {
+  max-width: 980px;
+}
+.html-page-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+.html-page-card {
+  display: flex;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fffefa;
+  color: inherit;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.html-page-card:hover {
+  border-color: #afbea1;
+  transform: translateY(-1px);
+}
+.html-page-card > svg {
+  flex: 0 0 auto;
+  color: #5c7952;
+}
+.html-page-card h2,
+.html-page-heading h1 {
+  margin: 0;
+  font-size: 18px;
+}
+.html-page-card p,
+.html-page-heading p,
+.html-page-source,
+.html-page-notice {
+  color: var(--muted);
+}
+.html-page-card p {
+  margin: 7px 0 12px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.html-page-card code,
+.html-page-source {
+  font-size: 11px;
+}
+.html-page-card code {
+  color: #65775b;
+}
+.html-page-heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+.html-page-heading > div {
+  margin-right: auto;
+}
+.html-page-heading p {
+  margin: 7px 0 0;
+  font-size: 13px;
+}
+.html-page-source {
+  margin: 0 0 16px;
+}
+.html-page-notice {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fffefa;
+}
+@media (max-width: 760px) {
+  .html-page-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .html-page-heading .button {
+    min-height: 40px;
+  }
+}
+
 /* Wine cellar: compact desktop rows and touch-friendly mobile cards. */
 .cellar-dashboard {
   background: #fffdf9;

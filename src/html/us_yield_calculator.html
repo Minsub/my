@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>미국 국채 만기보유 수익률 계산기 (US Treasury Yield Calculator)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              500: '#0284c7',
+              600: '#0369a1',
+              700: '#075985',
+              800: '#0c4a6e',
+              900: '#082f49',
+            },
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    /* 커스텀 스크롤바 & 폰트 세팅 */
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    body {
+      font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+    }
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen antialiased flex flex-col">
+
+  <!-- 상단 네비게이션 헤더 -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center text-white text-xl shadow-md">
+          🇺🇸
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            미국 국채 만기보유 수익률 계산기
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-200">v1.0</span>
+          </h1>
+          <p class="text-xs text-slate-500">Hold-to-Maturity Yield, CAGR, Reinvestment & Bank Deposit Comparison</p>
+        </div>
+      </div>
+      
+      <!-- 프리셋 및 안내 버튼 -->
+      <div class="flex items-center gap-2">
+        <button id="btnPreset2Y" class="px-2.5 py-1.5 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition">
+          예시: 2년물(단기)
+        </button>
+        <button id="btnPreset10Y" class="px-2.5 py-1.5 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition">
+          예시: 10년물(중기)
+        </button>
+        <button id="btnPreset30Y" class="px-2.5 py-1.5 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition">
+          예시: 30년 저쿠폰할인채
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 컨테이너 -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
+
+    <!-- 상단: 입력 폼 & 계산 결과 카드 -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- 좌측: 입력 패널 (5 cols) -->
+      <div class="lg:col-span-5 space-y-5">
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <svg class="w-5 h-5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+              </svg>
+              채권 조건 입력
+            </h2>
+            <button id="btnResetForm" class="text-xs text-slate-400 hover:text-slate-600 transition">
+              입력 초기화
+            </button>
+          </div>
+
+          <form id="calcForm" class="space-y-4" onsubmit="return false;">
+            <!-- 채권 식별 이름 -->
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1" for="bondName">
+                채권명 / 메모 (선택)
+              </label>
+              <input type="text" id="bondName" placeholder="예: 미국채 10년 4.125% (2034-08)" 
+                class="w-full px-3 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition" />
+            </div>
+
+            <!-- 투자 기간 입력 방식 토글 -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="text-xs font-semibold text-slate-700">투자 기간 설정 방식</label>
+                <div class="inline-flex rounded-lg p-0.5 bg-slate-100 border border-slate-200 text-xs">
+                  <button type="button" id="tabModeDate" class="px-2.5 py-1 rounded-md font-medium text-sky-700 bg-white shadow-sm transition">
+                    만기일자 지정
+                  </button>
+                  <button type="button" id="tabModeRemain" class="px-2.5 py-1 rounded-md font-medium text-slate-500 hover:text-slate-800 transition">
+                    남은 기간 입력
+                  </button>
+                </div>
+              </div>
+
+              <!-- 만기일자 지정 UI -->
+              <div id="sectionDateMode" class="grid grid-cols-2 gap-2 mt-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div>
+                  <span class="block text-[11px] font-medium text-slate-500 mb-1">매수일(시작일)</span>
+                  <input type="date" id="startDate" class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-sky-500 outline-none" />
+                </div>
+                <div>
+                  <span class="block text-[11px] font-medium text-slate-500 mb-1">만기일</span>
+                  <input type="date" id="maturityDate" class="w-full px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-sky-500 outline-none" />
+                </div>
+                <div class="col-span-2 text-right">
+                  <span id="calcDateDiffText" class="text-[11px] text-sky-700 font-medium bg-sky-50 px-2 py-0.5 rounded-full border border-sky-100">
+                    계산 중...
+                  </span>
+                </div>
+              </div>
+
+              <!-- 남은 기간 직접 입력 UI -->
+              <div id="sectionRemainMode" class="hidden mt-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <span class="block text-[11px] font-medium text-slate-500 mb-1.5">남은 만기일 (년 / 월 / 일)</span>
+                <div class="grid grid-cols-3 gap-2">
+                  <div class="relative">
+                    <input type="number" id="remainYears" min="0" max="50" step="1" value="5"
+                      class="w-full pl-3 pr-7 py-1.5 text-xs rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-sky-500 outline-none" />
+                    <span class="absolute right-2.5 top-1.5 text-xs text-slate-400">년</span>
+                  </div>
+                  <div class="relative">
+                    <input type="number" id="remainMonths" min="0" max="11" step="1" value="0"
+                      class="w-full pl-3 pr-7 py-1.5 text-xs rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-sky-500 outline-none" />
+                    <span class="absolute right-2.5 top-1.5 text-xs text-slate-400">개월</span>
+                  </div>
+                  <div class="relative">
+                    <input type="number" id="remainDays" min="0" max="30" step="1" value="0"
+                      class="w-full pl-3 pr-7 py-1.5 text-xs rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-sky-500 outline-none" />
+                    <span class="absolute right-2.5 top-1.5 text-xs text-slate-400">일</span>
+                  </div>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1.5 text-right" id="calcRemainTotalYearsText">
+                  총 환산 기간: 5.00년
+                </p>
+              </div>
+            </div>
+
+            <!-- 매수단가 & 표면이율 -->
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1" for="buyPrice">
+                  매수단가 <span class="text-slate-400 font-normal">($100 기준)</span>
+                </label>
+                <div class="relative">
+                  <span class="absolute left-3 top-2 text-sm text-slate-400">$</span>
+                  <input type="number" id="buyPrice" min="1" max="250" step="0.001" value="95.50" 
+                    class="w-full pl-7 pr-3 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-sky-500 outline-none font-semibold text-slate-900" />
+                </div>
+                <span id="priceDiffBadge" class="inline-block mt-1 text-[11px] font-medium text-emerald-600">
+                  -4.50% 할인 매수
+                </span>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1" for="couponRate">
+                  표면 이율 (쿠폰금리)
+                </label>
+                <div class="relative">
+                  <input type="number" id="couponRate" min="0" max="30" step="0.001" value="4.25" 
+                    class="w-full pl-3 pr-7 py-2 text-sm rounded-xl border border-slate-300 focus:ring-2 focus:ring-sky-500 outline-none font-semibold text-slate-900" />
+                  <span class="absolute right-3 top-2 text-sm text-slate-400">%</span>
+                </div>
+                <span class="inline-block mt-1 text-[11px] text-slate-500">
+                  연간 이자: <strong id="annualCouponDisplay">$4.25</strong> / 100달러
+                </span>
+              </div>
+            </div>
+
+            <!-- 이자지급주기 방식 토글 -->
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <label class="text-xs font-semibold text-slate-700">이자 지급 주기</label>
+                <div class="inline-flex rounded-lg p-0.5 bg-slate-100 border border-slate-200 text-xs">
+                  <button type="button" id="tabFreqAnnual" class="px-2 py-0.5 rounded-md font-medium text-sky-700 bg-white shadow-sm transition">
+                    연 N회 지급
+                  </button>
+                  <button type="button" id="tabFreqTotal" class="px-2 py-0.5 rounded-md font-medium text-slate-500 hover:text-slate-800 transition">
+                    만기까지 총 N회
+                  </button>
+                </div>
+              </div>
+
+              <!-- 연 N회 UI -->
+              <div id="sectionFreqAnnual" class="grid grid-cols-4 gap-2">
+                <label class="cursor-pointer border rounded-xl p-2 text-center transition border-sky-500 bg-sky-50/60" id="lblFreq2">
+                  <input type="radio" name="payFreqAnnual" value="2" checked class="hidden" />
+                  <div class="text-xs font-bold text-sky-900">연 2회</div>
+                  <div class="text-[10px] text-sky-600 font-medium">미국채 표준</div>
+                </label>
+                <label class="cursor-pointer border rounded-xl p-2 text-center transition border-slate-200 hover:border-slate-300" id="lblFreq1">
+                  <input type="radio" name="payFreqAnnual" value="1" class="hidden" />
+                  <div class="text-xs font-bold text-slate-800">연 1회</div>
+                  <div class="text-[10px] text-slate-400">연단위</div>
+                </label>
+                <label class="cursor-pointer border rounded-xl p-2 text-center transition border-slate-200 hover:border-slate-300" id="lblFreq4">
+                  <input type="radio" name="payFreqAnnual" value="4" class="hidden" />
+                  <div class="text-xs font-bold text-slate-800">연 4회</div>
+                  <div class="text-[10px] text-slate-400">분기별</div>
+                </label>
+                <label class="cursor-pointer border rounded-xl p-2 text-center transition border-slate-200 hover:border-slate-300" id="lblFreq12">
+                  <input type="radio" name="payFreqAnnual" value="12" class="hidden" />
+                  <div class="text-xs font-bold text-slate-800">연 12회</div>
+                  <div class="text-[10px] text-slate-400">월별</div>
+                </label>
+              </div>
+
+              <!-- 만기까지 총 N회 직접 입력 UI -->
+              <div id="sectionFreqTotal" class="hidden bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-slate-600 font-medium shrink-0">만기까지 남은 총 이자 지급 회수:</span>
+                  <div class="relative flex-1">
+                    <input type="number" id="totalCouponCountInput" min="1" max="120" step="1" value="10"
+                      class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300 bg-white focus:ring-2 focus:ring-sky-500 outline-none font-semibold" />
+                    <span class="absolute right-2.5 top-1.5 text-xs text-slate-400">회</span>
+                  </div>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1">※ 이미 수령한 이자를 제외하고 앞으로 만기까지 남은 정확한 지급 횟수를 알고 계실 때 사용하세요.</p>
+              </div>
+            </div>
+
+            <!-- 과세 방식 설정 (국내 미국채 세법: 자본차익 비과세 vs 전액과세) -->
+            <div class="pt-2 border-t border-slate-100">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  세금 계산 방식
+                  <span class="relative group cursor-pointer text-slate-400 hover:text-slate-600">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-56 p-2 bg-slate-800 text-white text-[11px] rounded-lg shadow-lg z-50 leading-relaxed font-normal">
+                      국내 세법상 개인의 채권 매매차익(만기상환차익)은 비과세이며, 표면이자에 대해서만 15.4%(소득세 14%+지방소득세 1.4%)가 원천징수됩니다.
+                    </span>
+                  </span>
+                </span>
+                <select id="taxModeSelect" class="text-xs border border-slate-300 rounded-lg px-2 py-1 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-sky-500">
+                  <option value="couponOnly" selected>한국 세법 표준 (표면이자만 15.4% 과세)</option>
+                  <option value="allProfit">전체 수익 과세 (매매차익+이자 모두 15.4% 과세)</option>
+                  <option value="none">비과세 (세전과 동일)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 기록 버튼 -->
+            <div class="pt-2">
+              <button type="button" id="btnSaveRecord" 
+                class="w-full py-3 px-4 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg transition flex items-center justify-center gap-2 active:scale-[0.99]">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                </svg>
+                현재 결과 비교 Grid에 기록 (저장)
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- 우측: 계산 결과 대시보드 (7 cols) -->
+      <div class="lg:col-span-7 space-y-4">
+
+        <!-- 1. 핵심 수익률 요약 카드 -->
+        <div class="bg-gradient-to-br from-slate-900 via-slate-800 to-sky-950 text-white p-6 rounded-2xl shadow-xl border border-slate-700/60 relative overflow-hidden">
+          <div class="absolute -right-8 -bottom-8 w-44 h-44 bg-sky-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+          <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-700/60">
+            <div>
+              <span class="text-xs font-medium text-sky-300">만기보유 연수익률 요약</span>
+              <h3 class="text-lg font-bold text-white tracking-tight" id="summaryBondTitle">미국 국채 수익률</h3>
+            </div>
+            <div class="text-right">
+              <span class="text-xs text-slate-400 block">잔여 만기</span>
+              <span class="text-sm font-bold text-sky-200" id="summaryDurationText">5.00년 (1,826일)</span>
+            </div>
+          </div>
+
+          <!-- 주요 지표 3개 그리드 -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 mb-5">
+            <!-- 세전 연수익률 -->
+            <div class="bg-slate-800/80 backdrop-blur-sm border border-slate-700 rounded-xl p-3.5">
+              <div class="text-xs text-slate-400 mb-1 flex items-center justify-between">
+                <span>세전 연수익률 (단리)</span>
+              </div>
+              <div class="text-2xl font-black text-white tracking-tight">
+                <span id="resPreTaxSimple">0.00</span><span class="text-base font-medium text-slate-300">%</span>
+              </div>
+              <div class="text-[11px] text-slate-400 mt-1" id="resPreTaxTotalProfit">
+                총 수익 +$0.00
+              </div>
+            </div>
+
+            <!-- 세후 연수익률 (하이라이트) -->
+            <div class="bg-sky-950/60 backdrop-blur-sm border border-sky-500/50 rounded-xl p-3.5 relative">
+              <div class="text-xs text-sky-300 mb-1 flex items-center justify-between">
+                <span class="font-bold">세후 연수익률 (단리)</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-200 font-semibold">실수령</span>
+              </div>
+              <div class="text-2xl font-black text-emerald-400 tracking-tight">
+                <span id="resAfterTaxSimple">0.00</span><span class="text-base font-medium text-emerald-300">%</span>
+              </div>
+              <div class="text-[11px] text-emerald-300/80 mt-1" id="resAfterTaxTotalProfit">
+                세후 총수익 +$0.00
+              </div>
+            </div>
+
+            <!-- ★ 상응하는 세전 예금금리 -->
+            <div class="bg-gradient-to-br from-amber-950/50 to-orange-950/40 backdrop-blur-sm border border-amber-500/50 rounded-xl p-3.5">
+              <div class="text-xs text-amber-300 mb-1 flex items-center justify-between font-bold">
+                <span>상응 세전 예금금리</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-200">15.4% 역산</span>
+              </div>
+              <div class="text-2xl font-black text-amber-300 tracking-tight">
+                <span id="resBankDepositEquiv">0.00</span><span class="text-base font-medium text-amber-200">%</span>
+              </div>
+              <div class="text-[11px] text-amber-200/70 mt-1">
+                은행 예금과 직접 비교용
+              </div>
+            </div>
+          </div>
+
+          <!-- 복리 수익률 2가지 분리 표시 섹션 -->
+          <div class="bg-slate-800/90 border border-slate-700/80 rounded-xl p-4">
+            <div class="flex items-center justify-between mb-2.5">
+              <h4 class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                </svg>
+                복리 연평균 수익률 분석 (2가지 방식 비교)
+              </h4>
+              <span class="text-[11px] text-slate-400">연 복리 기준 (Annual Compounded)</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <!-- 방식 1: 일반 복리 (CAGR) -->
+              <div class="bg-slate-900/70 rounded-lg p-3 border border-slate-700">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="font-bold text-slate-200">① 일반 복리 (CAGR)</span>
+                  <span class="text-[10px] text-slate-400">기간 기하평균</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mb-2 leading-relaxed">
+                  만기 최종 환급 총액을 투자 기간(T년) 동안 균등 복리 성장률로 역산한 수익률
+                </p>
+                <div class="space-y-1 text-[11px]">
+                  <div class="flex justify-between">
+                    <span class="text-slate-400">세전 복리:</span>
+                    <strong class="text-white" id="resPreTaxCAGR">0.00%</strong>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-slate-400">세후 복리:</span>
+                    <strong class="text-emerald-400" id="resAfterTaxCAGR">0.00%</strong>
+                  </div>
+                  <div class="flex justify-between border-t border-slate-800 pt-1">
+                    <span class="text-amber-300">상응 예금금리:</span>
+                    <strong class="text-amber-300 font-bold" id="resEquivCAGR">0.00%</strong>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 방식 2: 쿠폰 재투자 복리 -->
+              <div class="bg-slate-900/70 rounded-lg p-3 border border-slate-700">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="font-bold text-sky-300">② 쿠폰 재투자 복리</span>
+                  <span class="text-[10px] text-sky-400">동일 이율 재투자</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mb-2 leading-relaxed">
+                  지급받는 표면이자(쿠폰)를 매회 같은 이율로 만기까지 재투자한다고 가정한 실질 복리
+                </p>
+                <div class="space-y-1 text-[11px]">
+                  <div class="flex justify-between">
+                    <span class="text-slate-400">세전 복리:</span>
+                    <strong class="text-white" id="resPreTaxReinvest">0.00%</strong>
+                  </div>
+                  <div class="flex justify-between">
+                    <span class="text-slate-400">세후 복리:</span>
+                    <strong class="text-emerald-400" id="resAfterTaxReinvest">0.00%</strong>
+                  </div>
+                  <div class="flex justify-between border-t border-slate-800 pt-1">
+                    <span class="text-amber-300">상응 예금금리:</span>
+                    <strong class="text-amber-300 font-bold" id="resEquivReinvest">0.00%</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. 세부 현금흐름 및 세금 브레이크다운 카드 -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+          <h3 class="text-sm font-bold text-slate-900 mb-3 flex items-center justify-between">
+            <span>만기 상환 현금흐름 상세 분석 ($100 액면가 기준)</span>
+            <span class="text-xs text-slate-500 font-normal" id="detailFormulaNote">채권 1좌($100) 기준 수치</span>
+          </h3>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <span class="text-slate-500 block mb-1">초기 투자금 (매수단가)</span>
+              <strong class="text-base text-slate-900" id="detailBuyPrice">$95.50</strong>
+            </div>
+
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <span class="text-slate-500 block mb-1">자본차익 (만기차익)</span>
+              <strong class="text-base text-sky-700" id="detailCapGain">+$4.50</strong>
+              <span class="block text-[10px] text-emerald-600 mt-0.5" id="detailCapGainTaxNote">비과세</span>
+            </div>
+
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <span class="text-slate-500 block mb-1">총 수령 쿠폰 (이자)</span>
+              <strong class="text-base text-slate-900" id="detailTotalCoupons">+$21.25</strong>
+              <span class="block text-[10px] text-slate-500 mt-0.5" id="detailCouponCountNote">총 10회 (회당 $2.125)</span>
+            </div>
+
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <span class="text-slate-500 block mb-1">예상 원천징수 세금</span>
+              <strong class="text-base text-rose-600" id="detailTotalTax">-$3.27</strong>
+              <span class="block text-[10px] text-slate-500 mt-0.5" id="detailTaxRateNote">표면이자의 15.4%</span>
+            </div>
+          </div>
+
+          <!-- 최종 순수익 및 총 회수금 -->
+          <div class="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div class="flex items-center gap-4">
+              <div>
+                <span class="text-slate-500">만기 총 회수금액:</span>
+                <strong class="text-slate-900 font-bold ml-1" id="detailGrossRedemption">$121.25</strong>
+              </div>
+              <div>
+                <span class="text-slate-500">세후 실수령 총액:</span>
+                <strong class="text-emerald-600 font-bold ml-1" id="detailNetRedemption">$117.98</strong>
+              </div>
+            </div>
+            <div>
+              <span class="text-slate-500">총 투자수익률:</span>
+              <strong class="text-indigo-600 font-bold ml-1 text-sm" id="detailTotalReturnPct">+23.54%</strong>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 하단: 채권 비교 Grid (테이블 & 로컬스토리지 저장) -->
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <!-- 헤더 및 툴바 -->
+      <div class="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center font-bold">
+            📊
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              채권 비교 Grid (비교 분석 및 보관함)
+              <span id="recordCountBadge" class="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-semibold">0개 보관 중</span>
+            </h2>
+            <p class="text-xs text-slate-500">브라우저(LocalStorage)에 자동 저장되어 다시 방문해도 유지됩니다.</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button id="btnExportCsv" class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            CSV 내보내기
+          </button>
+          <button id="btnClearAllRecords" class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 flex items-center gap-1.5 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+            전체 비우기
+          </button>
+        </div>
+      </div>
+
+      <!-- 테이블 본문 -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs text-slate-600 whitespace-nowrap">
+          <thead class="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase font-semibold text-[11px]">
+            <tr>
+              <th scope="col" class="px-4 py-3.5">채권명 / 메모</th>
+              <th scope="col" class="px-3 py-3.5">잔여 만기</th>
+              <th scope="col" class="px-3 py-3.5">매수단가</th>
+              <th scope="col" class="px-3 py-3.5">표면이율</th>
+              <th scope="col" class="px-3 py-3.5">이자주기</th>
+              <th scope="col" class="px-3 py-3.5 bg-slate-100/70 text-slate-800">단리 (세전 / 세후)</th>
+              <th scope="col" class="px-3 py-3.5">일반 복리 (CAGR)</th>
+              <th scope="col" class="px-3 py-3.5">재투자 복리</th>
+              <th scope="col" class="px-4 py-3.5 bg-amber-50/80 text-amber-900 border-l border-r border-amber-200">
+                ★ 상응 세전 예금금리 (15.4%)
+              </th>
+              <th scope="col" class="px-3 py-3.5 text-center">관리</th>
+            </tr>
+          </thead>
+          <tbody id="recordTableBody" class="divide-y divide-slate-100">
+            <!-- 동적 레코드 행 주입 -->
+            <tr id="emptyRecordRow">
+              <td colspan="10" class="text-center py-12 text-slate-400">
+                <div class="flex flex-col items-center justify-center gap-2">
+                  <span class="text-3xl">📋</span>
+                  <span class="text-sm font-medium">아직 기록된 채권이 없습니다.</span>
+                  <span class="text-xs text-slate-400">위 계산기에서 채권 조건을 입력한 후 <strong>[비교 Grid에 기록]</strong> 버튼을 눌러보세요.</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 참고 가이드 & 수식 설명 아코디언 -->
+    <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+      <h3 class="text-sm font-bold text-slate-900 mb-2 flex items-center gap-2">
+        <svg class="w-4 h-4 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        수익률 계산 공식 및 미국 국채 투자 세법 안내
+      </h3>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-600 leading-relaxed mt-3">
+        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+          <strong class="text-slate-900 block mb-1">1. 미국 국채 과세 체계 (한국 거주자)</strong>
+          <p>
+            국내 세법상 개인의 채권 매매차익(만기환급금 $100 - 매수단가)은 비과세입니다.
+            표면이자(쿠폰)에 대해서만 15.4%(소득세 14% + 지방소득세 1.4%)가 원천징수되므로, 
+            할인율이 큰 저쿠폰 채권일수록 절세 효과로 인해 세후 실질 수익률이 크게 높아집니다.
+          </p>
+        </div>
+
+        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+          <strong class="text-slate-900 block mb-1">2. 일반 복리(CAGR) vs 쿠폰 재투자 복리</strong>
+          <p>
+            • <strong>일반 복리(CAGR)</strong>: 만기에 수령한 총금액(원금+쿠폰합계)을 기간 $T$년으로 역산한 기하평균 복리 수익률입니다: <code>(총수령액 / 매수단가)^(1/T) - 1</code><br>
+            • <strong>쿠폰 재투자 복리</strong>: 매 지급주기마다 수령한 이자를 같은 이율로 만기까지 재투자한다고 가정한 실질 복리입니다.
+          </p>
+        </div>
+
+        <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+          <strong class="text-slate-900 block mb-1">3. 상응하는 세전 예금금리 산출 원리</strong>
+          <p>
+            일반 은행 정기예금은 만기 시 수령하는 총 이자 전체에 대해 15.4%가 과세됩니다.<br>
+            따라서 채권에서 얻은 세후 수익률을 동일하게 얻기 위해 필요한 시중은행의 세전 예금금리는 
+            <code>세후 연수익률 ÷ (1 - 0.154)</code> 로 환산됩니다.
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 푸터 -->
+  <footer class="bg-white border-t border-slate-200 py-4 mt-8 text-center text-xs text-slate-400">
+    <p>미국 국채 만기보유 수익률 계산기 • 브라우저 로컬 저장 지원 (Cookie / LocalStorage)</p>
+  </footer>
+
+  <!-- 자바스크립트 로직 -->
+  <script>
+    (function () {
+      // 1. 상태 변수
+      let periodMode = 'date'; // 'date' | 'remain'
+      let freqMode = 'annual'; // 'annual' | 'total'
+      const STORAGE_KEY = 'us_treasury_calc_records_v1';
+
+      // 2. DOM 요소 참조
+      const tabModeDate = document.getElementById('tabModeDate');
+      const tabModeRemain = document.getElementById('tabModeRemain');
+      const sectionDateMode = document.getElementById('sectionDateMode');
+      const sectionRemainMode = document.getElementById('sectionRemainMode');
+
+      const startDateInput = document.getElementById('startDate');
+      const maturityDateInput = document.getElementById('maturityDate');
+      const calcDateDiffText = document.getElementById('calcDateDiffText');
+
+      const remainYearsInput = document.getElementById('remainYears');
+      const remainMonthsInput = document.getElementById('remainMonths');
+      const remainDaysInput = document.getElementById('remainDays');
+      const calcRemainTotalYearsText = document.getElementById('calcRemainTotalYearsText');
+
+      const buyPriceInput = document.getElementById('buyPrice');
+      const couponRateInput = document.getElementById('couponRate');
+      const annualCouponDisplay = document.getElementById('annualCouponDisplay');
+      const priceDiffBadge = document.getElementById('priceDiffBadge');
+
+      const tabFreqAnnual = document.getElementById('tabFreqAnnual');
+      const tabFreqTotal = document.getElementById('tabFreqTotal');
+      const sectionFreqAnnual = document.getElementById('sectionFreqAnnual');
+      const sectionFreqTotal = document.getElementById('sectionFreqTotal');
+      const totalCouponCountInput = document.getElementById('totalCouponCountInput');
+
+      const taxModeSelect = document.getElementById('taxModeSelect');
+      const bondNameInput = document.getElementById('bondName');
+      const btnResetForm = document.getElementById('btnResetForm');
+      const btnSaveRecord = document.getElementById('btnSaveRecord');
+
+      // 결과 DOM
+      const summaryBondTitle = document.getElementById('summaryBondTitle');
+      const summaryDurationText = document.getElementById('summaryDurationText');
+      const resPreTaxSimple = document.getElementById('resPreTaxSimple');
+      const resAfterTaxSimple = document.getElementById('resAfterTaxSimple');
+      const resBankDepositEquiv = document.getElementById('resBankDepositEquiv');
+      const resPreTaxTotalProfit = document.getElementById('resPreTaxTotalProfit');
+      const resAfterTaxTotalProfit = document.getElementById('resAfterTaxTotalProfit');
+
+      const resPreTaxCAGR = document.getElementById('resPreTaxCAGR');
+      const resAfterTaxCAGR = document.getElementById('resAfterTaxCAGR');
+      const resEquivCAGR = document.getElementById('resEquivCAGR');
+
+      const resPreTaxReinvest = document.getElementById('resPreTaxReinvest');
+      const resAfterTaxReinvest = document.getElementById('resAfterTaxReinvest');
+      const resEquivReinvest = document.getElementById('resEquivReinvest');
+
+      // 상세 내역 DOM
+      const detailBuyPrice = document.getElementById('detailBuyPrice');
+      const detailCapGain = document.getElementById('detailCapGain');
+      const detailCapGainTaxNote = document.getElementById('detailCapGainTaxNote');
+      const detailTotalCoupons = document.getElementById('detailTotalCoupons');
+      const detailCouponCountNote = document.getElementById('detailCouponCountNote');
+      const detailTotalTax = document.getElementById('detailTotalTax');
+      const detailGrossRedemption = document.getElementById('detailGrossRedemption');
+      const detailNetRedemption = document.getElementById('detailNetRedemption');
+      const detailTotalReturnPct = document.getElementById('detailTotalReturnPct');
+
+      // 테이블 DOM
+      const recordTableBody = document.getElementById('recordTableBody');
+      const recordCountBadge = document.getElementById('recordCountBadge');
+      const btnClearAllRecords = document.getElementById('btnClearAllRecords');
+      const btnExportCsv = document.getElementById('btnExportCsv');
+
+      // 프리셋 버튼
+      const btnPreset2Y = document.getElementById('btnPreset2Y');
+      const btnPreset10Y = document.getElementById('btnPreset10Y');
+      const btnPreset30Y = document.getElementById('btnPreset30Y');
+
+      // 3. 초기화 함수
+      function initDates() {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+
+        // 기본 5년 후 만기 설정
+        const future = new Date(today);
+        future.setFullYear(future.getFullYear() + 5);
+        const fYyyy = future.getFullYear();
+        const fMm = String(future.getMonth() + 1).padStart(2, '0');
+        const fDd = String(future.getDate()).padStart(2, '0');
+        const futureStr = `${fYyyy}-${fMm}-${fDd}`;
+
+        startDateInput.value = todayStr;
+        maturityDateInput.value = futureStr;
+      }
+
+      // 4. 기간 계산 헬퍼
+      function getDurationInYearsAndDays() {
+        if (periodMode === 'date') {
+          const start = new Date(startDateInput.value);
+          const end = new Date(maturityDateInput.value);
+          if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
+            return { years: 0, days: 0, valid: false, error: '만기일은 매수일보다 이후여야 합니다.' };
+          }
+          const diffTime = end.getTime() - start.getTime();
+          const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+          const years = diffDays / 365.25;
+          return { years, days: diffDays, valid: true };
+        } else {
+          const y = parseFloat(remainYearsInput.value) || 0;
+          const m = parseFloat(remainMonthsInput.value) || 0;
+          const d = parseFloat(remainDaysInput.value) || 0;
+          const years = y + (m / 12) + (d / 365.25);
+          const days = Math.round(years * 365.25);
+          if (years <= 0) {
+            return { years: 0, days: 0, valid: false, error: '남은 만기 기간은 0보다 커야 합니다.' };
+          }
+          return { years, days, valid: true };
+        }
+      }
+
+      // 5. 이자지급주기 헬퍼
+      function getPayFrequency(totalYears) {
+        if (freqMode === 'annual') {
+          const checkedRadio = document.querySelector('input[name="payFreqAnnual"]:checked');
+          const annualFreq = checkedRadio ? parseInt(checkedRadio.value, 10) : 2;
+          const totalCoupons = Math.max(1, Math.round(totalYears * annualFreq));
+          return { annualFreq, totalCoupons, isDirectTotal: false };
+        } else {
+          const totalCoupons = Math.max(1, parseInt(totalCouponCountInput.value, 10) || 1);
+          const annualFreq = totalYears > 0 ? (totalCoupons / totalYears) : 2;
+          return { annualFreq, totalCoupons, isDirectTotal: true };
+        }
+      }
+
+      // 6. 메인 계산 함수
+      function calculateYields() {
+        const duration = getDurationInYearsAndDays();
+
+        // 날짜/기간 정보 텍스트 갱신
+        if (periodMode === 'date') {
+          if (duration.valid) {
+            calcDateDiffText.textContent = `${duration.days.toLocaleString()}일 (${duration.years.toFixed(2)}년)`;
+            calcDateDiffText.className = 'text-[11px] text-sky-700 font-medium bg-sky-50 px-2 py-0.5 rounded-full border border-sky-100';
+          } else {
+            calcDateDiffText.textContent = duration.error || '날짜 오류';
+            calcDateDiffText.className = 'text-[11px] text-rose-600 font-medium bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200';
+          }
+        } else {
+          calcRemainTotalYearsText.textContent = `총 환산 기간: 약 ${duration.years.toFixed(2)}년 (${duration.days.toLocaleString()}일)`;
+        }
+
+        if (!duration.valid || duration.years <= 0) {
+          return null;
+        }
+
+        const buyPrice = parseFloat(buyPriceInput.value) || 0;
+        const couponRate = parseFloat(couponRateInput.value) || 0;
+        const taxMode = taxModeSelect.value; // 'couponOnly' | 'allProfit' | 'none'
+
+        if (buyPrice <= 0) return null;
+
+        // 할인/할증 뱃지
+        const priceDiff = buyPrice - 100;
+        if (priceDiff < 0) {
+          priceDiffBadge.textContent = `${priceDiff.toFixed(2)}% 할인 매수 (만기차익 발생)`;
+          priceDiffBadge.className = 'inline-block mt-1 text-[11px] font-medium text-emerald-600';
+        } else if (priceDiff > 0) {
+          priceDiffBadge.textContent = `+${priceDiff.toFixed(2)}% 할증 매수 (만기손실 발생)`;
+          priceDiffBadge.className = 'inline-block mt-1 text-[11px] font-medium text-amber-600';
+        } else {
+          priceDiffBadge.textContent = `액면가 매수 ($100.00)`;
+          priceDiffBadge.className = 'inline-block mt-1 text-[11px] font-medium text-slate-500';
+        }
+
+        annualCouponDisplay.textContent = `$${couponRate.toFixed(3)}`;
+
+        // 이자 지급 주기 및 총 쿠폰액 계산
+        const freqInfo = getPayFrequency(duration.years);
+        const singleCoupon = (100 * (couponRate / 100)) / (freqInfo.annualFreq || 2);
+        const totalCoupons = freqInfo.totalCoupons * singleCoupon;
+
+        // 자본차익 ($100 만기환급금 - 매수단가)
+        const capGain = 100 - buyPrice;
+
+        // 세전 총수익 및 만기 총 환급금
+        const grossTotalProfit = capGain + totalCoupons;
+        const grossMaturityValue = 100 + totalCoupons;
+
+        // 세금 계산 (한국 세법 미국채: 표면이자만 15.4% vs 전액과세 vs 비과세)
+        let totalTax = 0;
+        const TAX_RATE = 0.154; // 15.4% (소득세 14% + 지방소득세 1.4%)
+
+        if (taxMode === 'couponOnly') {
+          // 표면이자만 15.4% 과세, 매매차익 비과세
+          totalTax = totalCoupons * TAX_RATE;
+          detailCapGainTaxNote.textContent = '비과세 (한국 개인)';
+          detailCapGainTaxNote.className = 'block text-[10px] text-emerald-600 mt-0.5';
+          detailTaxRateNote.textContent = '표면이자의 15.4%';
+        } else if (taxMode === 'allProfit') {
+          // 전체 수익에 대해 15.4% 과세
+          totalTax = Math.max(0, grossTotalProfit) * TAX_RATE;
+          detailCapGainTaxNote.textContent = '15.4% 과세 적용';
+          detailCapGainTaxNote.className = 'block text-[10px] text-rose-600 mt-0.5';
+          detailTaxRateNote.textContent = '총이익의 15.4%';
+        } else {
+          // 비과세
+          totalTax = 0;
+          detailCapGainTaxNote.textContent = '비과세';
+          detailCapGainTaxNote.className = 'block text-[10px] text-slate-400 mt-0.5';
+          detailTaxRateNote.textContent = '0% (비과세)';
+        }
+
+        // 세후 총수익 및 세후 만기 환급금
+        const netTotalProfit = grossTotalProfit - totalTax;
+        const netMaturityValue = grossMaturityValue - totalTax;
+
+        // 1) 단순 연수익률 (단리)
+        const preTaxSimpleRate = (grossTotalProfit / buyPrice) / duration.years * 100;
+        const afterTaxSimpleRate = (netTotalProfit / buyPrice) / duration.years * 100;
+
+        // 2) 일반 복리 수익률 (CAGR: 만기 총 환급액을 기간 T로 기하평균 복리화)
+        const preTaxCAGR = (Math.pow(grossMaturityValue / buyPrice, 1 / duration.years) - 1) * 100;
+        const afterTaxCAGR = (Math.pow(netMaturityValue / buyPrice, 1 / duration.years) - 1) * 100;
+
+        // 3) 쿠폰 재투자 복리 수익률 (Reinvestment Compounded Return)
+        const r_period = freqInfo.annualFreq > 0 ? (couponRate / 100) / freqInfo.annualFreq : 0;
+        const singleNetCoupon = singleCoupon - (taxMode === 'couponOnly' ? singleCoupon * TAX_RATE : (taxMode === 'allProfit' ? singleCoupon * TAX_RATE : 0));
+
+        let grossReinvestFV = 100; // 원금 만기 상환
+        let netReinvestFV = 100;
+
+        const M = freqInfo.totalCoupons;
+        for (let k = 1; k <= M; k++) {
+          const periodsRemaining = M - k;
+          // 세전 쿠폰 재투자
+          grossReinvestFV += singleCoupon * Math.pow(1 + r_period, periodsRemaining);
+          // 세후 쿠폰 재투자
+          netReinvestFV += singleNetCoupon * Math.pow(1 + (r_period * (taxMode === 'couponOnly' ? (1 - TAX_RATE) : 1)), periodsRemaining);
+        }
+
+        if (taxMode === 'allProfit' && capGain > 0) {
+          netReinvestFV -= capGain * TAX_RATE;
+        }
+
+        const preTaxReinvestRate = (Math.pow(grossReinvestFV / buyPrice, 1 / duration.years) - 1) * 100;
+        const afterTaxReinvestRate = (Math.pow(netReinvestFV / buyPrice, 1 / duration.years) - 1) * 100;
+
+        // 4) 상응하는 세전 은행 예금금리 (15.4% 과세 역산)
+        const afterTaxFactor = 1 - 0.154; // 0.846
+        const equivBankDepositSimple = afterTaxSimpleRate / afterTaxFactor;
+        const equivBankDepositCAGR = afterTaxCAGR / afterTaxFactor;
+        const equivBankDepositReinvest = afterTaxReinvestRate / afterTaxFactor;
+
+        return {
+          bondName: bondNameInput.value.trim() || '미국 국채',
+          duration,
+          buyPrice,
+          couponRate,
+          freqInfo,
+          singleCoupon,
+          totalCoupons,
+          capGain,
+          grossTotalProfit,
+          totalTax,
+          netTotalProfit,
+          grossMaturityValue,
+          netMaturityValue,
+          // 비율들
+          preTaxSimpleRate,
+          afterTaxSimpleRate,
+          equivBankDepositSimple,
+          preTaxCAGR,
+          afterTaxCAGR,
+          equivBankDepositCAGR,
+          preTaxReinvestRate,
+          afterTaxReinvestRate,
+          equivBankDepositReinvest,
+          taxMode
+        };
+      }
+
+      // 7. 화면 UI 업데이트
+      function updateUI() {
+        const data = calculateYields();
+        if (!data) return;
+
+        summaryBondTitle.textContent = data.bondName;
+        summaryDurationText.textContent = `${data.duration.years.toFixed(2)}년 (${data.duration.days.toLocaleString()}일)`;
+
+        // 메인 3대 지표
+        resPreTaxSimple.textContent = data.preTaxSimpleRate.toFixed(2);
+        resAfterTaxSimple.textContent = data.afterTaxSimpleRate.toFixed(2);
+        resBankDepositEquiv.textContent = data.equivBankDepositSimple.toFixed(2);
+
+        resPreTaxTotalProfit.textContent = `총 수익 +$${data.grossTotalProfit.toFixed(2)} (${((data.grossTotalProfit / data.buyPrice) * 100).toFixed(1)}%)`;
+        resAfterTaxTotalProfit.textContent = `세후 총수익 +$${data.netTotalProfit.toFixed(2)} (${((data.netTotalProfit / data.buyPrice) * 100).toFixed(1)}%)`;
+
+        // 복리 2대 지표
+        resPreTaxCAGR.textContent = `${data.preTaxCAGR.toFixed(2)}%`;
+        resAfterTaxCAGR.textContent = `${data.afterTaxCAGR.toFixed(2)}%`;
+        resEquivCAGR.textContent = `${data.equivBankDepositCAGR.toFixed(2)}%`;
+
+        resPreTaxReinvest.textContent = `${data.preTaxReinvestRate.toFixed(2)}%`;
+        resAfterTaxReinvest.textContent = `${data.afterTaxReinvestRate.toFixed(2)}%`;
+        resEquivReinvest.textContent = `${data.equivBankDepositReinvest.toFixed(2)}%`;
+
+        // 세부 현금흐름
+        detailBuyPrice.textContent = `$${data.buyPrice.toFixed(2)}`;
+        detailCapGain.textContent = `${data.capGain >= 0 ? '+' : ''}$${data.capGain.toFixed(2)}`;
+        detailCapGain.className = data.capGain >= 0 ? 'text-base text-sky-700 font-bold' : 'text-base text-rose-600 font-bold';
+
+        detailTotalCoupons.textContent = `+$${data.totalCoupons.toFixed(2)}`;
+        detailCouponCountNote.textContent = `총 ${data.freqInfo.totalCoupons}회 (회당 $${data.singleCoupon.toFixed(3)})`;
+
+        detailTotalTax.textContent = `-$${data.totalTax.toFixed(2)}`;
+        detailGrossRedemption.textContent = `$${data.grossMaturityValue.toFixed(2)}`;
+        detailNetRedemption.textContent = `$${data.netMaturityValue.toFixed(2)}`;
+
+        const totalReturnPct = (data.netTotalProfit / data.buyPrice) * 100;
+        detailTotalReturnPct.textContent = `${totalReturnPct >= 0 ? '+' : ''}${totalReturnPct.toFixed(2)}%`;
+      }
+
+      // 8. Grid 기록 관리 (LocalStorage)
+      function getStoredRecords() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? JSON.parse(raw) : [];
+        } catch (e) {
+          console.error('LocalStorage load failed', e);
+          return [];
+        }
+      }
+
+      function saveStoredRecords(records) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+          renderRecordsTable();
+        } catch (e) {
+          alert('저장 공간 오류가 발생했습니다.');
+        }
+      }
+
+      function addCurrentRecord() {
+        const data = calculateYields();
+        if (!data) {
+          alert('유효한 채권 정보를 먼저 입력해주세요.');
+          return;
+        }
+
+        const newRecord = {
+          id: Date.now(),
+          timestamp: new Date().toISOString(),
+          bondName: data.bondName,
+          durationYears: data.duration.years,
+          durationDays: data.duration.days,
+          periodMode,
+          startDate: startDateInput.value,
+          maturityDate: maturityDateInput.value,
+          remainYears: remainYearsInput.value,
+          remainMonths: remainMonthsInput.value,
+          remainDays: remainDaysInput.value,
+          buyPrice: data.buyPrice,
+          couponRate: data.couponRate,
+          freqMode,
+          annualFreq: data.freqInfo.annualFreq,
+          totalCouponsCount: data.freqInfo.totalCoupons,
+          taxMode: data.taxMode,
+          // 계산 결과 저장
+          preTaxSimple: data.preTaxSimpleRate,
+          afterTaxSimple: data.afterTaxSimpleRate,
+          equivDepositSimple: data.equivBankDepositSimple,
+          preTaxCAGR: data.preTaxCAGR,
+          afterTaxCAGR: data.afterTaxCAGR,
+          equivDepositCAGR: data.equivBankDepositCAGR,
+          preTaxReinvest: data.preTaxReinvestRate,
+          afterTaxReinvest: data.afterTaxReinvestRate,
+          equivDepositReinvest: data.equivBankDepositReinvest
+        };
+
+        const list = getStoredRecords();
+        list.unshift(newRecord);
+        saveStoredRecords(list);
+
+        // 버튼 피드백 애니메이션
+        const originalText = btnSaveRecord.innerHTML;
+        btnSaveRecord.innerHTML = `
+          <svg class="w-4 h-4 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+          성공적으로 Grid에 기록되었습니다!
+        `;
+        btnSaveRecord.classList.add('ring-2', 'ring-emerald-400');
+        setTimeout(() => {
+          btnSaveRecord.innerHTML = originalText;
+          btnSaveRecord.classList.remove('ring-2', 'ring-emerald-400');
+        }, 1500);
+      }
+
+      function deleteRecord(id) {
+        if (!confirm('이 기록을 삭제하시겠습니까?')) return;
+        let list = getStoredRecords();
+        list = list.filter(item => item.id !== id);
+        saveStoredRecords(list);
+      }
+
+      function loadRecordToForm(id) {
+        const list = getStoredRecords();
+        const item = list.find(r => r.id === id);
+        if (!item) return;
+
+        bondNameInput.value = item.bondName;
+        buyPriceInput.value = item.buyPrice;
+        couponRateInput.value = item.couponRate;
+        taxModeSelect.value = item.taxMode || 'couponOnly';
+
+        if (item.periodMode === 'remain') {
+          switchPeriodMode('remain');
+          remainYearsInput.value = item.remainYears || 0;
+          remainMonthsInput.value = item.remainMonths || 0;
+          remainDaysInput.value = item.remainDays || 0;
+        } else {
+          switchPeriodMode('date');
+          if (item.startDate) startDateInput.value = item.startDate;
+          if (item.maturityDate) maturityDateInput.value = item.maturityDate;
+        }
+
+        if (item.freqMode === 'total') {
+          switchFreqMode('total');
+          totalCouponCountInput.value = item.totalCouponsCount;
+        } else {
+          switchFreqMode('annual');
+          const radio = document.querySelector(`input[name="payFreqAnnual"][value="${item.annualFreq || 2}"]`);
+          if (radio) {
+            radio.checked = true;
+            updateFreqRadioStyles();
+          }
+        }
+
+        updateUI();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      function renderRecordsTable() {
+        const list = getStoredRecords();
+        recordCountBadge.textContent = `${list.length}개 보관 중`;
+
+        if (list.length === 0) {
+          recordTableBody.innerHTML = `
+            <tr id="emptyRecordRow">
+              <td colspan="10" class="text-center py-12 text-slate-400">
+                <div class="flex flex-col items-center justify-center gap-2">
+                  <span class="text-3xl">📋</span>
+                  <span class="text-sm font-medium">아직 기록된 채권이 없습니다.</span>
+                  <span class="text-xs text-slate-400">위 계산기에서 채권 조건을 입력한 후 <strong>[비교 Grid에 기록]</strong> 버튼을 눌러보세요.</span>
+                </div>
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        recordTableBody.innerHTML = list.map(item => {
+          const freqLabel = item.freqMode === 'total' 
+            ? `총 ${item.totalCouponsCount}회` 
+            : `연 ${item.annualFreq}회`;
+
+          return `
+            <tr class="hover:bg-slate-50/80 transition group">
+              <!-- 채권명 -->
+              <td class="px-4 py-3 font-semibold text-slate-900">
+                <div class="flex flex-col">
+                  <span>${escapeHtml(item.bondName)}</span>
+                  <span class="text-[10px] text-slate-400 font-normal">${item.timestamp.slice(0, 10)}</span>
+                </div>
+              </td>
+
+              <!-- 잔여 만기 -->
+              <td class="px-3 py-3 font-medium text-slate-700">
+                ${item.durationYears.toFixed(2)}년
+                <span class="block text-[10px] text-slate-400">${item.durationDays}일</span>
+              </td>
+
+              <!-- 매수단가 -->
+              <td class="px-3 py-3 font-semibold ${item.buyPrice < 100 ? 'text-emerald-700' : 'text-slate-800'}">
+                $${item.buyPrice.toFixed(2)}
+              </td>
+
+              <!-- 표면이율 -->
+              <td class="px-3 py-3 font-semibold text-slate-800">
+                ${item.couponRate.toFixed(2)}%
+              </td>
+
+              <!-- 이자주기 -->
+              <td class="px-3 py-3 text-slate-600">
+                <span class="px-1.5 py-0.5 rounded bg-slate-100 text-[10px] font-medium">${freqLabel}</span>
+              </td>
+
+              <!-- 단순수익률 (단리) -->
+              <td class="px-3 py-3 bg-slate-100/40">
+                <div class="flex flex-col">
+                  <span class="text-slate-500 text-[10px]">세전: ${item.preTaxSimple.toFixed(2)}%</span>
+                  <strong class="text-emerald-600 font-bold">세후: ${item.afterTaxSimple.toFixed(2)}%</strong>
+                </div>
+              </td>
+
+              <!-- 일반 복리 (CAGR) -->
+              <td class="px-3 py-3">
+                <div class="flex flex-col">
+                  <span class="text-slate-500 text-[10px]">세전: ${item.preTaxCAGR.toFixed(2)}%</span>
+                  <strong class="text-slate-900 font-bold">세후: ${item.afterTaxCAGR.toFixed(2)}%</strong>
+                </div>
+              </td>
+
+              <!-- 재투자 복리 -->
+              <td class="px-3 py-3">
+                <div class="flex flex-col">
+                  <span class="text-slate-500 text-[10px]">세전: ${item.preTaxReinvest.toFixed(2)}%</span>
+                  <strong class="text-indigo-600 font-bold">세후: ${item.afterTaxReinvest.toFixed(2)}%</strong>
+                </div>
+              </td>
+
+              <!-- 상응 예금금리 -->
+              <td class="px-4 py-3 bg-amber-50/50 border-l border-r border-amber-200 font-bold text-amber-900">
+                <div class="flex flex-col">
+                  <span class="text-sm text-amber-700">${item.equivDepositSimple.toFixed(2)}%</span>
+                  <span class="text-[10px] text-amber-600/80 font-normal">복리시 ${item.equivDepositCAGR.toFixed(2)}%</span>
+                </div>
+              </td>
+
+              <!-- 관리 버튼 -->
+              <td class="px-3 py-3 text-center">
+                <div class="flex items-center justify-center gap-1.5">
+                  <button onclick="window.calcLoadRecord(${item.id})" title="입력창으로 불러오기"
+                    class="p-1 rounded-md text-slate-500 hover:text-sky-600 hover:bg-sky-50 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                  </button>
+                  <button onclick="window.calcDeleteRecord(${item.id})" title="삭제"
+                    class="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      function escapeHtml(str) {
+        return (str || '').replace(/[&<>"']/g, function (m) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+        });
+      }
+
+      // 전역 바인딩 (인라인 클릭 핸들러용)
+      window.calcLoadRecord = loadRecordToForm;
+      window.calcDeleteRecord = deleteRecord;
+
+      // 9. CSV 내보내기
+      function exportToCsv() {
+        const list = getStoredRecords();
+        if (list.length === 0) {
+          alert('내보낼 기록이 없습니다.');
+          return;
+        }
+
+        const headers = [
+          '채권명', '잔여기간(년)', '잔여기간(일)', '매수단가($)', '표면이율(%)', '이자주기',
+          '단리_세전(%)', '단리_세후(%)', '단리_상응예금금리(%)',
+          '일반복리_세전(%)', '일반복리_세후(%)', '일반복리_상응예금(%)',
+          '재투자복리_세전(%)', '재투자복리_세후(%)', '재투자복리_상응예금(%)', '기록일시'
+        ];
+
+        const rows = list.map(item => [
+          `"${(item.bondName || '').replace(/"/g, '""')}"`,
+          item.durationYears.toFixed(2),
+          item.durationDays,
+          item.buyPrice.toFixed(2),
+          item.couponRate.toFixed(2),
+          item.freqMode === 'total' ? `총${item.totalCouponsCount}회` : `연${item.annualFreq}회`,
+          item.preTaxSimple.toFixed(2),
+          item.afterTaxSimple.toFixed(2),
+          item.equivDepositSimple.toFixed(2),
+          item.preTaxCAGR.toFixed(2),
+          item.afterTaxCAGR.toFixed(2),
+          item.equivDepositCAGR.toFixed(2),
+          item.preTaxReinvest.toFixed(2),
+          item.afterTaxReinvest.toFixed(2),
+          item.equivDepositReinvest.toFixed(2),
+          `"${item.timestamp}"`
+        ]);
+
+        const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `미국국채_수익률비교_${new Date().toISOString().slice(0, 10)}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      // 10. 모드 전환 핸들러
+      function switchPeriodMode(mode) {
+        periodMode = mode;
+        if (mode === 'date') {
+          tabModeDate.className = 'px-2.5 py-1 rounded-md font-medium text-sky-700 bg-white shadow-sm transition';
+          tabModeRemain.className = 'px-2.5 py-1 rounded-md font-medium text-slate-500 hover:text-slate-800 transition';
+          sectionDateMode.classList.remove('hidden');
+          sectionRemainMode.classList.add('hidden');
+        } else {
+          tabModeRemain.className = 'px-2.5 py-1 rounded-md font-medium text-sky-700 bg-white shadow-sm transition';
+          tabModeDate.className = 'px-2.5 py-1 rounded-md font-medium text-slate-500 hover:text-slate-800 transition';
+          sectionRemainMode.classList.remove('hidden');
+          sectionDateMode.classList.add('hidden');
+        }
+        updateUI();
+      }
+
+      function switchFreqMode(mode) {
+        freqMode = mode;
+        if (mode === 'annual') {
+          tabFreqAnnual.className = 'px-2 py-0.5 rounded-md font-medium text-sky-700 bg-white shadow-sm transition';
+          tabFreqTotal.className = 'px-2 py-0.5 rounded-md font-medium text-slate-500 hover:text-slate-800 transition';
+          sectionFreqAnnual.classList.remove('hidden');
+          sectionFreqTotal.classList.add('hidden');
+        } else {
+          tabFreqTotal.className = 'px-2 py-0.5 rounded-md font-medium text-sky-700 bg-white shadow-sm transition';
+          tabFreqAnnual.className = 'px-2 py-0.5 rounded-md font-medium text-slate-500 hover:text-slate-800 transition';
+          sectionFreqTotal.classList.remove('hidden');
+          sectionFreqAnnual.classList.add('hidden');
+        }
+        updateUI();
+      }
+
+      function updateFreqRadioStyles() {
+        const radios = document.querySelectorAll('input[name="payFreqAnnual"]');
+        radios.forEach(radio => {
+          const label = radio.closest('label');
+          if (radio.checked) {
+            label.className = 'cursor-pointer border rounded-xl p-2 text-center transition border-sky-500 bg-sky-50/60 ring-1 ring-sky-400';
+            label.querySelector('div:first-of-type').className = 'text-xs font-bold text-sky-900';
+          } else {
+            label.className = 'cursor-pointer border rounded-xl p-2 text-center transition border-slate-200 hover:border-slate-300';
+            label.querySelector('div:first-of-type').className = 'text-xs font-bold text-slate-800';
+          }
+        });
+      }
+
+      // 11. 이벤트 리스너 등록
+      tabModeDate.addEventListener('click', () => switchPeriodMode('date'));
+      tabModeRemain.addEventListener('click', () => switchPeriodMode('remain'));
+
+      tabFreqAnnual.addEventListener('click', () => switchFreqMode('annual'));
+      tabFreqTotal.addEventListener('click', () => switchFreqMode('total'));
+
+      // 실시간 입력 감지
+      const inputElements = [
+        startDateInput, maturityDateInput, remainYearsInput, remainMonthsInput, remainDaysInput,
+        buyPriceInput, couponRateInput, totalCouponCountInput, taxModeSelect, bondNameInput
+      ];
+      inputElements.forEach(el => {
+        el.addEventListener('input', updateUI);
+        el.addEventListener('change', updateUI);
+      });
+
+      // 라디오 버튼 이벤트
+      document.querySelectorAll('input[name="payFreqAnnual"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+          updateFreqRadioStyles();
+          updateUI();
+        });
+      });
+
+      // 버튼 이벤트
+      btnSaveRecord.addEventListener('click', addCurrentRecord);
+      btnClearAllRecords.addEventListener('click', () => {
+        if (confirm('저장된 모든 비교 기록을 삭제하시겠습니까?')) {
+          localStorage.removeItem(STORAGE_KEY);
+          renderRecordsTable();
+        }
+      });
+      btnExportCsv.addEventListener('click', exportToCsv);
+
+      btnResetForm.addEventListener('click', () => {
+        bondNameInput.value = '';
+        buyPriceInput.value = '95.50';
+        couponRateInput.value = '4.25';
+        remainYearsInput.value = '5';
+        remainMonthsInput.value = '0';
+        remainDaysInput.value = '0';
+        totalCouponCountInput.value = '10';
+        taxModeSelect.value = 'couponOnly';
+        initDates();
+        const r2 = document.querySelector('input[name="payFreqAnnual"][value="2"]');
+        if (r2) r2.checked = true;
+        updateFreqRadioStyles();
+        switchPeriodMode('date');
+        switchFreqMode('annual');
+        updateUI();
+      });
+
+      // 12. 프리셋 버튼 핸들러
+      btnPreset2Y.addEventListener('click', () => {
+        bondNameInput.value = '미국 국채 2년물 (단기채)';
+        buyPriceInput.value = '99.20';
+        couponRateInput.value = '4.625';
+        switchPeriodMode('remain');
+        remainYearsInput.value = '2';
+        remainMonthsInput.value = '0';
+        remainDaysInput.value = '0';
+        const r2 = document.querySelector('input[name="payFreqAnnual"][value="2"]');
+        if (r2) r2.checked = true;
+        updateFreqRadioStyles();
+        updateUI();
+      });
+
+      btnPreset10Y.addEventListener('click', () => {
+        bondNameInput.value = '미국 국채 10년물 (벤치마크)';
+        buyPriceInput.value = '96.80';
+        couponRateInput.value = '4.125';
+        switchPeriodMode('remain');
+        remainYearsInput.value = '10';
+        remainMonthsInput.value = '0';
+        remainDaysInput.value = '0';
+        const r2 = document.querySelector('input[name="payFreqAnnual"][value="2"]');
+        if (r2) r2.checked = true;
+        updateFreqRadioStyles();
+        updateUI();
+      });
+
+      btnPreset30Y.addEventListener('click', () => {
+        bondNameInput.value = '미국 국채 30년 저쿠폰 할인채';
+        buyPriceInput.value = '65.50';
+        couponRateInput.value = '2.250';
+        switchPeriodMode('remain');
+        remainYearsInput.value = '22';
+        remainMonthsInput.value = '6';
+        remainDaysInput.value = '0';
+        const r2 = document.querySelector('input[name="payFreqAnnual"][value="2"]');
+        if (r2) r2.checked = true;
+        updateFreqRadioStyles();
+        updateUI();
+      });
+
+      // 13. 초기 실행
+      initDates();
+      updateFreqRadioStyles();
+      updateUI();
+      renderRecordsTable();
+
+    })();
+  </script>
+</body>
+</html>

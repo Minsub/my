@@ -6,6 +6,7 @@ const config: NextConfig = {
   outputFileTracingIncludes: {
     "/api/html-pages/*": [
       "./docs/cash-money/cash-money.html",
+      "./src/html/us_yield_calculator.html",
       "./node_modules/xlsx/dist/xlsx.full.min.js",
       "./node_modules/chart.js/dist/chart.umd.js",
     ],

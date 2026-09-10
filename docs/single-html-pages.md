@@ -4,8 +4,8 @@ React 컴포넌트로 다시 작성하지 않고 HTML 한 파일을 앱 안에�
 
 ## 현재 연결
 
-- 원본: `docs/cash-money/cash-money.html`. 파일을 복제해 다른 버전을 관리하지 않는다.
-- 등록/어댑터: `src/server/html-pages.ts`의 `pages` 목록. 요청 문자열을 파일 경로로 사용하지 않는다.
+- 원본: 가계부는 기존 `docs/cash-money/cash-money.html`를 유지하고, 새 독립 HTML은 `src/html/`에 둔다. 파일을 복제해 다른 버전을 관리하지 않는다.
+- 목록/등록/어댑터: `src/lib/html-pages.ts`는 목록용 제목·설명·파일명을, `src/server/html-pages.ts`의 `pages`는 고정된 파일 로더와 어댑터를 관리한다. 요청 문자열을 파일 경로로 사용하지 않는다.
 - 보호된 소스 조회: `/api/html-pages/cash-old`. 웹 세션을 검사하고 HTML을 JSON으로 private/no-store 반환한다.
 - 공통 표시: `src/components/single-html-page.tsx`의 `SingleHtmlPage`.
 - 앱 진입: `cash-old.tsx`, catch-all 허용 경로 `/cash/old`, AppShell 분기. 가계부의 old 링크로 이동하므로 모바일 주 메뉴를 늘리지 않는다.
@@ -23,11 +23,11 @@ React 컴포넌트로 다시 작성하지 않고 HTML 한 파일을 앱 안에�
 
 ## 다른 HTML을 등록하는 절차
 
-1. UTF-8 `<html><head>…</head><body>…</body></html>` 문서를 저장소에 추가한다. CSS/JS는 파일 내에 넣는다. 실제 개인정보를 HTML에 하드코딩하지 않는다.
-2. `html-pages.ts`의 목록에 `{ load: () => readFile(path.join(process.cwd(), "docs/도구/tool.html"), "utf8"), adapter: "none" }`를 등록한다. 파일 경로는 문자열 리터럴로 고정한다. 동적인 저장소 루트 경로는 빌드 시 비공개 파일까지 추적할 수 있으므로 사용하지 않는다. `none`은 외부 데이터가 필요 없는 단일 HTML에 적합하다.
-3. 새 화면에서 `<SingleHtmlPage pageId="등록키" title="도구 이름" />`를 사용한다. pageId가 변경되면 별도 인스턴스로 다시 로드한다.
-4. `development.md`의 catch-all·AppShell·메뉴·데모 절차에 따라 경로를 등록한다. 데모에서 인증 API를 호출하지 않는다.
-5. Vercel tracing 목록에 새 HTML을 추가한다. 빌드 `.nft.json`에 포함됐는지 확인한다.
+1. UTF-8 `<html><head>…</head><body>…</body></html>` 문서를 `src/html/`에 추가한다. CSS/JS는 파일 내에 넣는다. 실제 개인정보를 HTML에 하드코딩하지 않는다.
+2. `src/lib/html-pages.ts`에 등록 키·제목·짧은 설명·파일명을 추가한다. 이 목록은 `/etc/html`에서 보이는 목록과 catch-all allowlist의 공통 기준이다.
+3. `src/server/html-pages.ts`에 같은 등록 키의 `{ load, adapter: "none" }`를 추가한다. `load`의 파일 경로는 문자열 리터럴로 고정한다. 요청 문자열을 파일 경로로 사용하지 않는다. `none`은 외부 데이터가 필요 없는 단일 HTML에 적합하다.
+4. 기본 진입 경로는 `/etc/html/{등록키}`다. 데이터가 필요한 특별한 경우에만 별도 화면과 명시적 어댑터를 작성한다. 데모에서 인증 API를 호출하지 않는다.
+5. Vercel tracing 목록에 새 HTML을 추가하고 빌드 `.nft.json`에 포함됐는지 확인한다.
 6. 데이터가 필요하면 서버의 기존 업무 서비스와 별도의 명시적 어댑터를 작성한다. `dataSource="cash"`는 가계부 엑셀 전용이다. 다른 HTML에 가계부 파일을 자동 전달하지 않는다.
 
 원본을 바꿀 때 화면과 분석 코드는 HTML 한 파일에서 수정하면 된다. 데이터 계약, 외부 라이브러리, init 규칙을 바꾸면 어댑터도 함께 수정한다. 현재 cash 어댑터는 `// ===== Init =====` 마커와 `state`, `loadFromHandle()`을 사용하며 마커가 사라지면 오류로 멈춘다.

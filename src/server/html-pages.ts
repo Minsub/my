@@ -12,6 +12,14 @@ const pages: Record<string, HtmlPageSpec> = {
       ),
     adapter: "cash",
   },
+  "etf-us-yield": {
+    load: () =>
+      readFile(
+        path.join(process.cwd(), "src/html/us_yield_calculator.html"),
+        "utf8",
+      ),
+    adapter: "none",
+  },
 };
 const policy = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">`;
 function isolate(html: string) {
