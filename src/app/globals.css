@@ -2927,7 +2927,10 @@ input[type="checkbox"] {
 }
 
 .html-pages {
-  max-width: 980px;
+  max-width: 1800px;
+}
+.main-content:has(.html-pages) {
+  max-width: 1800px;
 }
 .html-page-list {
   display: grid;
