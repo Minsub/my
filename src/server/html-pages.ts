@@ -2,7 +2,11 @@ import "server-only";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 // Only reviewed repository files are executable. Never resolve a request path on disk.
-type HtmlPageSpec = { load: () => Promise<string>; adapter: "cash" | "none" };
+type HtmlPageSpec = {
+  load: () => Promise<string>;
+  adapter: "cash" | "none" | "inline-css";
+  loadStylesheet?: () => Promise<string>;
+};
 const pages: Record<string, HtmlPageSpec> = {
   "cash-old": {
     load: () =>
@@ -18,7 +22,12 @@ const pages: Record<string, HtmlPageSpec> = {
         path.join(process.cwd(), "src/html/us_yield_calculator.html"),
         "utf8",
       ),
-    adapter: "none",
+    adapter: "inline-css",
+    loadStylesheet: () =>
+      readFile(
+        path.join(process.cwd(), "src/html/us_yield_calculator.tailwind.css"),
+        "utf8",
+      ),
   },
 };
 const policy = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">`;
@@ -31,6 +40,18 @@ export async function htmlPage(name: string) {
   const spec = pages[name];
   const source = await spec.load();
   if (spec.adapter === "none") return isolate(source);
+  if (spec.adapter === "inline-css") {
+    if (!spec.loadStylesheet) throw Error("HTML stylesheet loader is missing");
+    const stylesheet = await spec.loadStylesheet();
+    const link = /<link\s+rel=["']stylesheet["']\s+href=["']\.\/us_yield_calculator\.tailwind\.css["']\s*\/?>(?:<\/link>)?/i;
+    if (!link.test(source)) throw Error("HTML stylesheet link is missing");
+    return isolate(
+      source.replace(
+        link,
+        `<style>${stylesheet.replace(/<\/style/gi, "<\\/style")}</style>`,
+      ),
+    );
+  }
   const [xlsx, chart] = await Promise.all([
     readFile(
       path.join(process.cwd(), "node_modules/xlsx/dist/xlsx.full.min.js"),

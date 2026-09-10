@@ -40,4 +40,6 @@ iframe은 `sandbox="allow-scripts allow-downloads"`이며 `allow-same-origin`이
 
 따라서 외부 CDN, 외부 이미지, 직접 `fetch()`에 의존하는 HTML은 그대로는 작동하지 않는다. 필요한 라이브러리는 승인된 서버 어댑터에서 파일에 포함하고 업무 데이터는 제한된 메시지 계약으로 전달한다. 링크의 임의 페이지를 iframe에 로드하거나 HTML 소스 안에 인증 토큰을 넣는 방식으로 해결하지 않는다.
 
+Tailwind CDN을 사용하던 HTML은 CDN 런타임을 허용하지 않는다. HTML 옆에 컴파일된 CSS를 두고, 서버의 `inline-css` 어댑터가 iframe `srcDoc`에 해당 CSS를 인라인으로 넣는다. 현재 미국 ETF 도구는 `npm run html:styles`로 `us_yield_calculator.tailwind.css`를 다시 생성한다. HTML의 클래스나 Tailwind 설정을 바꾼 경우 이 명령을 실행하고 생성 CSS를 함께 검토·커밋한다.
+
 새 모듈을 앱과 깊게 통합하거나 저장·라우팅·검색 접근성을 공유할 때는 React 페이지가 적합하다. 독립 계산기·보고서·기존 단일 페이지 재사용에는 이 방식이 적합하다.

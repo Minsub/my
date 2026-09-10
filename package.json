@@ -20,7 +20,8 @@
     "db:import": "tsx scripts/import.ts",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
     "local:setup": "tsx scripts/local-setup.ts",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"scripts/*.ts\" \"tests/**/*.ts\""
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"scripts/*.ts\" \"tests/**/*.ts\"",
+    "html:styles": "tailwindcss -c src/html/tailwind.config.cjs -i src/html/tailwind.input.css -o src/html/us_yield_calculator.tailwind.css --minify"
   },
   "dependencies": {
     "@better-auth/oauth-provider": "^1.7.3",
@@ -48,6 +49,7 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.4",
     "prettier": "^3.9.6",
+    "tailwindcss": "^3.4.17",
     "tsx": "^4.23.13",
     "typescript": "^6.0.3",
     "vitest": "^3.2.7"
