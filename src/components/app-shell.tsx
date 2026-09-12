@@ -86,6 +86,14 @@ const options = (
   value,
   required,
 });
+const RECOMMEND_ANY = "any-추천";
+const RECOMMEND_CHIPS = [
+  { value: "", label: "전체 원두" },
+  { value: RECOMMEND_ANY, label: "누군가 추천" },
+  { value: "추천", label: "추천" },
+  { value: "보통", label: "보통" },
+  { value: "비추천", label: "비추천" },
+];
 function Tag({
   children,
   tone = "",
@@ -205,6 +213,10 @@ export function AppShell({
     data.preferences.find(
       (p) => p.bean_id === bean.id && p.user_id === data.user.id,
     );
+  const recommenders = (beanId: string) =>
+    data.preferences.filter(
+      (p) => p.bean_id === beanId && p.recommendation === "추천",
+    );
   const myBrew = (bean: Bean) =>
     data.brews.find((b) => b.bean_id === bean.id && b.user_id === data.user.id);
   const brandName = (bean: Bean) =>
@@ -213,6 +225,8 @@ export function AppShell({
     data.members.find((m) => m.user_id === id)?.name ?? "가족";
   const editAllowed = (row: { created_by?: string | null }) =>
     data.user.role === "owner" || row.created_by === data.user.id;
+  const anyRecommend = recommend === RECOMMEND_ANY;
+  const ownRecommend = anyRecommend ? "" : recommend;
   const beans = data.beans
     .filter(
       (b) =>
@@ -222,11 +236,12 @@ export function AppShell({
             .toLowerCase()
             .includes(search.toLowerCase())) &&
         (!brand || b.brand_id === brand) &&
-        ((!recommend && !status) ||
+        (!anyRecommend || recommenders(b.id).length > 0) &&
+        ((!ownRecommend && !status) ||
           ownPrefs.some(
             (p) =>
               p.bean_id === b.id &&
-              (!recommend || p.recommendation === recommend) &&
+              (!ownRecommend || p.recommendation === ownRecommend) &&
               (!status || p.status === status),
           )),
     )
@@ -489,6 +504,7 @@ export function AppShell({
   }
   function coffeeCard(bean: Bean) {
     const preferences = ownPrefs.filter((p) => p.bean_id === bean.id);
+    const recommended = recommenders(bean.id);
     const brew = myBrew(bean);
     const machine = data.machines.find((m) => m.id === brew?.machine_id);
     const unitPrice = kgPrice(bean.price, bean.weight_g);
@@ -524,6 +540,17 @@ export function AppShell({
               : person === data.user.id
                 ? "내 평가"
                 : `${memberName(person)}의 평가`}
+          </span>
+          <span
+            className={`bean-recommend-count${recommended.length ? " on" : ""}`}
+            title={
+              recommended.length
+                ? `${recommended.map((p) => memberName(p.user_id)).join(", ")} 추천`
+                : "아직 추천한 사용자가 없어요."
+            }
+          >
+            <Heart size={12} />
+            추천 {recommended.length}명
           </span>
           {preferences.length ? (
             preferences.map((p) => (
@@ -734,17 +761,19 @@ export function AppShell({
         </div>
         <div className="collection-controls">
           <div className="filter-chips">
-            {["", "추천", "보통", "비추천"].map((r) => (
+            {RECOMMEND_CHIPS.map((chip) => (
               <button
-                key={r}
-                className={recommend === r ? "active" : ""}
+                key={chip.value}
+                className={recommend === chip.value ? "active" : ""}
                 onClick={() => {
-                  setRecommend(r);
-                  updateFilter("recommend", r);
+                  setRecommend(chip.value);
+                  updateFilter("recommend", chip.value);
                 }}
               >
-                {r === "추천" && <Heart size={13} />}
-                {r || "전체 원두"}
+                {(chip.value === "추천" || chip.value === RECOMMEND_ANY) && (
+                  <Heart size={13} />
+                )}
+                {chip.label}
               </button>
             ))}
           </div>

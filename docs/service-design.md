@@ -11,7 +11,7 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | URL | 현재 역할 | 구현 위치 |
 |---|---|---|
 | `/` | 도구 진입 카드, 모듈별 요약, 최근 활동, MCP 안내 이동 | workspace-home.tsx |
-| `/coffee` | 정보형 원두 목록, 가격 정렬·브랜드·상태·추천·사용자·검색·보관함 | app-shell.tsx renderCoffee |
+| `/coffee` | 정보형 원두 목록, 가격 정렬·브랜드·상태·추천(사용자 기준/누군가 추천)·사용자·검색·보관함, 행마다 추천 인원 집계 | app-shell.tsx renderCoffee |
 | `/coffee/brands` | 브랜드 목록·등록·수정·브랜드별 원두 바로가기 | app-shell.tsx |
 | `/coffee/beans/{uuid}` | 상품·kg 환산 가격·사용자별 평가·추출 설정 | app-shell.tsx |
 | `/wine` | 보유량 대시보드, 확장 필터·정렬·가격 목록 | wine-cellar.tsx |
