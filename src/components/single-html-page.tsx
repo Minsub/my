@@ -28,6 +28,26 @@ async function loadPackage(
   }
   return { html, files: originals };
 }
+// The frame is sandboxed without allow-same-origin, so its own localStorage throws.
+// A page may keep its records here instead: only its own namespaced string, never app data.
+const STORE_LIMIT = 256 * 1024;
+function storeKey(pageId: string, key: string) {
+  return `mono:html-store:${pageId}:${key}`;
+}
+function readStore(pageId: string, key: string) {
+  try {
+    return window.localStorage.getItem(storeKey(pageId, key)) ?? "";
+  } catch {
+    return "";
+  }
+}
+function writeStore(pageId: string, key: string, value: string) {
+  try {
+    window.localStorage.setItem(storeKey(pageId, key), value);
+  } catch {
+    /* A full or blocked storage keeps the page working in memory. */
+  }
+}
 type Props = { pageId: string; title: string; dataSource?: "cash" | "none" };
 export function SingleHtmlPage(props: Props) {
   return (
@@ -66,6 +86,18 @@ function HtmlPage({ pageId, title, dataSource = "none" }: Props) {
         } catch {
           /* Initial load reports the error. */
         }
+      }
+      const key = event.data?.key;
+      const named = typeof key === "string" && /^[\w.:-]{1,64}$/.test(key);
+      if (event.data?.type === "mono:store-load" && named)
+        frame.current?.contentWindow?.postMessage(
+          { type: "mono:store-data", key, value: readStore(pageId, key) },
+          "*",
+        );
+      if (event.data?.type === "mono:store-save" && named) {
+        const value = event.data?.value;
+        if (typeof value === "string" && value.length <= STORE_LIMIT)
+          writeStore(pageId, key, value);
       }
       if (event.data?.type === "mono:cash-loaded") setLoaded(true);
       if (event.data?.type === "mono:cash-error")

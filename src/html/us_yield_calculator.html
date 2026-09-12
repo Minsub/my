@@ -440,7 +440,7 @@
       </div>
     </div>
 
-    <!-- 하단: 채권 비교 Grid (테이블 & 로컬스토리지 저장) -->
+    <!-- 하단: 채권 비교 Grid (테이블 & 기록 보관) -->
     <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
       <!-- 헤더 및 툴바 -->
       <div class="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
@@ -453,7 +453,9 @@
               채권 비교 Grid (비교 분석 및 보관함)
               <span id="recordCountBadge" class="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full font-semibold">0개 보관 중</span>
             </h2>
-            <p class="text-xs text-slate-500">브라우저(LocalStorage)에 자동 저장되어 다시 방문해도 유지됩니다.</p>
+            <p class="text-xs text-slate-500">
+              <span id="storageNote">브라우저에 자동 저장되어 다시 방문해도 유지됩니다.</span>
+            </p>
           </div>
         </div>
 
@@ -475,6 +477,7 @@
           <thead class="bg-slate-50 border-b border-slate-200 text-slate-700 uppercase font-semibold text-[11px]">
             <tr>
               <th scope="col" class="px-4 py-3.5">채권명 / 메모</th>
+              <th scope="col" class="px-3 py-3.5">입력날짜</th>
               <th scope="col" class="px-3 py-3.5">잔여 만기</th>
               <th scope="col" class="px-3 py-3.5">매수단가</th>
               <th scope="col" class="px-3 py-3.5">표면이율</th>
@@ -491,7 +494,7 @@
           <tbody id="recordTableBody" class="divide-y divide-slate-100">
             <!-- 동적 레코드 행 주입 -->
             <tr id="emptyRecordRow">
-              <td colspan="10" class="text-center py-12 text-slate-400">
+              <td colspan="11" class="text-center py-12 text-slate-400">
                 <div class="flex flex-col items-center justify-center gap-2">
                   <span class="text-3xl">📋</span>
                   <span class="text-sm font-medium">아직 기록된 채권이 없습니다.</span>
@@ -543,7 +546,7 @@
 
   <!-- 푸터 -->
   <footer class="bg-white border-t border-slate-200 py-4 mt-8 text-center text-xs text-slate-400">
-    <p>미국 국채 만기보유 수익률 계산기 • 브라우저 로컬 저장 지원 (Cookie / LocalStorage)</p>
+    <p>미국 국채 만기보유 수익률 계산기 • 비교 기록은 이 브라우저에만 보관됩니다</p>
   </footer>
 
   <!-- 자바스크립트 로직 -->
@@ -616,6 +619,7 @@
       // 테이블 DOM
       const recordTableBody = document.getElementById('recordTableBody');
       const recordCountBadge = document.getElementById('recordCountBadge');
+      const storageNote = document.getElementById('storageNote');
       const btnClearAllRecords = document.getElementById('btnClearAllRecords');
       const btnExportCsv = document.getElementById('btnExportCsv');
 
@@ -871,24 +875,110 @@
         detailTotalReturnPct.textContent = `${totalReturnPct >= 0 ? '+' : ''}${totalReturnPct.toFixed(2)}%`;
       }
 
-      // 8. Grid 기록 관리 (LocalStorage)
-      function getStoredRecords() {
+      // 8. Grid 기록 관리 (저장소)
+      // 이 HTML은 allow-same-origin 없는 sandbox iframe에서도 실행된다. 그때 localStorage 접근은
+      // SecurityError를 던지므로 부모 앱의 저장소 다리(mono:store-*)를 사용하고, 둘 다 없으면
+      // 메모리에만 보관한다. 화면은 항상 recordCache 하나만 읽는다.
+      const STORAGE_BRIDGE_TIMEOUT_MS = 1500;
+      let recordCache = [];
+      let storageMode = 'pending'; // 'pending' | 'local' | 'bridge' | 'memory'
+
+      function availableLocalStorage() {
         try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          return raw ? JSON.parse(raw) : [];
+          const store = window.localStorage;
+          store.getItem(STORAGE_KEY);
+          return store;
         } catch (e) {
-          console.error('LocalStorage load failed', e);
+          return null;
+        }
+      }
+
+      function parseRecords(raw) {
+        try {
+          const list = raw ? JSON.parse(raw) : [];
+          return Array.isArray(list) ? list : [];
+        } catch (e) {
+          console.error('보관된 기록을 해석하지 못했습니다.', e);
           return [];
         }
       }
 
+      function setStorageNote(text) {
+        if (storageNote) storageNote.textContent = text;
+      }
+
+      function useMemoryOnly() {
+        storageMode = 'memory';
+        setStorageNote('이 브라우저에서는 저장소를 쓸 수 없어 기록이 현재 화면에서만 유지됩니다. 새로고침하면 사라지니 CSV로 내보내세요.');
+      }
+
+      function getStoredRecords() {
+        return recordCache;
+      }
+
       function saveStoredRecords(records) {
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-          renderRecordsTable();
-        } catch (e) {
-          alert('저장 공간 오류가 발생했습니다.');
+        recordCache = records;
+        const payload = JSON.stringify(records);
+        if (storageMode === 'local') {
+          const store = availableLocalStorage();
+          try {
+            if (store) store.setItem(STORAGE_KEY, payload);
+          } catch (e) {
+            console.error('기록을 저장하지 못했습니다.', e);
+            alert('저장 공간이 가득 차서 기록을 보관하지 못했습니다.');
+          }
+        } else if (storageMode === 'bridge') {
+          window.parent.postMessage({ type: 'mono:store-save', key: STORAGE_KEY, value: payload }, '*');
         }
+        renderRecordsTable();
+      }
+
+      function initStorage() {
+        const store = availableLocalStorage();
+        if (store) {
+          storageMode = 'local';
+          recordCache = parseRecords(store.getItem(STORAGE_KEY));
+          renderRecordsTable();
+          return;
+        }
+        if (window.parent === window) {
+          useMemoryOnly();
+          renderRecordsTable();
+          return;
+        }
+        window.addEventListener('message', (event) => {
+          if (event.source !== window.parent) return;
+          const data = event.data;
+          if (!data || data.type !== 'mono:store-data' || data.key !== STORAGE_KEY) return;
+          if (storageMode === 'local' || storageMode === 'bridge') return;
+          const pendingRecords = recordCache;
+          storageMode = 'bridge';
+          setStorageNote('앱에 자동 저장되어 다시 방문해도 유지됩니다.');
+          if (pendingRecords.length) {
+            saveStoredRecords(pendingRecords); // 응답이 늦는 사이 입력한 기록을 잃지 않는다.
+          } else {
+            recordCache = parseRecords(typeof data.value === 'string' ? data.value : '');
+            renderRecordsTable();
+          }
+        });
+        window.parent.postMessage({ type: 'mono:store-load', key: STORAGE_KEY }, '*');
+        setTimeout(() => {
+          if (storageMode === 'pending') {
+            useMemoryOnly();
+            renderRecordsTable();
+          }
+        }, STORAGE_BRIDGE_TIMEOUT_MS);
+        renderRecordsTable();
+      }
+
+      function formatRecordedAt(value) {
+        const at = value ? new Date(value) : null;
+        if (!at || Number.isNaN(at.getTime())) return { date: '-', time: '' };
+        const pad = (n) => String(n).padStart(2, '0');
+        return {
+          date: `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`,
+          time: `${pad(at.getHours())}:${pad(at.getMinutes())}`
+        };
       }
 
       function addCurrentRecord() {
@@ -996,7 +1086,7 @@
         if (list.length === 0) {
           recordTableBody.innerHTML = `
             <tr id="emptyRecordRow">
-              <td colspan="10" class="text-center py-12 text-slate-400">
+              <td colspan="11" class="text-center py-12 text-slate-400">
                 <div class="flex flex-col items-center justify-center gap-2">
                   <span class="text-3xl">📋</span>
                   <span class="text-sm font-medium">아직 기록된 채권이 없습니다.</span>
@@ -1009,6 +1099,7 @@
         }
 
         recordTableBody.innerHTML = list.map(item => {
+          const recordedAt = formatRecordedAt(item.timestamp);
           const freqLabel = item.freqMode === 'total' 
             ? `총 ${item.totalCouponsCount}회` 
             : `연 ${item.annualFreq}회`;
@@ -1017,9 +1108,14 @@
             <tr class="hover:bg-slate-50/80 transition group">
               <!-- 채권명 -->
               <td class="px-4 py-3 font-semibold text-slate-900">
+                ${escapeHtml(item.bondName)}
+              </td>
+
+              <!-- 입력날짜 -->
+              <td class="px-3 py-3 text-slate-600">
                 <div class="flex flex-col">
-                  <span>${escapeHtml(item.bondName)}</span>
-                  <span class="text-[10px] text-slate-400 font-normal">${item.timestamp.slice(0, 10)}</span>
+                  <span class="font-medium text-slate-700">${recordedAt.date}</span>
+                  <span class="text-[10px] text-slate-400">${recordedAt.time}</span>
                 </div>
               </td>
 
@@ -1113,30 +1209,34 @@
         }
 
         const headers = [
-          '채권명', '잔여기간(년)', '잔여기간(일)', '매수단가($)', '표면이율(%)', '이자주기',
+          '채권명', '입력날짜', '입력시각', '잔여기간(년)', '잔여기간(일)', '매수단가($)', '표면이율(%)', '이자주기',
           '단리_세전(%)', '단리_세후(%)', '단리_상응예금금리(%)',
           '일반복리_세전(%)', '일반복리_세후(%)', '일반복리_상응예금(%)',
-          '재투자복리_세전(%)', '재투자복리_세후(%)', '재투자복리_상응예금(%)', '기록일시'
+          '재투자복리_세전(%)', '재투자복리_세후(%)', '재투자복리_상응예금(%)'
         ];
 
-        const rows = list.map(item => [
-          `"${(item.bondName || '').replace(/"/g, '""')}"`,
-          item.durationYears.toFixed(2),
-          item.durationDays,
-          item.buyPrice.toFixed(2),
-          item.couponRate.toFixed(2),
-          item.freqMode === 'total' ? `총${item.totalCouponsCount}회` : `연${item.annualFreq}회`,
-          item.preTaxSimple.toFixed(2),
-          item.afterTaxSimple.toFixed(2),
-          item.equivDepositSimple.toFixed(2),
-          item.preTaxCAGR.toFixed(2),
-          item.afterTaxCAGR.toFixed(2),
-          item.equivDepositCAGR.toFixed(2),
-          item.preTaxReinvest.toFixed(2),
-          item.afterTaxReinvest.toFixed(2),
-          item.equivDepositReinvest.toFixed(2),
-          `"${item.timestamp}"`
-        ]);
+        const rows = list.map(item => {
+          const recordedAt = formatRecordedAt(item.timestamp);
+          return [
+            `"${(item.bondName || '').replace(/"/g, '""')}"`,
+            recordedAt.date,
+            recordedAt.time,
+            item.durationYears.toFixed(2),
+            item.durationDays,
+            item.buyPrice.toFixed(2),
+            item.couponRate.toFixed(2),
+            item.freqMode === 'total' ? `총${item.totalCouponsCount}회` : `연${item.annualFreq}회`,
+            item.preTaxSimple.toFixed(2),
+            item.afterTaxSimple.toFixed(2),
+            item.equivDepositSimple.toFixed(2),
+            item.preTaxCAGR.toFixed(2),
+            item.afterTaxCAGR.toFixed(2),
+            item.equivDepositCAGR.toFixed(2),
+            item.preTaxReinvest.toFixed(2),
+            item.afterTaxReinvest.toFixed(2),
+            item.equivDepositReinvest.toFixed(2)
+          ];
+        });
 
         const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1225,8 +1325,7 @@
       btnSaveRecord.addEventListener('click', addCurrentRecord);
       btnClearAllRecords.addEventListener('click', () => {
         if (confirm('저장된 모든 비교 기록을 삭제하시겠습니까?')) {
-          localStorage.removeItem(STORAGE_KEY);
-          renderRecordsTable();
+          saveStoredRecords([]);
         }
       });
       btnExportCsv.addEventListener('click', exportToCsv);
@@ -1296,7 +1395,7 @@
       initDates();
       updateFreqRadioStyles();
       updateUI();
-      renderRecordsTable();
+      initStorage();
 
     })();
   </script>

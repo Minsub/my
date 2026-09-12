@@ -21,6 +21,16 @@ React 컴포넌트로 다시 작성하지 않고 HTML 한 파일을 앱 안에�
 
 파일은 부모와 iframe의 메모리에만 존재한다. localStorage, IndexedDB, 공개 URL에 저장하지 않는다. SheetJS 0.20.3과 Chart.js 4.4.6을 배포 패키지에서 인라인으로 공급하므로 CDN에 의존하지 않는다. 원본의 계산 의미 차이는 [기능 대조](cash-money/feature-audit.md)를 확인한다.
 
+## 기록 보관 다리 (mono:store-*)
+
+iframe에는 `allow-same-origin`이 없어 HTML 안에서 `localStorage`를 읽으면 `SecurityError`가 난다. 화면 안에서 만든 기록을 보관해야 하는 HTML은 부모의 저장소 다리를 사용한다.
+
+1. HTML이 `{ type: 'mono:store-load', key }`를 부모에 보낸다.
+2. `SingleHtmlPage`가 `mono:html-store:{pageId}:{key}`를 읽어 `{ type: 'mono:store-data', key, value }`로 답한다. 값이 없으면 빈 문자열이다.
+3. HTML이 `{ type: 'mono:store-save', key, value }`를 보내면 같은 키에 문자열을 저장한다.
+
+부모는 자신의 iframe(source)과 opaque origin(`null`)을 확인하고, `key`는 `[\w.:-]` 64자 이내, `value`는 문자열 256KB 이내만 받는다. 저장 위치는 페이지별 네임스페이스이며 앱 데이터·인증 정보는 넣지 않는다. 답이 없으면 HTML이 메모리 보관으로 내려가야 한다. 현재 미국 국채 계산기는 `us_treasury_calc_records_v1` 키로 비교 Grid 기록을 보관하고, 1.5초 안에 답이 없으면 "현재 화면에서만 유지" 안내로 바꾼다. 브라우저에서 HTML 파일을 직접 열었을 때는 자신의 `localStorage`를 그대로 쓴다.
+
 ## 다른 HTML을 등록하는 절차
 
 1. UTF-8 `<html><head>…</head><body>…</body></html>` 문서를 `src/html/`에 추가한다. CSS/JS는 파일 내에 넣는다. 실제 개인정보를 HTML에 하드코딩하지 않는다.
@@ -34,7 +44,7 @@ React 컴포넌트로 다시 작성하지 않고 HTML 한 파일을 앱 안에�
 
 ## 격리와 제한
 
-iframe은 `sandbox="allow-scripts allow-downloads"`이며 `allow-same-origin`이 없다. HTML은 앱 쿠키·DOM·저장소·API에 직접 접근할 수 없다. 외부 fetch·이미지·스크립트 로딩과 폼 전송·팝업/최상위 이동을 제한하고 인라인 스타일/스크립트, data/blob 이미지, 다운로드만 사용한다. 공통 앱의 frame 보안 헤더를 완화하지 않는다.
+iframe은 `sandbox="allow-scripts allow-downloads"`이며 `allow-same-origin`이 없다. HTML은 앱 쿠키·DOM·저장소·API에 직접 접근할 수 없다. HTML 자신의 기록을 남겨야 하면 위의 저장소 다리를 쓰고, 그마저 없으면 메모리 보관으로 동작한다. 외부 fetch·이미지·스크립트 로딩과 폼 전송·팝업/최상위 이동을 제한하고 인라인 스타일/스크립트, data/blob 이미지, 다운로드만 사용한다. 공통 앱의 frame 보안 헤더를 완화하지 않는다.
 
 리뷰된 저장소 HTML만 실행하는 전제다. 이 격리는 악의적인 HTML을 안전하게 업로드·실행하는 일반 서비스의 보장으로 사용하지 않는다.
 

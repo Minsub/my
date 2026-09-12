@@ -61,3 +61,10 @@
 - 합성 6년/7분류 데이터로 360px 모바일과 1440px PC 비교 화면·긴 항목명·팝업을 확인. 개인 엑셀은 테스트에 사용하지 않음.
 - old HTML의 실제 JS·차트 실행, 파일별 1회 API 로딩, 미인증 401·미등록 HTML 404, opaque iframe에서 부모 document 접근 불가 확인.
 - 프로덕션 빌드 성공. HTML route tracing에서 원본 HTML/SheetJS/Chart.js 포함, 비공개 env/XLSX 파일 포함 0개 확인. 데이터 마이그레이션 변경 없음.
+
+## 국채 계산기 기록 저장 수정 — 2026-09-12
+
+- sandbox(`allow-scripts allow-downloads`) iframe에 srcdoc으로 띄운 로컬 하네스에서 재현·수정 확인. 기록 버튼이 SecurityError 없이 동작하고 부모 `mono:html-store:etf-us-yield:*` 키에 저장, 새로고침 뒤에도 1건 유지.
+- HTML을 브라우저에서 직접 연 경우 자체 localStorage 경로로 저장·전체 비우기(`[]`)·행 11칸 확인. 콘솔 오류 0건.
+- CSV 내보내기 헤더 17칸과 행 17칸 일치, `입력날짜`/`입력시각`이 지역 시간으로 기록됨(UTC 12:17 → 21:17 표시).
+- lint, 타입 검사, Vitest 38개 통과. 새 Tailwind 클래스가 없어 생성 CSS는 변경 없음(이 컴퓨터에는 tailwindcss 미설치).
