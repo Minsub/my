@@ -44,7 +44,7 @@ iframe에는 `allow-same-origin`이 없어 HTML 안에서 `localStorage`를 읽�
 
 ## 격리와 제한
 
-iframe은 `sandbox="allow-scripts allow-downloads"`이며 `allow-same-origin`이 없다. HTML은 앱 쿠키·DOM·저장소·API에 직접 접근할 수 없다. HTML 자신의 기록을 남겨야 하면 위의 저장소 다리를 쓰고, 그마저 없으면 메모리 보관으로 동작한다. 외부 fetch·이미지·스크립트 로딩과 폼 전송·팝업/최상위 이동을 제한하고 인라인 스타일/스크립트, data/blob 이미지, 다운로드만 사용한다. 공통 앱의 frame 보안 헤더를 완화하지 않는다.
+iframe은 `sandbox="allow-scripts allow-downloads"`이며 `allow-same-origin`이 없다. HTML은 앱 쿠키·DOM·저장소·API에 직접 접근할 수 없다. HTML 자신의 기록을 남겨야 하면 위의 저장소 다리를 쓰고, 그마저 없으면 메모리 보관으로 동작한다. `allow-modals`도 없어 `alert`·`confirm`·`prompt` 호출은 무시된다(`confirm`은 false를 돌려주므로 삭제 확인이 조용히 취소된다). 확인창과 안내는 HTML 안에서 직접 그린다. 외부 fetch·이미지·스크립트 로딩과 폼 전송·팝업/최상위 이동을 제한하고 인라인 스타일/스크립트, data/blob 이미지, 다운로드만 사용한다. 공통 앱의 frame 보안 헤더를 완화하지 않는다.
 
 리뷰된 저장소 HTML만 실행하는 전제다. 이 격리는 악의적인 HTML을 안전하게 업로드·실행하는 일반 서비스의 보장으로 사용하지 않는다.
 

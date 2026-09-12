@@ -18,6 +18,61 @@
     input[type=number] {
       -moz-appearance: textfield;
     }
+    /* sandbox iframe에서는 alert/confirm이 무시되므로 페이지 안에서 직접 그린다. */
+    .mono-dialog[hidden], .mono-toast[hidden] { display: none; }
+    .mono-dialog {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(15, 23, 42, 0.45);
+    }
+    .mono-dialog-card {
+      width: 100%;
+      max-width: 340px;
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+    }
+    .mono-dialog-title { font-size: 15px; font-weight: 700; color: #0f172a; margin: 0 0 6px; }
+    .mono-dialog-message { font-size: 13px; color: #475569; margin: 0 0 18px; line-height: 1.5; }
+    .mono-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .mono-dialog-actions button {
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      color: #475569;
+    }
+    .mono-dialog-actions button:hover { background: #f8fafc; }
+    .mono-dialog-actions .mono-dialog-confirm {
+      border-color: #e11d48;
+      background: #e11d48;
+      color: #fff;
+    }
+    .mono-dialog-actions .mono-dialog-confirm:hover { background: #be123c; }
+    .mono-toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      z-index: 70;
+      transform: translateX(-50%);
+      max-width: 90vw;
+      padding: 10px 16px;
+      border-radius: 10px;
+      background: #0f172a;
+      color: #f8fafc;
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.3);
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen antialiased flex flex-col">
@@ -549,6 +604,19 @@
     <p>미국 국채 만기보유 수익률 계산기 • 비교 기록은 이 브라우저에만 보관됩니다</p>
   </footer>
 
+  <!-- 확인창 / 알림 (sandbox iframe에서 alert·confirm이 무시되므로 직접 그린다) -->
+  <div id="confirmDialog" class="mono-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmDialogTitle" hidden>
+    <div class="mono-dialog-card">
+      <p id="confirmDialogTitle" class="mono-dialog-title">확인</p>
+      <p id="confirmDialogMessage" class="mono-dialog-message"></p>
+      <div class="mono-dialog-actions">
+        <button type="button" id="confirmDialogCancel">취소</button>
+        <button type="button" id="confirmDialogConfirm" class="mono-dialog-confirm">삭제</button>
+      </div>
+    </div>
+  </div>
+  <div id="toast" class="mono-toast" role="status" aria-live="polite" hidden></div>
+
   <!-- 자바스크립트 로직 -->
   <script>
     (function () {
@@ -620,6 +688,11 @@
       const recordTableBody = document.getElementById('recordTableBody');
       const recordCountBadge = document.getElementById('recordCountBadge');
       const storageNote = document.getElementById('storageNote');
+      const confirmDialog = document.getElementById('confirmDialog');
+      const confirmDialogMessage = document.getElementById('confirmDialogMessage');
+      const confirmDialogConfirm = document.getElementById('confirmDialogConfirm');
+      const confirmDialogCancel = document.getElementById('confirmDialogCancel');
+      const toast = document.getElementById('toast');
       const btnClearAllRecords = document.getElementById('btnClearAllRecords');
       const btnExportCsv = document.getElementById('btnExportCsv');
 
@@ -875,7 +948,44 @@
         detailTotalReturnPct.textContent = `${totalReturnPct >= 0 ? '+' : ''}${totalReturnPct.toFixed(2)}%`;
       }
 
-      // 8. Grid 기록 관리 (저장소)
+      // 8. 확인창과 알림
+      // sandbox iframe에는 allow-modals가 없어 alert/confirm 호출이 무시된다(반환값도 false).
+      // 그래서 삭제 확인과 안내를 페이지 안에서 직접 그린다.
+      let closeConfirmDialog = null;
+      let toastTimer = null;
+
+      function showToast(message) {
+        toast.textContent = message;
+        toast.hidden = false;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { toast.hidden = true; }, 2600);
+      }
+
+      function askConfirm(message, confirmLabel) {
+        if (closeConfirmDialog) closeConfirmDialog(false);
+        confirmDialogMessage.textContent = message;
+        confirmDialogConfirm.textContent = confirmLabel || '삭제';
+        confirmDialog.hidden = false;
+        confirmDialogConfirm.focus();
+        return new Promise((resolve) => {
+          closeConfirmDialog = (answer) => {
+            closeConfirmDialog = null;
+            confirmDialog.hidden = true;
+            resolve(answer);
+          };
+        });
+      }
+
+      confirmDialogConfirm.addEventListener('click', () => closeConfirmDialog && closeConfirmDialog(true));
+      confirmDialogCancel.addEventListener('click', () => closeConfirmDialog && closeConfirmDialog(false));
+      confirmDialog.addEventListener('click', (event) => {
+        if (event.target === confirmDialog && closeConfirmDialog) closeConfirmDialog(false);
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && closeConfirmDialog) closeConfirmDialog(false);
+      });
+
+      // 9. Grid 기록 관리 (저장소)
       // 이 HTML은 allow-same-origin 없는 sandbox iframe에서도 실행된다. 그때 localStorage 접근은
       // SecurityError를 던지므로 부모 앱의 저장소 다리(mono:store-*)를 사용하고, 둘 다 없으면
       // 메모리에만 보관한다. 화면은 항상 recordCache 하나만 읽는다.
@@ -925,7 +1035,7 @@
             if (store) store.setItem(STORAGE_KEY, payload);
           } catch (e) {
             console.error('기록을 저장하지 못했습니다.', e);
-            alert('저장 공간이 가득 차서 기록을 보관하지 못했습니다.');
+            showToast('저장 공간이 가득 차서 기록을 보관하지 못했습니다.');
           }
         } else if (storageMode === 'bridge') {
           window.parent.postMessage({ type: 'mono:store-save', key: STORAGE_KEY, value: payload }, '*');
@@ -984,7 +1094,7 @@
       function addCurrentRecord() {
         const data = calculateYields();
         if (!data) {
-          alert('유효한 채권 정보를 먼저 입력해주세요.');
+          showToast('유효한 채권 정보를 먼저 입력해주세요.');
           return;
         }
 
@@ -1035,8 +1145,8 @@
         }, 1500);
       }
 
-      function deleteRecord(id) {
-        if (!confirm('이 기록을 삭제하시겠습니까?')) return;
+      async function deleteRecord(id) {
+        if (!(await askConfirm('이 기록을 삭제하시겠습니까?'))) return;
         let list = getStoredRecords();
         list = list.filter(item => item.id !== id);
         saveStoredRecords(list);
@@ -1200,11 +1310,11 @@
       window.calcLoadRecord = loadRecordToForm;
       window.calcDeleteRecord = deleteRecord;
 
-      // 9. CSV 내보내기
+      // 10. CSV 내보내기
       function exportToCsv() {
         const list = getStoredRecords();
         if (list.length === 0) {
-          alert('내보낼 기록이 없습니다.');
+          showToast('내보낼 기록이 없습니다.');
           return;
         }
 
@@ -1249,7 +1359,7 @@
         document.body.removeChild(link);
       }
 
-      // 10. 모드 전환 핸들러
+      // 11. 모드 전환 핸들러
       function switchPeriodMode(mode) {
         periodMode = mode;
         if (mode === 'date') {
@@ -1296,7 +1406,7 @@
         });
       }
 
-      // 11. 이벤트 리스너 등록
+      // 12. 이벤트 리스너 등록
       tabModeDate.addEventListener('click', () => switchPeriodMode('date'));
       tabModeRemain.addEventListener('click', () => switchPeriodMode('remain'));
 
@@ -1323,9 +1433,14 @@
 
       // 버튼 이벤트
       btnSaveRecord.addEventListener('click', addCurrentRecord);
-      btnClearAllRecords.addEventListener('click', () => {
-        if (confirm('저장된 모든 비교 기록을 삭제하시겠습니까?')) {
+      btnClearAllRecords.addEventListener('click', async () => {
+        if (!getStoredRecords().length) {
+          showToast('비울 기록이 없습니다.');
+          return;
+        }
+        if (await askConfirm('저장된 모든 비교 기록을 삭제하시겠습니까?', '전체 삭제')) {
           saveStoredRecords([]);
+          showToast('모든 기록을 삭제했습니다.');
         }
       });
       btnExportCsv.addEventListener('click', exportToCsv);
@@ -1348,7 +1463,7 @@
         updateUI();
       });
 
-      // 12. 프리셋 버튼 핸들러
+      // 13. 프리셋 버튼 핸들러
       btnPreset2Y.addEventListener('click', () => {
         bondNameInput.value = '미국 국채 2년물 (단기채)';
         buyPriceInput.value = '99.20';
@@ -1391,7 +1506,7 @@
         updateUI();
       });
 
-      // 13. 초기 실행
+      // 14. 초기 실행
       initDates();
       updateFreqRadioStyles();
       updateUI();
