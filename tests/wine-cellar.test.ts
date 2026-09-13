@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { wineFacts, filterWines, champagne } from "../src/lib/wine-cellar";
+import {
+  wineFacts,
+  filterWines,
+  champagne,
+  grapeList,
+} from "../src/lib/wine-cellar";
 import type { Wine, Snapshot } from "../src/lib/types";
 const w: Wine = {
   id: "one",
@@ -99,6 +104,21 @@ describe("wine cellar facts", () => {
       }),
     ).toHaveLength(1);
     expect(filterWines([a, b, c], { country: "이탈리아" })).toHaveLength(0);
+  });
+  it("matches a blend when any single grape is selected", () => {
+    const blend = wineFacts(
+      { ...w, id: "blend", grapes: "피노 누아, 샤르도네 / 피노 뮤니에" },
+      empty,
+    );
+    expect(grapeList(blend.grapes)).toEqual([
+      "피노 누아",
+      "샤르도네",
+      "피노 뮤니에",
+    ]);
+    for (const grape of ["피노 누아", "샤르도네", "피노 뮤니에"])
+      expect(filterWines([blend], { grape })).toHaveLength(1);
+    expect(filterWines([blend], { grape: "메를로" })).toHaveLength(0);
+    expect(filterWines([blend], { grape: "누아, 샤르도네" })).toHaveLength(0);
   });
   it("distinguishes Champagne from other sparkling wine", () => {
     expect(champagne(w)).toBe(true);

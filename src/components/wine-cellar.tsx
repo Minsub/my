@@ -6,6 +6,7 @@ import {
   wineFacts,
   filterWines,
   champagne,
+  grapeList,
   type WineFilters,
 } from "@/lib/wine-cellar";
 import { wineTypes, type Snapshot, type Wine } from "@/lib/types";
@@ -50,7 +51,8 @@ export function WineCellar({
       return acc;
     }, {}),
   ).sort((a, b) => b[1] - a[1]);
-  const options = (key: "country" | "region" | "vintage") =>
+  type OptionKey = "country" | "region" | "vintage" | "grape";
+  const options = (key: OptionKey) =>
     Array.from(
       new Set(
         all
@@ -61,33 +63,41 @@ export function WineCellar({
                 !filters.country ||
                 w.country === filters.country),
           )
-          .map((w) =>
+          .flatMap((w) =>
             key === "vintage"
               ? w.vintage_kind === "non_vintage"
                 ? "NV"
                 : w.vintage
                   ? String(w.vintage)
                   : ""
-              : w[key],
+              : key === "grape"
+                ? grapeList(w.grapes)
+                : w[key],
           )
           .filter(Boolean),
       ),
     ).sort();
-  const select = (key: "country" | "region" | "vintage", label: string) => (
-    <label>
-      {label}
-      <select
-        aria-label={label}
-        value={filters[key] || ""}
-        onChange={(e) => change(key, e.target.value)}
-      >
-        <option value="">전체</option>
-        {options(key).map((v) => (
-          <option key={v}>{v}</option>
-        ))}
-      </select>
-    </label>
-  );
+  const select = (key: OptionKey, label: string) => {
+    const current = filters[key] || "",
+      list = options(key);
+    return (
+      <label>
+        {label}
+        <select
+          aria-label={label}
+          value={current}
+          onChange={(e) => change(key, e.target.value)}
+        >
+          <option value="">전체</option>
+          {(current && !list.includes(current) ? [current, ...list] : list).map(
+            (v) => (
+              <option key={v}>{v}</option>
+            ),
+          )}
+        </select>
+      </label>
+    );
+  };
   const reversed = new Set(data.events.map((e) => e.reverses_id));
   const month = today().slice(0, 7);
   const consumed = data.events
@@ -249,14 +259,7 @@ export function WineCellar({
             {select("country", "국가")}
             {select("region", "지역")}
             {select("vintage", "빈티지")}
-            <label>
-              품종
-              <input
-                value={filters.grape || ""}
-                placeholder="예: 피노 누아"
-                onChange={(e) => change("grape", e.target.value)}
-              />
-            </label>
+            {select("grape", "품종")}
             {(
               [
                 ["min_price", "최소 구입가", "number"],

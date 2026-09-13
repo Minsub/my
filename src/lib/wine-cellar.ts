@@ -61,6 +61,11 @@ export function wineFacts(
   };
 }
 export type CellarWine = ReturnType<typeof wineFacts>;
+export const grapeList = (grapes: string) =>
+  grapes
+    .split(/[,/·]/)
+    .map((g) => g.trim())
+    .filter(Boolean);
 export type WineFilters = Partial<
   Record<
     | "q"
@@ -81,6 +86,7 @@ export type WineFilters = Partial<
   >
 >;
 export function filterWines(rows: CellarWine[], f: WineFilters) {
+  const grape = f.grape?.trim().toLowerCase();
   const result = rows.filter(
     (w) =>
       w.archived === (f.archived === "true") &&
@@ -98,7 +104,8 @@ export function filterWines(rows: CellarWine[], f: WineFilters) {
             : w.type === f.type)) &&
       (!f.country || w.country === f.country) &&
       (!f.region || w.region === f.region) &&
-      (!f.grape || w.grapes.toLowerCase().includes(f.grape.toLowerCase())) &&
+      (!grape ||
+        grapeList(w.grapes).some((g) => g.toLowerCase().includes(grape))) &&
       (!f.vintage ||
         (f.vintage === "NV"
           ? w.vintage_kind === "non_vintage"

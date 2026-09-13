@@ -163,7 +163,7 @@ export const readGuide: Record<string, Entry> = {
     description:
       "와인과 실제 구입가·구입일·재고·가족 평균 점수를 조회합니다. 보관함은 제외하며 재고가 0인 와인도 기본으로 포함합니다.",
     input:
-      "선택: query, in_stock, type, country, region, grape, vintage(연도/NV), min_price/max_price(원), from/to(구입일), min_score(0~100), sort, cursor, limit. sort: added_desc, price_asc/price_desc, date_asc/date_desc, name_asc, vintage_asc, stock_desc, score_desc.",
+      "선택: query, in_stock, type, country, region, grape(블렌드는 구성 품종 하나만 맞아도 포함), vintage(연도/NV), min_price/max_price(원), from/to(구입일), min_score(0~100), sort, cursor, limit. sort: added_desc, price_asc/price_desc, date_asc/date_desc, name_asc, vintage_asc, stock_desc, score_desc.",
     result:
       "와인 목록, price(최근 구입가), purchased_on, score, has_photo, total, next_cursor와 상세 링크. 가격·평점은 Vivino 시세·평점이 아닙니다.",
     example: "재고 있는 프랑스 와인 중 5만원 이하를 가격 낮은순으로 보여줘.",
