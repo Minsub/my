@@ -2945,7 +2945,9 @@ input[type="checkbox"] {
   border-radius: 12px;
   background: #fffefa;
   color: inherit;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
 }
 .html-page-card:hover {
   border-color: #afbea1;
@@ -3007,6 +3009,46 @@ input[type="checkbox"] {
   }
   .html-page-heading .button {
     min-height: 40px;
+  }
+}
+/* One embedded HTML fills the phone screen: the frame scrolls inside itself,
+   so the surrounding heading and footer are trimmed to what is still needed. */
+@media (max-width: 800px) {
+  .main-content:has(.html-page-view) {
+    padding-top: 12px;
+  }
+  .main-content:has(.html-page-view) > .page-footer {
+    display: none;
+  }
+  .html-page-view .html-page-heading {
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .html-page-view .html-page-heading > div {
+    min-width: 0;
+  }
+  .html-page-view .html-page-heading .eyebrow,
+  .html-page-view .html-page-heading p,
+  .html-page-view .html-page-source {
+    display: none;
+  }
+  .html-page-view .html-page-heading h1 {
+    font-size: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .html-page-view .html-page-heading .button {
+    flex: 0 0 auto;
+    min-height: 34px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  .html-page-view .cash-html-frame {
+    height: calc(100dvh - 197px - env(safe-area-inset-bottom));
+    min-height: 320px;
   }
 }
 

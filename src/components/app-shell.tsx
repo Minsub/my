@@ -132,11 +132,11 @@ export function AppShell({
       ? "/cash"
       : path.startsWith("/etc")
         ? "/etc/html"
-      : path.startsWith("/wine")
-        ? "/wine"
-        : path.startsWith("/settings")
-          ? "/settings"
-          : "/";
+        : path.startsWith("/wine")
+          ? "/wine"
+          : path.startsWith("/settings")
+            ? "/settings"
+            : "/";
   const href = (url: string) => {
     if (!demo) return url;
     const target = new URL(url, "https://mono.local");
@@ -1555,9 +1555,10 @@ export function AppShell({
   else if (path === "/etc/html") content = <HtmlPageList href={href} />;
   else if (path.startsWith("/etc/html/")) {
     const page = findHtmlPage(path.split("/")[3] ?? "");
-    content = page ? <HtmlPageView page={page} href={href} demo={demo} /> : null;
-  }
-  else if (path === "/settings") content = renderSettings();
+    content = page ? (
+      <HtmlPageView page={page} href={href} demo={demo} />
+    ) : null;
+  } else if (path === "/settings") content = renderSettings();
   else
     content = empty(
       "기록을 찾을 수 없어요",
@@ -1685,7 +1686,7 @@ export function AppShell({
         </main>
       </div>
       <nav className="mobile-nav" aria-label="모바일 주 메뉴">
-        {nav.filter((n) => n.href !== "/etc/html").map((n) => (
+        {nav.map((n) => (
           <Link
             className={active === n.href ? "active" : ""}
             key={n.href}

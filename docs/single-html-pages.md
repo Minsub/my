@@ -9,6 +9,7 @@ React 컴포넌트로 다시 작성하지 않고 HTML 한 파일을 앱 안에�
 - 보호된 소스 조회: `/api/html-pages/cash-old`. 웹 세션을 검사하고 HTML을 JSON으로 private/no-store 반환한다.
 - 공통 표시: `src/components/single-html-page.tsx`의 `SingleHtmlPage`.
 - 앱 진입: `cash-old.tsx`, catch-all 허용 경로 `/cash/old`, AppShell 분기. 가계부의 old 링크로 이동하므로 모바일 주 메뉴를 늘리지 않는다.
+- 모바일 배치: `/etc/html`는 하단 내비게이션에도 있다. 실행 화면(`/etc/html/{등록키}`)은 모바일에서 제목 줄과 `HTML 목록` 버튼만 남기고 eyebrow·설명·원본 경로·앱 공통 footer를 숨겨 iframe이 한 화면을 채운다. 바깥 페이지는 스크롤하지 않고 HTML 안에서만 스크롤한다. 규칙은 `globals.css`의 `.html-page-view` 모바일 블록이며 프레임 높이는 상단바·제목 줄·하단 내비게이션을 뺀 `100dvh` 계산이다.
 - Vercel 배포 파일 포함: `next.config.ts`의 `outputFileTracingIncludes`. 원본 HTML, SheetJS 및 Chart.js 런타임을 포함한다.
 
 ## 엑셀 연결 흐름
