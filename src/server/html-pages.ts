@@ -16,6 +16,14 @@ const pages: Record<string, HtmlPageSpec> = {
       ),
     adapter: "cash",
   },
+  "asset-return": {
+    load: () =>
+      readFile(
+        path.join(process.cwd(), "src/html/asset_return_calculator.html"),
+        "utf8",
+      ),
+    adapter: "none",
+  },
   "etf-us-yield": {
     load: () =>
       readFile(

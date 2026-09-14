@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>아파트 vs 주식 통합 자산 비교 계산기</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #475569;
+            --border: #e2e8f0;
+            --accent-a: #3b82f6;
+            --accent-b: #10b981;
+            --highlight: #fef3c7;
+            --highlight-border: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding: 24px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 8px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 868px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .input-group {
+            margin-bottom: 14px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .input-wrapper {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            padding: 8px 12px;
+            border: none;
+            outline: none;
+            font-size: 0.95rem;
+            text-align: right;
+            font-weight: 600;
+        }
+
+        .input-wrapper span {
+            padding: 8px 12px;
+            background: #f1f5f9;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            border-left: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 6px;
+            padding: 2px 4px;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        .checkbox-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+            font-weight: 500;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary);
+            cursor: pointer;
+        }
+
+        .tax-info {
+            font-size: 0.78rem;
+            color: #b45309;
+            font-weight: 600;
+        }
+
+        .result-banner {
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border: 1px solid #bfdbfe;
+            border-radius: 10px;
+            padding: 18px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .result-banner .winner-tag {
+            display: inline-block;
+            padding: 4px 12px;
+            background: var(--primary);
+            color: white;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .result-banner .diff-text {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+
+        .comparison-table th, .comparison-table td {
+            padding: 12px 10px;
+            text-align: right;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .comparison-table th:first-child, .comparison-table td:first-child {
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .comparison-table th {
+            background: #f8fafc;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .comparison-table tr.highlight-row {
+            background: #f0fdf4;
+            font-weight: 700;
+        }
+
+        .comparison-table tr.highlight-row td {
+            border-top: 2px solid #10b981;
+            border-bottom: 2px solid #10b981;
+            font-size: 1rem;
+        }
+
+        .col-a { color: var(--accent-a); }
+        .col-b { color: var(--accent-b); }
+
+        .logic-note {
+            margin-top: 20px;
+            padding: 14px;
+            background: #f8fafc;
+            border-left: 4px solid var(--primary);
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            border-radius: 0 6px 6px 0;
+        }
+
+        .logic-note ul {
+            padding-left: 18px;
+            margin-top: 6px;
+        }
+
+        .logic-note li {
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>통합 아파트 vs 주식 자산 비교 계산기</h1>
+        <p>자본금과 매매가 입력 시, 부족분은 대출 / 잉여분은 주식 투자로 자동 통일 비교합니다.</p>
+    </header>
+
+    <div class="grid">
+        <!-- 조건 입력 섹션 -->
+        <div class="card">
+            <div class="card-title">입력 조건</div>
+
+            <div class="input-group">
+                <label for="equity">보유 자본금</label>
+                <div class="input-wrapper">
+                    <input type="number" id="equity" value="9" step="0.5">
+                    <span>억원</span>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="priceA">아파트 A 매매가</label>
+                <div class="input-wrapper">
+                    <input type="number" id="priceA" value="15" step="0.5">
+                    <span>억원</span>
+                </div>
+                <div class="checkbox-group">
+                    <label class="checkbox-label" for="transferA">
+                        <input type="checkbox" id="transferA" checked>
+                        <span>갈아타기 (이사)</span>
+                    </label>
+                    <span id="taxInfoA" class="tax-info"></span>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="priceB">아파트 B 매매가</label>
+                <div class="input-wrapper">
+                    <input type="number" id="priceB" value="7" step="0.5">
+                    <span>억원</span>
+                </div>
+                <div class="checkbox-group">
+                    <label class="checkbox-label" for="transferB">
+                        <input type="checkbox" id="transferB">
+                        <span>갈아타기 (이사)</span>
+                    </label>
+                    <span id="taxInfoB" class="tax-info"></span>
+                </div>
+            </div>
+
+            <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--border);">
+
+            <div class="input-group">
+                <label for="loanRate">대출 금리 (연)</label>
+                <div class="input-wrapper">
+                    <input type="number" id="loanRate" value="4.0" step="0.1">
+                    <span>%</span>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="loanTerm">대출 만기</label>
+                <div class="input-wrapper">
+                    <input type="number" id="loanTerm" value="30" step="5">
+                    <span>년</span>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="period">비교 분석 기간</label>
+                <div class="input-wrapper">
+                    <input type="number" id="period" value="10" step="1">
+                    <span>년</span>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="aptGrowth">아파트 상승률 (기간 총)</label>
+                <div class="input-wrapper">
+                    <input type="number" id="aptGrowth" value="30" step="5">
+                    <span>%</span>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="stockReturn">주식 투자 수익률 (연)</label>
+                <div class="input-wrapper">
+                    <input type="number" id="stockReturn" value="5.0" step="0.5">
+                    <span>%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 비교 결과 섹션 -->
+        <div class="card">
+            <div class="card-title">
+                <span>비교 분석 결과</span>
+                <span id="periodText" style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal;">10년 후 기준</span>
+            </div>
+
+            <div class="result-banner" id="resultBanner">
+                <!-- JS dynamic render -->
+            </div>
+
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>항목</th>
+                        <th class="col-a">아파트 A</th>
+                        <th class="col-b">아파트 B</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- JS dynamic render -->
+                </tbody>
+            </table>
+
+            <div class="logic-note">
+                <strong>💡 통일 모델 산정 기준 (동일 현금흐름 규칙)</strong>
+                <ul>
+                    <li><strong>갈아타기(이사) 부대비용:</strong> 체크 시 국민주택규모(84㎡ 이하) 1주택/일시적 2주택 기준 취득세 및 지방교육세(농특세 비과세)를 매수 비용에 합산하여 초기 필요 대출금(부족분)에 추가하거나 초기 주식 투자금(잉여분)에서 차감합니다. (6억 이하 1.1%, 6~9억 비례세율, 9억 초과 3.3%)</li>
+                    <li><strong>초기 자율 배분:</strong> 매수 총비용(매매가 + 취득세) > 자본금이면 부족분 전액 대출 / 매수 총비용 < 자본금이면 잉여 자본금 전액 주식 초기 투자</li>
+                    <li><strong>월 지출 통일:</strong> 두 옵션 중 더 큰 월 대출 원리금을 '월 총 지출 예산'으로 고정. 원리금이 적은 옵션은 남는 차액을 매월 주식에 적립 투자</li>
+                    <li><strong>최종 순자산:</strong> (N년 후 아파트 평가액) - (대출 잔액) + (주식/금융 자산 총 평가액)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function formatKRW(valEok) {
+        if (Math.abs(valEok) < 0.0001) return "0원";
+        const eok = Math.floor(valEok);
+        const remainder = Math.round((valEok - eok) * 10000); // 만원 단위
+        
+        let result = "";
+        if (eok > 0) result += eok + "억 ";
+        if (remainder > 0) result += remainder.toLocaleString() + "만 원";
+        if (result === "") result = "0원";
+        return result.trim();
+    }
+
+    function formatEokDecimal(valEok) {
+        return valEok.toFixed(2) + "억 원";
+    }
+
+    // 84m2 국민주택규모 이하 취득세 계산 (취득세 + 지방교육세, 농특세 비과세)
+    function calculateAcquisitionTax(price) {
+        if (price <= 0) return { total: 0, acquisition: 0, education: 0 };
+        
+        let taxRate = 0;
+        if (price <= 6e8) {
+            taxRate = 0.01;
+        } else if (price <= 9e8) {
+            const priceInEok = price / 1e8;
+            // (취득가액 * 2/3 - 3)%
+            const percent = priceInEok * (2 / 3) - 3;
+            // 소수점 4자리까지 반올림
+            const roundedPercent = Math.round(percent * 10000) / 10000;
+            taxRate = roundedPercent / 100;
+        } else {
+            taxRate = 0.03;
+        }
+
+        const acquisition = Math.floor(price * taxRate);
+        const education = Math.floor(acquisition * 0.1);
+        const total = acquisition + education;
+        return { total, acquisition, education };
+    }
+
+    function calculate() {
+        const equity = (parseFloat(document.getElementById('equity').value) || 0) * 1e8;
+        const priceA = (parseFloat(document.getElementById('priceA').value) || 0) * 1e8;
+        const priceB = (parseFloat(document.getElementById('priceB').value) || 0) * 1e8;
+        
+        const transferA = document.getElementById('transferA').checked;
+        const transferB = document.getElementById('transferB').checked;
+
+        const loanRate = (parseFloat(document.getElementById('loanRate').value) || 0) / 100;
+        const loanTerm = parseInt(document.getElementById('loanTerm').value) || 30;
+        const period = parseInt(document.getElementById('period').value) || 10;
+        
+        const aptGrowth = (parseFloat(document.getElementById('aptGrowth').value) || 0) / 100;
+        const stockReturn = (parseFloat(document.getElementById('stockReturn').value) || 0) / 100;
+
+        document.getElementById('periodText').innerText = period + "년 후 기준";
+
+        // 취득세 계산 (84㎡ 기준)
+        const taxAObj = calculateAcquisitionTax(priceA);
+        const taxBObj = calculateAcquisitionTax(priceB);
+
+        const taxA = transferA ? taxAObj.total : 0;
+        const taxB = transferB ? taxBObj.total : 0;
+
+        const taxInfoAEl = document.getElementById('taxInfoA');
+        const taxInfoBEl = document.getElementById('taxInfoB');
+        if (taxInfoAEl) {
+            taxInfoAEl.innerText = transferA ? `취득세: ${formatKRW(taxAObj.total / 1e8)}` : '';
+        }
+        if (taxInfoBEl) {
+            taxInfoBEl.innerText = transferB ? `취득세: ${formatKRW(taxBObj.total / 1e8)}` : '';
+        }
+
+        // 1. 초기 자금 배분 (총 매수비용 = 매매가 + 취득세 부대비용)
+        const totalCostA = priceA + taxA;
+        const totalCostB = priceB + taxB;
+
+        const loanA = Math.max(0, totalCostA - equity);
+        const initStockA = Math.max(0, equity - totalCostA);
+
+        const loanB = Math.max(0, totalCostB - equity);
+        const initStockB = Math.max(0, equity - totalCostB);
+
+        // 2. 대출 원리금 계산 (원리금 균등)
+        const totalMonths = loanTerm * 12;
+        const rLoan = loanRate / 12;
+        
+        let pmtA = 0;
+        if (loanA > 0 && rLoan > 0) {
+            pmtA = loanA * (rLoan * Math.pow(1 + rLoan, totalMonths)) / (Math.pow(1 + rLoan, totalMonths) - 1);
+        }
+
+        let pmtB = 0;
+        if (loanB > 0 && rLoan > 0) {
+            pmtB = loanB * (rLoan * Math.pow(1 + rLoan, totalMonths)) / (Math.pow(1 + rLoan, totalMonths) - 1);
+        }
+
+        // 3. 월 현금흐름 통일 (남는 돈 월 주식 적립)
+        const maxPmt = Math.max(pmtA, pmtB);
+        const mStockA = maxPmt - pmtA;
+        const mStockB = maxPmt - pmtB;
+
+        // 4. N년 후 아파트 가치 및 대출 잔액
+        const m = period * 12;
+        const aptValA = priceA * (1 + aptGrowth);
+        const aptValB = priceB * (1 + aptGrowth);
+
+        let remLoanA = 0;
+        if (loanA > 0 && rLoan > 0) {
+            remLoanA = loanA * (Math.pow(1 + rLoan, totalMonths) - Math.pow(1 + rLoan, m)) / (Math.pow(1 + rLoan, totalMonths) - 1);
+        }
+
+        let remLoanB = 0;
+        if (loanB > 0 && rLoan > 0) {
+            remLoanB = loanB * (Math.pow(1 + rLoan, totalMonths) - Math.pow(1 + rLoan, m)) / (Math.pow(1 + rLoan, totalMonths) - 1);
+        }
+
+        // 5. N년 후 주식 평가액 (초기 일시불 + 월 적립 복리)
+        const rStock = stockReturn / 12;
+        
+        // A
+        const fvInitStockA = initStockA * Math.pow(1 + rStock, m);
+        const fvMStockA = rStock > 0 ? mStockA * (Math.pow(1 + rStock, m) - 1) / rStock : mStockA * m;
+        const totalStockA = fvInitStockA + fvMStockA;
+
+        // B
+        const fvInitStockB = initStockB * Math.pow(1 + rStock, m);
+        const fvMStockB = rStock > 0 ? mStockB * (Math.pow(1 + rStock, m) - 1) / rStock : mStockB * m;
+        const totalStockB = fvInitStockB + fvMStockB;
+
+        // 6. 최종 순자산
+        const netWorthA = aptValA - remLoanA + totalStockA;
+        const netWorthB = aptValB - remLoanB + totalStockB;
+
+        // UI 업데이트 - 배너
+        const diff = Math.abs(netWorthA - netWorthB);
+        const banner = document.getElementById('resultBanner');
+        
+        if (Math.abs(netWorthA - netWorthB) < 100000) {
+            banner.innerHTML = `
+                <div class="winner-tag" style="background:#64748b;">동일한 성과</div>
+                <div class="diff-text">두 선택지의 ${period}년 후 순자산이 거의 동일합니다.</div>
+            `;
+        } else if (netWorthA > netWorthB) {
+            banner.innerHTML = `
+                <div class="winner-tag" style="background:var(--accent-a);">아파트 A 우세</div>
+                <div class="diff-text">아파트 A가 ${formatKRW(diff / 1e8)} 더 유리합니다!</div>
+                <div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">
+                    ${period}년 후 순자산: A (${formatEokDecimal(netWorthA / 1e8)}) vs B (${formatEokDecimal(netWorthB / 1e8)})
+                </div>
+            `;
+        } else {
+            banner.innerHTML = `
+                <div class="winner-tag" style="background:var(--accent-b);">아파트 B (+주식) 우세</div>
+                <div class="diff-text">아파트 B 선택 케이스가 ${formatKRW(diff / 1e8)} 더 유리합니다!</div>
+                <div style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">
+                    ${period}년 후 순자산: B (${formatEokDecimal(netWorthB / 1e8)}) vs A (${formatEokDecimal(netWorthA / 1e8)})
+                </div>
+            `;
+        }
+
+        // UI 업데이트 - 테이블
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = `
+            <tr>
+                <td>아파트 매매가</td>
+                <td>${formatEokDecimal(priceA / 1e8)}</td>
+                <td>${formatEokDecimal(priceB / 1e8)}</td>
+            </tr>
+            <tr>
+                <td>갈아타기 부대비용 (취득세 84㎡)</td>
+                <td>${transferA ? formatKRW(taxA / 1e8) : '<span style="color:var(--text-muted);">0원 (미선택)</span>'}</td>
+                <td>${transferB ? formatKRW(taxB / 1e8) : '<span style="color:var(--text-muted);">0원 (미선택)</span>'}</td>
+            </tr>
+            <tr style="color:var(--text-muted); font-size:0.85rem;">
+                <td>총 필요 매수 자금</td>
+                <td>${formatEokDecimal(totalCostA / 1e8)}</td>
+                <td>${formatEokDecimal(totalCostB / 1e8)}</td>
+            </tr>
+            <tr>
+                <td>초기 필요 대출금</td>
+                <td style="font-weight:700;">${formatEokDecimal(loanA / 1e8)}</td>
+                <td style="font-weight:700;">${formatEokDecimal(loanB / 1e8)}</td>
+            </tr>
+            <tr>
+                <td>초기 주식 투자금 (일시불)</td>
+                <td>${formatEokDecimal(initStockA / 1e8)}</td>
+                <td>${formatEokDecimal(initStockB / 1e8)}</td>
+            </tr>
+            <tr>
+                <td>월 대출 원리금 (상환액)</td>
+                <td>${Math.round(pmtA / 10000).toLocaleString()}만 원</td>
+                <td>${Math.round(pmtB / 10000).toLocaleString()}만 원</td>
+            </tr>
+            <tr>
+                <td>월 주식 적립액 (차액 투자)</td>
+                <td>${Math.round(mStockA / 10000).toLocaleString()}만 원</td>
+                <td>${Math.round(mStockB / 10000).toLocaleString()}만 원</td>
+            </tr>
+            <tr style="background:#f1f5f9; font-weight:600;">
+                <td colspan="3" style="text-align:center; color:var(--text-muted); padding:6px;">${period}년 후 자산 평가 (만기 시점)</td>
+            </tr>
+            <tr>
+                <td>${period}년 후 아파트 가치</td>
+                <td>${formatEokDecimal(aptValA / 1e8)}</td>
+                <td>${formatEokDecimal(aptValB / 1e8)}</td>
+            </tr>
+            <tr>
+                <td>${period}년 후 대출 잔액</td>
+                <td>-${formatEokDecimal(remLoanA / 1e8)}</td>
+                <td>-${formatEokDecimal(remLoanB / 1e8)}</td>
+            </tr>
+            <tr>
+                <td>${period}년 후 주식 자산 평가액</td>
+                <td>${formatEokDecimal(totalStockA / 1e8)}</td>
+                <td>${formatEokDecimal(totalStockB / 1e8)}</td>
+            </tr>
+            <tr class="highlight-row">
+                <td>${period}년 후 최종 순자산</td>
+                <td class="col-a">${formatEokDecimal(netWorthA / 1e8)}</td>
+                <td class="col-b">${formatEokDecimal(netWorthB / 1e8)}</td>
+            </tr>
+        `;
+    }
+
+    // Event listeners
+    const inputs = document.querySelectorAll('input');
+    inputs.forEach(input => {
+        input.addEventListener('input', calculate);
+        input.addEventListener('change', calculate);
+    });
+
+    // Initial calculation
+    calculate();
+</script>
+
+</body>
+</html>

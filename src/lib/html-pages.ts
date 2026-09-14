@@ -7,8 +7,13 @@ export type HtmlPageInfo = {
 
 // This list is safe to use in both the app UI and the server-side HTML loader.
 // Keep the actual file loader in src/server/html-pages.ts so a request can never
-// choose an arbitrary repository path.
 export const htmlPages: readonly HtmlPageInfo[] = [
+  {
+    id: "asset-return",
+    title: "아파트 vs 주식 자산 비교 계산기",
+    description: "자본금과 매매가 기준 대출·주식 대체투자를 84㎡ 갈아타기 취득세와 함께 비교하는 단일 도구입니다.",
+    filename: "asset_return_calculator.html",
+  },
   {
     id: "etf-us-yield",
     title: "ETF · 미국 국채 수익률 계산기",
