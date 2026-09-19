@@ -41,7 +41,7 @@
 |---|---|
 | 저장 | `db/migrations/006_*.sql` 이후 새 번호. household_id, UUID, 관계/유일 제약, created_by, 필요 시 version/index. 기존 적용 파일을 수정하지 않는다 |
 | 계약 | `src/lib/types.ts`의 도메인 타입과 Snapshot, `src/lib/contracts.ts`의 입력 검증과 명령 이름. 숫자 범위·nullable·단위 명시 |
-| 인증 | 새 Scope/allScopes, auth.ts의 OAuth scope/resource, security.ts, auth-screens.tsx의 동의 라벨, `/api/mcp`의 challenge와 discovery 응답을 전부 검색해 반영 |
+| 인증 | 새 Scope/allScopes, auth.ts의 OAuth scope/resource, security.ts, auth-screens.tsx의 동의 라벨, `/api/mcp`의 challenge와 discovery 응답을 전부 검색해 반영. scope를 늘렸으면 배포 후 `oauthResource`의 `allowedScopes`가 실제로 갱신됐는지, 기존 AI 연결을 재승인했는지 확인한다(옛 refresh token은 발급 당시 scope로 고정된다) |
 | 서비스 | service.ts의 테이블 매핑·record·execute·snapshot. 현재 execute의 scope 선택은 coffee 접두사/그 외 wine 분기이므로 새 도메인은 명시적으로 확장해야 함 |
 | 읽기 | snapshot의 scope별 조회/빈 목록 규칙. 다른 공간 데이터가 합계·추천·export에 섞이지 않아야 함 |
 | 웹 | catch-all 허용 경로, AppShell content/active/nav, 별도 화면 컴포넌트, workspace-home.tsx의 도구 카드 |

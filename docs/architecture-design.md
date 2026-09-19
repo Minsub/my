@@ -62,7 +62,7 @@ Actor는 `{userId, householdId, role, scopes, channel, clientId?}`다. 입력에
 
 웹은 Better Auth 세션, MCP는 OAuth Bearer token을 사용한다. Google access token을 MCP에 재사용하지 않는다. MCP는 DCR, Authorization Code+PKCE(S256), discovery, resource 검증, refresh를 지원한다. CIMD 전용 연결은 구현하지 않았다. access token 15분, refresh token 30일 설정이다.
 
-scope는 `coffee:read/write`, `wine:read/write`, `asset:read/write`. 명령별 scope는 `src/lib/contracts.ts`의 `commandScopes`가 단일 기준이며 `Record<Operation, Scope | null>`이라 새 명령을 넣지 않으면 타입 검사가 실패한다. 접두사 추론을 쓰면 새 도메인이 `wine:write`로 공개된다. discovery와 401 challenge는 `allScopes`에서 파생한다. scope만으로 소유권을 대체하지 않는다. 관리자는 공용 항목을 수정할 수 있고 구성원은 본인이 만든 항목을 수정한다. 평가·세팅은 본인 기록이다. 본인 AI 연결을 해제하면 저장된 동의와 토큰 및 JWT 발급시각 차단으로 기존 토큰이 무효화된다. 매 요청 활성 멤버십을 확인한다.
+scope는 `coffee:read/write`, `wine:read/write`, `asset:read/write`. 명령별 scope는 `src/lib/contracts.ts`의 `commandScopes`가 단일 기준이며 `Record<Operation, Scope | null>`이라 새 명령을 넣지 않으면 타입 검사가 실패한다. 접두사 추론을 쓰면 새 도메인이 `wine:write`로 공개된다. discovery와 401 challenge는 `allScopes`에서 파생한다. 다만 발급되는 access token의 scope는 `oauthResource` 행의 `allowedScopes`와 교집합으로 좁혀지고, 이 행은 `auth.ts`의 `resources` 설정에서 시드된다. 기본 시드 모드가 `insertOnly`라 한번 만들어진 행은 갱신되지 않으므로 `resourceSeedMode: "merge"`를 유지해야 `allScopes`에 추가한 scope가 실제 토큰까지 전달된다. 교집합이 비지 않으면 조용히 깎이므로 오류가 나지 않는다. scope만으로 소유권을 대체하지 않는다. 관리자는 공용 항목을 수정할 수 있고 구성원은 본인이 만든 항목을 수정한다. 평가·세팅은 본인 기록이다. 본인 AI 연결을 해제하면 저장된 동의와 토큰 및 JWT 발급시각 차단으로 기존 토큰이 무효화된다. 매 요청 활성 멤버십을 확인한다.
 
 UI 숨김은 보안 검사가 아니다. 쿠키 기반 변경은 sameOrigin, 모든 서버 입구는 인증과 권한 검사를 유지한다. RLS를 쓰고 있다고 가정하지 않는다. 현재는 애플리케이션에서 공간 조건과 관계 검사를 적용하며 일부 관계는 복합 FK가 보강한다. 운영 DB 역할은 현재 owner 역할이므로 최소권한 전용 역할은 후속 운영 개선이다.
 

@@ -42,15 +42,12 @@ const descriptions: Partial<Record<Operation, string>> = {
     "한 사람의 그 날짜 자산 현황 전체를 저장합니다. 같은 사람·같은 날짜로 저장하면 기존 값을 통째로 교체하므로 항상 전체 포트폴리오를 한 번에 보냅니다. 금액은 원화 환산 정수이며 asset_get_classification_rules의 group_key를 사용합니다.",
   asset_delete_snapshot: "잘못 등록한 날짜의 자산 기록을 삭제합니다.",
 };
-// [TEMP TEST] coffee MCP 도구 비활성화 — 도구 목록 캐시 확인용. 되돌릴 것.
-const DISABLE_COFFEE_TOOLS: boolean = true;
 export function mcpHandler(actor: Actor) {
   return createMcpHandler(
     (server) => {
       for (const [operation, schema] of Object.entries(commandSchemas)) {
         const scope = commandScopes[operation as Operation];
         if (!scope || !actor.scopes.includes(scope)) continue;
-        if (DISABLE_COFFEE_TOOLS && operation.startsWith("coffee_")) continue;
         server.registerTool(
           operation,
           {
@@ -170,7 +167,6 @@ export function mcpHandler(actor: Actor) {
           ? "coffee:read"
           : "wine:read";
         if (!actor.scopes.includes(scope)) continue;
-        if (DISABLE_COFFEE_TOOLS && name.startsWith("coffee")) continue;
         server.registerTool(
           name,
           {
@@ -261,7 +257,6 @@ export function mcpHandler(actor: Actor) {
       for (const domain of ["coffee", "wine"] as const) {
         const scope: Scope = `${domain}:read`;
         if (!actor.scopes.includes(scope)) continue;
-        if (DISABLE_COFFEE_TOOLS && domain === "coffee") continue;
         server.registerTool(
           domain === "coffee" ? "coffee_get_bean" : "wine_get",
           {

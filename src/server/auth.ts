@@ -46,6 +46,7 @@ export function authOptions() {
       },
     ],
     clientRegistrationDefaultResources: [`${appUrl()}/api/mcp`],
+    resourceSeedMode: "merge",
     grantTypes: ["authorization_code", "refresh_token"],
     allowDynamicClientRegistration: true,
     allowUnauthenticatedClientRegistration: true,
