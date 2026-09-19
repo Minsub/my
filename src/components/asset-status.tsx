@@ -6,6 +6,7 @@ import {
   TriangleAlert,
   ArrowUpRight,
   LineChart,
+  Upload,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -13,7 +14,6 @@ import {
   assetAxes,
   assetChangeRate,
   assetCompact,
-  assetGroups,
   assetMoney,
   assetPct,
   assetSignedMoney,
@@ -32,8 +32,8 @@ import {
 import type { AssetOverview } from "@/server/assets";
 import { AssetLine, AssetPie, AssetTrend, assetColor } from "./asset-chart";
 import { AssetDetail, type AssetDetailTarget } from "./asset-detail";
+import { AssetUpload } from "./asset-upload";
 import { RecordForm, type FormSpec } from "./record-form";
-import { today } from "@/lib/format";
 import type { Operation } from "@/lib/contracts";
 import { demoAssetOverview, demoAssetItems } from "@/lib/demo-assets";
 
@@ -44,7 +44,6 @@ const periods: { key: AssetPeriod; label: string }[] = [
 const chartAxes = assetAxes.filter(
   (a) => a.key === "group" || a.key === "parent",
 );
-const recordable = assetGroups.filter((g) => g.key !== "unclassified");
 // 표의 합계 행은 축의 묶음이 아니므로 그룹 key와 겹치지 않는 이름을 쓴다.
 const TOTAL_KEY = "__total__";
 
@@ -69,6 +68,7 @@ export function AssetStatus({
   const [toast, setToast] = useState("");
   const [detail, setDetail] = useState<AssetDetailTarget | null>(null);
   const [trend, setTrend] = useState<string | null>(null);
+  const [upload, setUpload] = useState(false);
   const params = new URLSearchParams(query);
   const owner = params.get("owner") || "all";
   const period = (params.get("period") as AssetPeriod) || "month";
@@ -151,60 +151,10 @@ export function AssetStatus({
       operation: "asset_save_owner",
       fields: [{ name: "name", label: "이름", required: true }],
     });
-  const snapshotForm = (ownerId: string) =>
-    open({
-      title: "자산 현황 기록",
-      description:
-        "그 날짜의 자산 전체를 저장합니다. 같은 사람·같은 날짜로 저장하면 기존 기록을 교체합니다. 자세한 종목별 기록은 AI 연결로 한 번에 넣을 수 있습니다.",
-      operation: "asset_record_snapshot",
-      extra: { owner_id: ownerId, expected_version: null },
-      fields: [
-        {
-          name: "as_of",
-          label: "기준일",
-          type: "date",
-          value: today(),
-          required: true,
-        },
-        ...recordable.map((group) => ({
-          name: group.key,
-          label: `${group.name} (${group.parent})`,
-          type: "number" as const,
-          min: 0,
-        })),
-        { name: "note", label: "메모", type: "textarea" },
-      ],
-      transform: (values) => {
-        const items = recordable
-          .map((group) => ({
-            group_key: group.key,
-            name: group.name,
-            broker: "",
-            amount: Number(values[group.key] ?? 0) || 0,
-            quantity: null,
-            profit: null,
-            profit_rate: null,
-          }))
-          .filter((item) => item.amount > 0);
-        for (const group of recordable) delete values[group.key];
-        return {
-          ...values,
-          items: items.length
-            ? items
-            : [
-                {
-                  group_key: "cash",
-                  name: "현금",
-                  broker: "",
-                  amount: 0,
-                  quantity: null,
-                  profit: null,
-                  profit_rate: null,
-                },
-              ],
-        };
-      },
-    });
+  // 자산 목록은 수십 줄이라 화면에서 한 칸씩 넣을 것이 아니다. CSV 한 장을 올린다.
+  // 둘러보기에서도 창은 연다. CSV 규격을 보여주는 것이 이 화면의 설명이고,
+  // 저장은 save()가 막으므로 창 안에서 그 이유를 읽는 편이 낫다.
+  const openUpload = () => setUpload(true);
   const activeOwners = data?.owners.filter((o) => o.active) ?? [];
   // 머리말 버튼은 오류·로딩 화면에도 그대로 나온다. 그 화면에서 눌러도 창이 떠야 하므로
   // 모달과 토스트는 모든 반환 경로에 함께 붙인다.
@@ -222,6 +172,18 @@ export function AssetStatus({
       )}
       {form && (
         <RecordForm spec={form} onClose={() => setForm(null)} onSave={save} />
+      )}
+      {upload && (
+        <AssetUpload
+          owners={activeOwners}
+          defaultOwner={
+            owner !== "all" && activeOwners.some((o) => o.id === owner)
+              ? owner
+              : (activeOwners[0]?.id ?? "")
+          }
+          onClose={() => setUpload(false)}
+          onSave={save}
+        />
       )}
       {toast && (
         <div className="toast" role="status">
@@ -248,13 +210,9 @@ export function AssetStatus({
         </button>
         <button
           className="button primary add-button"
-          onClick={() =>
-            activeOwners.length
-              ? snapshotForm(owner !== "all" ? owner : activeOwners[0].id)
-              : ownerForm()
-          }
+          onClick={() => (activeOwners.length ? openUpload() : ownerForm())}
         >
-          <Plus size={18} />
+          <Upload size={17} />
           <span>자산 기록</span>
         </button>
       </div>
@@ -323,6 +281,10 @@ export function AssetStatus({
     );
   const summary = data.summaries[axis];
   const groupSummary = data.summaries.group;
+  // CAGR은 기록이 있는 기간만 쓴다. 증감액도 같은 구간의 처음과 끝으로 맞춘다.
+  const withData = data.timelines.group.filter((p) => p.total > 0);
+  const spanChange =
+    withData.length > 1 ? withData.at(-1)!.total - withData[0].total : null;
   const timeline = data.timelines[axis];
   const series = assetTimelineSeries(timeline);
   const points = timeline.map((p) => p.period);
@@ -371,12 +333,7 @@ export function AssetStatus({
               <p>
                 위에서 다른 구성원을 고르거나, 이 구성원의 자산을 기록해보세요.
               </p>
-              <button
-                className="button primary"
-                onClick={() =>
-                  snapshotForm(owner !== "all" ? owner : activeOwners[0].id)
-                }
-              >
+              <button className="button primary" onClick={openUpload}>
                 자산 기록
               </button>
             </div>
@@ -431,11 +388,18 @@ export function AssetStatus({
                     }
                   >
                     {assetSignedPct(data.cagr)}
+                    {/* 비율만 있으면 "그래서 얼마 늘었나"를 못 읽는다. 창 안의 실제 증감액을 같이 적는다. */}
+                    {spanChange !== null && (
+                      <i className={changeTone(spanChange)}>
+                        {assetSignedMoney(spanChange)}
+                      </i>
+                    )}
                   </strong>
                   <small>
                     {assetRanges.find((r) => r.key === data.range)?.label} ·{" "}
-                    {data.timelines.group.filter((p) => p.total > 0).length}개
-                    기간 기준 CAGR
+                    {withData.length}개 기간 기준 CAGR
+                    {spanChange !== null &&
+                      ` · ${periodLabel(withData[0].period)}부터`}
                   </small>
                 </div>
                 <div>

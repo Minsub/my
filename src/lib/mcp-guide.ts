@@ -124,15 +124,6 @@ export const commandGuide = {
     result: "저장된 와인잔과 버전.",
     example: "리델 피노 누아 잔을 등록해줘.",
   },
-  asset_save_owner: {
-    title: "자산 소유자 등록·수정",
-    description:
-      "자산현황에 표시할 소유자를 관리합니다. 로그인 계정이 없는 구성원도 등록할 수 있습니다.",
-    input:
-      "name(표시 이름). 선택: id·expected_version(수정), link_to_me(내 계정과 연결), sort_order, active.",
-    result: "저장된 소유자와 버전.",
-    example: "자산 소유자에 장미를 추가해줘.",
-  },
   asset_record_snapshot: {
     title: "자산 현황 기록",
     description:
@@ -160,8 +151,9 @@ export const commandGuide = {
     result: "삭제 여부와 대상 날짜.",
     example: "어제 잘못 등록한 자산 기록을 지워줘.",
   },
+  // asset_save_owner는 웹 전용이라 MCP 도구 목록에 없다(contracts.ts의 webOnlyCommands).
 } satisfies Record<
-  Exclude<Operation, `family_${string}` | "archive_item">,
+  Exclude<Operation, `family_${string}` | "archive_item" | "asset_save_owner">,
   Entry
 >;
 export const readGuide: Record<string, Entry> = {
@@ -235,7 +227,7 @@ export const readGuide: Record<string, Entry> = {
       "원본 자산 목록을 자산 그룹으로 나누는 기준을 반환합니다. 그룹 정의·우선순위 규칙·금액 단위·저장 규칙이 함께 들어 있습니다.",
     input: "없음.",
     result:
-      "rules_version, groups(그룹과 통화·위험 구분), rules(priority 오름차순 규칙), instructions, write_contract.",
+      "rules_version, groups(그룹과 통화·위험 구분), rules(priority 오름차순 규칙), instructions, write_contract, csv_contract(사용자가 웹에 올리는 CSV의 열 규격).",
     example: "자산을 어떤 기준으로 묶어야 하는지 알려줘.",
   },
   asset_classify_rows: {

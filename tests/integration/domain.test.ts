@@ -708,6 +708,22 @@ describe("asset snapshots", () => {
     expect(readTools).toContain("asset_get_classification_rules");
     expect(readTools).toContain("asset_list_owners");
     expect(readTools).not.toContain("asset_record_snapshot");
+    // 소유자 등록은 웹 전용이다. asset:write를 줘도 도구로 나가지 않고 MCP 채널에서 거부한다.
+    const assetWriter: Actor = {
+      ...owner,
+      channel: "mcp",
+      scopes: ["asset:read", "asset:write"],
+    };
+    const writeTools = await mcpToolNames(assetWriter);
+    expect(writeTools).toContain("asset_record_snapshot");
+    expect(writeTools).toContain("asset_update_item");
+    expect(writeTools).not.toContain("asset_save_owner");
+    await expect(
+      execute(assetWriter, "asset_save_owner", {
+        idempotency_key: key(),
+        name: "MCP가 만든 소유자",
+      }),
+    ).rejects.toThrow();
     await expect(
       readAssetOverview({ ...owner, scopes: ["wine:read"] }, {}),
     ).rejects.toThrow();

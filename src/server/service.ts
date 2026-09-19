@@ -2,7 +2,12 @@ import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import { query, transaction } from "./db";
 import { AppError, requireScope } from "./security";
-import { commandScopes, parseCommand, type Operation } from "@/lib/contracts";
+import {
+  commandScopes,
+  parseCommand,
+  webOnlyCommands,
+  type Operation,
+} from "@/lib/contracts";
 import {
   deleteAssetSnapshot,
   recordAssetSnapshot,
@@ -115,6 +120,13 @@ export async function execute(
   // 접두사 추론을 쓰지 않는다. 명령별 scope는 contracts.ts의 commandScopes가 단일 기준이다.
   const required = commandScopes[operation];
   if (required) requireScope(actor, required);
+  // 도구 목록에서 빼는 것만으로는 부족하다. execute는 웹과 MCP가 함께 쓰는 입구다.
+  if (webOnlyCommands.has(operation) && actor.channel !== "web")
+    throw new AppError(
+      "FORBIDDEN",
+      "이 작업은 웹 화면에서만 할 수 있습니다.",
+      403,
+    );
   if (
     operation.startsWith("family_") &&
     (actor.role !== "owner" || actor.channel !== "web")

@@ -263,6 +263,10 @@ export const commandScopes: Record<Operation, Scope | null> = {
   family_remove: null,
   family_cancel_invite: null,
 };
+// MCP 도구로 내보내지 않는 명령. scope는 그대로 두고 노출만 막는다.
+// 자산 소유자는 공간 안의 라벨이라 AI가 임의로 만들면 같은 사람이 두 이름으로 갈린다.
+// 웹의 "소유자 추가"에서만 만들고, MCP는 없는 이름을 만나면 그 화면을 안내한다.
+export const webOnlyCommands = new Set<Operation>(["asset_save_owner"]);
 export type Command = {
   [K in Operation]: {
     operation: K;

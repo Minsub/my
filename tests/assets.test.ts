@@ -13,6 +13,7 @@ import {
   sliceTimeline,
   assetItemsCsv,
   assetClassificationRules,
+  parseAssetCsv,
   type AssetLinePoint,
 } from "../src/lib/assets";
 import { demoAssetPlan } from "../src/lib/demo-assets";
@@ -481,5 +482,121 @@ describe("가상 데이터", () => {
     expect(demoAssetPlan()[0].items[0].amount).toBe(
       demoAssetPlan()[0].items[0].amount,
     );
+  });
+});
+
+// 업로드 CSV는 금액이 들어오는 입구다. 잘못 읽은 값이 그대로 저장되면 그 날짜가 통째로 틀어진다.
+// 화면으로는 52줄짜리 파일의 한 줄 오차를 못 잡으므로 파서만 따로 고정한다.
+describe("업로드 CSV 파싱", () => {
+  const header = "투자 이름,자산그룹,금액,증권사,수량,수익금,수익률";
+  it("필수 열만 있어도 읽고 쉼표·원·%를 걷어낸다", () => {
+    const parsed = parseAssetCsv(
+      `${header}\n삼성전자,주식,"47,320,000원",,194,5380000,11.94%\nCMA RP,현금,4427765,미래에셋증권,,,`,
+    );
+    expect(parsed.issues).toEqual([]);
+    expect(parsed.items).toEqual([
+      {
+        group_key: "kr_stock",
+        name: "삼성전자",
+        broker: "",
+        amount: 47320000,
+        quantity: 194,
+        profit: 5380000,
+        profit_rate: 0.1194,
+      },
+      {
+        group_key: "cash",
+        name: "CMA RP",
+        broker: "미래에셋증권",
+        amount: 4427765,
+        quantity: null,
+        profit: null,
+        profit_rate: null,
+      },
+    ]);
+    expect(parsed.total).toBe(51747765);
+  });
+  it("% 없는 수익률은 비율로 읽는다", () => {
+    const parsed = parseAssetCsv(
+      `${header}\n금 99.99_1kg,금,12500400,,,,0.0194`,
+    );
+    expect(parsed.issues).toEqual([]);
+    expect(parsed.items[0].profit_rate).toBe(0.0194);
+  });
+  it("group_key로 써도 받고 유도되는 열이 어긋나면 거부한다", () => {
+    const ok = parseAssetCsv(
+      "투자 이름,자산그룹,금액,상위그룹,통화종류,자산종류\n코카콜라,foreign_equity,32844116,주식(달러),달러,위험",
+    );
+    expect(ok.issues).toEqual([]);
+    expect(ok.items[0].group_key).toBe("foreign_equity");
+    const bad = parseAssetCsv(
+      "투자 이름,자산그룹,금액,자산종류\n미국 국채,해외 채권,14219616,위험",
+    );
+    expect(bad.items).toHaveLength(0);
+    expect(bad.issues[0].message).toContain("안전");
+  });
+  it("모르는 열·빠진 필수 열·중복 열을 알려준다", () => {
+    expect(
+      parseAssetCsv("투자 이름,자산그룹,금엑\n삼성전자,주식,1").issues[0]
+        .message,
+    ).toContain("모르는 열");
+    expect(
+      parseAssetCsv("투자 이름,금액\n삼성전자,1").issues[0].message,
+    ).toContain("자산그룹");
+    expect(
+      parseAssetCsv("투자 이름,자산그룹,금액,금액\n삼성전자,주식,1,1").issues[0]
+        .message,
+    ).toContain("두 번");
+  });
+  it("금액이 0·소수·글자면 그 줄을 버리고 이유를 남긴다", () => {
+    const parsed = parseAssetCsv(
+      `투자 이름,자산그룹,금액\n영원,현금,0\n소수,현금,1.5\n글자,현금,없음\n정상,현금,100`,
+    );
+    expect(parsed.items).toHaveLength(1);
+    expect(parsed.issues.map((i) => i.line)).toEqual([2, 3, 4]);
+  });
+  it("기준일·구성원이 섞이면 거부하고 하나면 돌려준다", () => {
+    const mixed = parseAssetCsv(
+      "투자 이름,자산그룹,금액,기준일\n가,현금,1,2026-09-30\n나,현금,1,2026-08-31",
+    );
+    expect(mixed.issues.at(-1)!.message).toContain("섞여");
+    const single = parseAssetCsv(
+      "투자 이름,자산그룹,금액,기준일,구성원\n가,현금,1,2026-09-30,민섭",
+    );
+    expect(single.issues).toEqual([]);
+    expect(single.as_of).toBe("2026-09-30");
+    expect(single.owner).toBe("민섭");
+  });
+  it("열 개수가 다른 줄과 알 수 없는 그룹을 잡는다", () => {
+    const parsed = parseAssetCsv(
+      `투자 이름,자산그룹,금액\n짧은줄,현금\n모르는그룹,코인,1000`,
+    );
+    expect(parsed.items).toHaveLength(0);
+    expect(parsed.issues[0].message).toContain("열이 2개");
+    expect(parsed.issues[1].message).toContain("코인");
+  });
+  it("내보낸 CSV를 그대로 다시 읽는다", () => {
+    const csv = assetItemsCsv([
+      {
+        as_of: "2026-09-30",
+        owner_name: "민섭",
+        name: "쉼표, 들어간 이름",
+        broker: "한국투자증권",
+        group_key: "usd_note_rp",
+        amount: 6813567,
+        quantity: null,
+        profit: 96000,
+        profit_rate: 0.0536,
+      },
+    ]);
+    const parsed = parseAssetCsv(csv);
+    expect(parsed.issues).toEqual([]);
+    expect(parsed.as_of).toBe("2026-09-30");
+    expect(parsed.items[0]).toMatchObject({
+      name: "쉼표, 들어간 이름",
+      group_key: "usd_note_rp",
+      amount: 6813567,
+      profit_rate: 0.0536,
+    });
   });
 });

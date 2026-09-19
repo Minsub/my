@@ -4,6 +4,7 @@ import {
   commandSchemas,
   commandScopes,
   listSchema,
+  webOnlyCommands,
   type Operation,
 } from "@/lib/contracts";
 import { snapshot, execute } from "./service";
@@ -36,8 +37,6 @@ const descriptions: Partial<Record<Operation, string>> = {
     "와인 재고를 소비합니다. 부족하면 거부합니다. 시음도 함께 기록할 수 있습니다.",
   coffee_save_preference: "인증된 사용자 본인의 원두 취향을 저장합니다.",
   wine_log_tasting: "재고 변화 없이 시음을 기록합니다.",
-  asset_save_owner:
-    "자산 소유자를 등록하거나 수정합니다. 스냅샷을 기록하기 전에 소유자가 있어야 합니다.",
   asset_record_snapshot:
     "한 사람의 그 날짜 자산 현황 전체를 저장합니다. 원본 자산 목록의 한 줄이 items 한 개입니다. 그룹별로 합산하지 말고 종목명을 그대로 name에 넣으세요. 같은 사람·같은 날짜로 저장하면 기존 값을 통째로 교체하므로 항상 전체 포트폴리오를 한 번에 보냅니다. 금액은 원화 환산 정수이며 group_key는 asset_get_classification_rules의 값을 사용합니다.",
   asset_update_item:
@@ -50,6 +49,8 @@ export function mcpHandler(actor: Actor) {
       for (const [operation, schema] of Object.entries(commandSchemas)) {
         const scope = commandScopes[operation as Operation];
         if (!scope || !actor.scopes.includes(scope)) continue;
+        // 웹 전용 명령은 scope가 있어도 도구로 내보내지 않는다.
+        if (webOnlyCommands.has(operation as Operation)) continue;
         server.registerTool(
           operation,
           {

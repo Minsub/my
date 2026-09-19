@@ -331,6 +331,20 @@ export function assetClassificationRules() {
       items: "{group_key, name, broker, amount, quantity, profit, profit_rate}",
       note: "그룹 합계는 서버가 items에서 계산하므로 보내지 않는다. 같은 owner_id와 as_of로 저장하면 그 날짜의 기존 값을 전부 교체한다. 일부만 보내면 나머지는 사라지므로 항상 그 사람의 자산 전체를 한 번에 보낸다.",
     },
+    // 사용자가 웹 화면에 직접 올리는 경로. AI가 CSV를 만들어 건네줄 때 이 규격을 따른다.
+    csv_contract: {
+      where: '자산현황 화면의 "자산 기록" 버튼에서 CSV 한 장을 올린다.',
+      encoding: "UTF-8. 첫 줄이 열 이름이고 열 순서는 자유다.",
+      columns: assetCsvColumns,
+      required: assetCsvColumns.filter((c) => c.required).map((c) => c.name),
+      note: [
+        "저장하는 값은 투자 이름·자산그룹·금액·증권사·수량·수익금·수익률뿐이다. 상위그룹·통화종류·자산종류는 자산그룹에서 유도하므로 적지 않아도 되고, 적었다면 유도값과 같아야 한다.",
+        "기준일과 소유자는 업로드 화면에서 고른다. CSV에 기준일·구성원 열을 적었다면 모든 행이 같아야 하고 화면에서 고른 값과도 같아야 한다.",
+        "목록에 없는 열 이름이 하나라도 있으면 업로드를 거부한다. 오타난 열을 조용히 무시하면 그 칸의 값이 사라진다.",
+        "그룹 합계 행을 넣지 않는다. 원본 종목 한 줄이 한 행이다.",
+        "한 번에 한 사람의 하루치 전체를 올린다. 같은 사람·같은 날짜로 다시 올리면 그 날짜를 통째로 교체한다.",
+      ],
+    },
   };
 }
 
@@ -748,6 +762,338 @@ export const assetSignedPct = (n: number | null) =>
   n === null ? "—" : `${n >= 0 ? "+" : ""}${(n * 100).toFixed(1)}%`;
 export const assetSignedMoney = (n: number | null) =>
   n === null ? "—" : `${n >= 0 ? "+" : "-"}${assetCompact(Math.abs(n))}`;
+
+// ---- 업로드 CSV ----
+// 화면에서 항목을 하나씩 입력하는 대신 CSV 한 장을 올린다. 자산 목록은 수십 줄이라 손으로 넣을 것이 아니다.
+// 규격은 여기 한 곳에서 정하고, 업로드 화면과 asset_get_classification_rules가 같은 값을 읽는다.
+// 열 이름은 내보내기 CSV와 같게 둔다. 내보내서 고치고 다시 올리는 길이 막히면 안 된다.
+export type AssetCsvColumn = {
+  name: string;
+  required: boolean;
+  description: string;
+};
+export const assetCsvColumns: readonly AssetCsvColumn[] = [
+  {
+    name: "투자 이름",
+    required: true,
+    description:
+      "원본에 적힌 종목명을 그대로 쓴다. 그룹 이름(주식)을 넣지 않는다. 최대 200자.",
+  },
+  {
+    name: "자산그룹",
+    required: true,
+    description:
+      "자산 그룹 이름 또는 group_key. 이 값 하나만 저장하고 상위그룹·통화종류·자산종류는 여기서 유도한다.",
+  },
+  {
+    name: "금액",
+    required: true,
+    description:
+      "원화로 환산된 평가금액. 1 이상 정수. 쉼표와 '원'은 붙여도 된다. 0원 항목은 올리지 않는다.",
+  },
+  {
+    name: "증권사",
+    required: false,
+    description: "보관 중인 증권사. 없으면 빈칸. 최대 100자.",
+  },
+  {
+    name: "수량",
+    required: false,
+    description: "보유 수량. 없으면 빈칸. 소수 가능, 음수 불가.",
+  },
+  {
+    name: "수익금",
+    required: false,
+    description: "평가 손익 금액. 없으면 빈칸. 손실은 음수 정수.",
+  },
+  {
+    name: "수익률",
+    required: false,
+    description:
+      "'1.94%'처럼 % 기호를 붙이거나 비율 0.0194로 쓴다. % 없이 1.94를 쓰면 194%로 읽으므로 주의한다.",
+  },
+  {
+    name: "상위그룹",
+    required: false,
+    description:
+      "적어도 되지만 저장하지 않는다. 자산그룹에서 유도한 값과 다르면 업로드를 거부한다.",
+  },
+  {
+    name: "통화종류",
+    required: false,
+    description:
+      "원화·달러·-. 저장하지 않으며 자산그룹에서 유도한 값과 다르면 거부한다.",
+  },
+  {
+    name: "자산종류",
+    required: false,
+    description:
+      "위험·안전·-. 저장하지 않으며 자산그룹에서 유도한 값과 다르면 거부한다.",
+  },
+  {
+    name: "기준일",
+    required: false,
+    description:
+      "YYYY-MM-DD. 저장은 화면에서 고른 기준일로 한다. 적었다면 모든 행이 같아야 하고 고른 날짜와도 같아야 한다.",
+  },
+  {
+    name: "구성원",
+    required: false,
+    description:
+      "저장은 화면에서 고른 소유자로 한다. 적었다면 모든 행이 같아야 하고 고른 소유자 이름과도 같아야 한다.",
+  },
+];
+const csvColumnNames = assetCsvColumns.map((c) => c.name);
+// 엑셀이 저장한 파일을 그대로 받는다. 따옴표 안의 쉼표·줄바꿈·이스케이프된 따옴표를 처리한다.
+export function parseCsvRows(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let quoted = false;
+  let started = false;
+  const pushField = () => {
+    row.push(started ? field : field.trim());
+    field = "";
+    started = false;
+  };
+  const pushRow = () => {
+    pushField();
+    rows.push(row);
+    row = [];
+  };
+  const body = text.replace(/^\uFEFF/, "");
+  for (let i = 0; i < body.length; i++) {
+    const char = body[i];
+    if (quoted) {
+      if (char === '"') {
+        if (body[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else quoted = false;
+      } else field += char;
+      continue;
+    }
+    if (char === '"' && field.trim() === "") {
+      quoted = true;
+      started = true;
+      field = "";
+      continue;
+    }
+    if (char === ",") pushField();
+    else if (char === "\r") continue;
+    else if (char === "\n") pushRow();
+    else field += char;
+  }
+  if (field !== "" || row.length) pushRow();
+  // 끝의 빈 줄은 버린다. 엑셀이 흔히 남긴다.
+  return rows.filter((r) => r.some((c) => c.trim() !== ""));
+}
+export type AssetCsvIssue = { line: number | null; message: string };
+export type AssetCsvItem = {
+  group_key: string;
+  name: string;
+  broker: string;
+  amount: number;
+  quantity: number | null;
+  profit: number | null;
+  profit_rate: number | null;
+};
+export type AssetCsvParse = {
+  items: AssetCsvItem[];
+  issues: AssetCsvIssue[];
+  total: number;
+  as_of: string | null;
+  owner: string | null;
+};
+const currencyLabel: Record<AssetCurrency, string> = {
+  KRW: "원화",
+  USD: "달러",
+  NONE: "-",
+};
+const riskLabel = { RISKY: "위험", SAFE: "안전" } as const;
+const groupByLabel = new Map<string, AssetGroup>();
+for (const group of assetGroups) {
+  groupByLabel.set(group.key.toLowerCase(), group);
+  groupByLabel.set(group.name.replace(/\s+/g, ""), group);
+}
+// 숫자 칸은 사람이 만든 파일이라 쉼표·통화 기호·공백이 섞여 들어온다. 그것만 걷어내고
+// 나머지는 그대로 숫자로 본다. 읽히지 않는 값을 0으로 떨어뜨리면 금액이 조용히 사라진다.
+const cleanNumber = (raw: string) =>
+  raw.replace(/[,\s₩]/g, "").replace(/원$/, "");
+export function parseAssetCsv(text: string): AssetCsvParse {
+  const issues: AssetCsvIssue[] = [];
+  const fail = (message: string, line: number | null = null) =>
+    issues.push({ line, message });
+  const rows = parseCsvRows(text);
+  if (!rows.length) {
+    fail("빈 파일입니다. 첫 줄에 열 이름이 있어야 합니다.");
+    return { items: [], issues, total: 0, as_of: null, owner: null };
+  }
+  const header = rows[0].map((h) => h.trim());
+  const unknown = header.filter((h) => h && !csvColumnNames.includes(h));
+  for (const name of unknown)
+    fail(
+      `모르는 열 "${name}"이 있습니다. 쓸 수 있는 열: ${csvColumnNames.join(", ")}.`,
+      1,
+    );
+  const seen = new Set<string>();
+  for (const name of header) {
+    if (!name) continue;
+    if (seen.has(name)) fail(`열 "${name}"이 두 번 있습니다.`, 1);
+    seen.add(name);
+  }
+  for (const column of assetCsvColumns)
+    if (column.required && !header.includes(column.name))
+      fail(`필수 열 "${column.name}"이 없습니다.`, 1);
+  if (issues.length)
+    return { items: [], issues, total: 0, as_of: null, owner: null };
+  const at = (name: string) => header.indexOf(name);
+  const cell = (row: string[], name: string) => {
+    const index = at(name);
+    return index < 0 ? "" : (row[index] ?? "").trim();
+  };
+  const items: AssetCsvItem[] = [];
+  const dates = new Set<string>();
+  const owners = new Set<string>();
+  rows.slice(1).forEach((row, index) => {
+    const line = index + 2;
+    if (row.length !== header.length) {
+      fail(
+        `열이 ${row.length}개입니다. 첫 줄과 같은 ${header.length}개여야 합니다.`,
+        line,
+      );
+      return;
+    }
+    const before = issues.length;
+    const name = cell(row, "투자 이름");
+    if (!name) fail("투자 이름이 비어 있습니다.", line);
+    else if (name.length > 200) fail("투자 이름이 200자를 넘습니다.", line);
+    const rawGroup = cell(row, "자산그룹");
+    const group =
+      groupByLabel.get(rawGroup.toLowerCase()) ??
+      groupByLabel.get(rawGroup.replace(/\s+/g, ""));
+    if (!rawGroup) fail("자산그룹이 비어 있습니다.", line);
+    else if (!group)
+      fail(
+        `자산그룹 "${rawGroup}"을 알 수 없습니다. 쓸 수 있는 값: ${assetGroups.map((g) => g.name).join(", ")}.`,
+        line,
+      );
+    const rawAmount = cleanNumber(cell(row, "금액"));
+    const amount = Number(rawAmount);
+    if (!rawAmount) fail("금액이 비어 있습니다.", line);
+    else if (!Number.isFinite(amount))
+      fail(`금액 "${cell(row, "금액")}"을 숫자로 읽을 수 없습니다.`, line);
+    else if (!Number.isInteger(amount))
+      fail("금액은 원 단위 정수여야 합니다.", line);
+    else if (amount < 1)
+      fail("금액은 1원 이상이어야 합니다. 0원 항목은 올리지 않습니다.", line);
+    else if (amount > 1000000000000)
+      fail("금액이 1조를 넘습니다. 단위를 확인해주세요.", line);
+    const broker = cell(row, "증권사");
+    if (broker.length > 100) fail("증권사가 100자를 넘습니다.", line);
+    const optionalNumber = (
+      column: string,
+      check: (value: number) => string | null,
+    ) => {
+      const raw = cleanNumber(cell(row, column));
+      if (!raw || raw === "-") return null;
+      const value = Number(raw);
+      if (!Number.isFinite(value)) {
+        fail(
+          `${column} "${cell(row, column)}"을 숫자로 읽을 수 없습니다.`,
+          line,
+        );
+        return null;
+      }
+      const problem = check(value);
+      if (problem) {
+        fail(`${column}: ${problem}`, line);
+        return null;
+      }
+      return value;
+    };
+    const quantity = optionalNumber("수량", (v) =>
+      v < 0 ? "음수일 수 없습니다." : v > 1e12 ? "값이 너무 큽니다." : null,
+    );
+    const profit = optionalNumber("수익금", (v) =>
+      !Number.isInteger(v)
+        ? "원 단위 정수여야 합니다."
+        : Math.abs(v) > 1000000000000
+          ? "값이 너무 큽니다."
+          : null,
+    );
+    // % 기호가 있으면 백분율, 없으면 비율이다. 이 구분이 틀리면 수익률이 100배가 된다.
+    const rawRate = cell(row, "수익률");
+    let profit_rate: number | null = null;
+    if (rawRate && rawRate !== "-") {
+      const percent = rawRate.includes("%");
+      const value = Number(cleanNumber(rawRate.replace("%", "")));
+      if (!Number.isFinite(value))
+        fail(`수익률 "${rawRate}"을 숫자로 읽을 수 없습니다.`, line);
+      else {
+        // 11.94 / 100 은 0.11939999…가 된다. 비율은 소수 6자리로 맞춰 저장한다.
+        profit_rate = percent ? Number((value / 100).toFixed(6)) : value;
+        if (profit_rate < -1 || profit_rate > 1000)
+          fail(
+            `수익률 ${rawRate}이 범위를 벗어납니다. % 기호를 빠뜨리지 않았는지 확인해주세요.`,
+            line,
+          );
+      }
+    }
+    // 유도되는 열은 저장하지 않지만, 값이 어긋나면 행이 밀렸다는 신호다.
+    if (group) {
+      const derived: [string, string][] = [
+        ["상위그룹", group.parent],
+        ["통화종류", currencyLabel[group.currency]],
+        ["자산종류", group.risk ? riskLabel[group.risk] : "-"],
+      ];
+      for (const [column, expected] of derived) {
+        const given = cell(row, column);
+        if (given && given !== expected)
+          fail(
+            `${column}이 "${given}"인데 자산그룹 "${group.name}"에서는 "${expected}"입니다.`,
+            line,
+          );
+      }
+    }
+    const date = cell(row, "기준일");
+    if (date) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date))
+        fail(`기준일 "${date}"은 YYYY-MM-DD 형식이어야 합니다.`, line);
+      else dates.add(date);
+    }
+    const owner = cell(row, "구성원");
+    if (owner) owners.add(owner.normalize("NFC"));
+    if (issues.length === before && group)
+      items.push({
+        group_key: group.key,
+        name,
+        broker,
+        amount,
+        quantity,
+        profit,
+        profit_rate,
+      });
+  });
+  if (dates.size > 1)
+    fail(
+      `기준일이 ${[...dates].sort().join(", ")}로 섞여 있습니다. 한 번에 하루치만 올립니다.`,
+    );
+  if (owners.size > 1)
+    fail(
+      `구성원이 ${[...owners].join(", ")}로 섞여 있습니다. 한 번에 한 사람만 올립니다.`,
+    );
+  if (!items.length && !issues.length) fail("올릴 항목이 없습니다.");
+  if (items.length > 300)
+    fail(`항목이 ${items.length}개입니다. 한 번에 300개까지 올릴 수 있습니다.`);
+  return {
+    items,
+    issues,
+    total: items.reduce((n, i) => n + i.amount, 0),
+    as_of: dates.size === 1 ? [...dates][0] : null,
+    owner: owners.size === 1 ? [...owners][0] : null,
+  };
+}
 
 // 내보내기용 CSV. 엑셀이 UTF-8로 열도록 BOM을 붙이고 쉼표·따옴표를 escape한다.
 export type AssetCsvRow = {

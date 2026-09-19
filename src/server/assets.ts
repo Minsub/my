@@ -75,8 +75,8 @@ async function resolveOwner(
     throw new AppError(
       "NOT_FOUND",
       known.length
-        ? `등록된 자산 소유자가 아닙니다. 현재 소유자: ${known.join(", ")}. 새로 추가하려면 asset_save_owner를 먼저 사용하세요.`
-        : "자산 소유자를 먼저 등록해주세요.",
+        ? `등록된 자산 소유자가 아닙니다. 현재 소유자: ${known.join(", ")}. 새 소유자는 자산현황 화면의 "소유자 추가"에서 직접 등록해주세요.`
+        : '자산 소유자가 없습니다. 자산현황 화면의 "소유자 추가"에서 먼저 등록해주세요.',
       404,
     );
   }
