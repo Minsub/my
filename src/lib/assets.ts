@@ -411,14 +411,21 @@ export const assetRanges: { key: AssetRange; label: string; years: number }[] =
   ];
 // 기간 필터는 조회 범위가 아니라 표시 범위다. 이월을 계산한 뒤 잘라야
 // 분기에 한 번 기록하는 구성원의 값이 창 시작에서 사라지지 않는다.
-export function sliceTimeline<T>(
+// 기록이 없는 기간을 축에서 지우므로 개수로 자르면 "최근 1년"이 1년을 넘어간다.
+// 마지막 기간에서 range만큼 거슬러 올라간 라벨을 구해 그 이후만 남긴다.
+export function sliceTimeline<T extends { period: string }>(
   timeline: T[],
   period: AssetPeriod,
   range: AssetRange,
 ): T[] {
   const years = assetRanges.find((r) => r.key === range)?.years ?? 0;
-  if (!years) return timeline;
-  return timeline.slice(-(period === "year" ? years : years * 12));
+  const last = timeline.at(-1)?.period;
+  if (!years || !last) return timeline;
+  if (period === "year")
+    return timeline.filter((p) => Number(p.period) > Number(last) - years);
+  const [y, m] = [Number(last.slice(0, 4)), Number(last.slice(5, 7))];
+  const cutoff = `${y - years}-${String(m).padStart(2, "0")}`;
+  return timeline.filter((p) => p.period > cutoff);
 }
 export const assetAxes: { key: AssetAxis; label: string }[] = [
   { key: "group", label: "자산 그룹" },
@@ -452,7 +459,8 @@ export const periodLabel = (value: string) =>
   value.length === 4
     ? `${value}년`
     : `${value.slice(0, 4)}/${value.slice(5, 7)}`;
-// 기록이 없는 달도 축에 남긴다. 선 그래프가 중간에 끊기면 증감을 읽을 수 없다.
+// 첫 기록부터 마지막 기록까지 모든 기간을 만든다. 이월을 계산해야 하므로 여기서는 빈 기간도 낸다.
+// 아무도 기록하지 않은 기간을 버리는 것은 buildAssetTimeline의 마지막 filter다.
 export function periodRange(
   first: string,
   last: string,
@@ -493,49 +501,61 @@ export function buildAssetTimeline(
   const sorted = [...dates].sort();
   const order = axisOrder(axis);
   const rank = new Map(order.map((k, i) => [k, i]));
-  return periodRange(
-    periodOf(sorted[0], period),
-    periodOf(sorted.at(-1)!, period),
-    period,
-  ).map((label) => {
-    const sums = new Map<string, AssetBucket>();
-    const owners: AssetTimelinePoint["owners"] = [];
-    const carried: string[] = [];
-    let latest = "";
-    for (const ownerId of ownerIds) {
-      const byDate = byOwner.get(ownerId);
-      if (!byDate) continue;
-      // 기간 안에 여러 건이면 가장 최신 기록, 없으면 그 이전의 마지막 기록을 이어 쓴다.
-      const effective = [...byDate.keys()]
-        .filter((d) => periodOf(d, period) <= label)
-        .sort()
-        .pop();
-      if (!effective) continue;
-      if (periodOf(effective, period) !== label) carried.push(ownerId);
-      if (effective > latest) latest = effective;
-      let ownerTotal = 0;
-      for (const [groupKey, amount] of byDate.get(effective)!) {
-        const bucket = axisBucketOf(groupKey, axis);
-        const acc = sums.get(bucket.key) ?? { ...bucket, amount: 0 };
-        acc.amount += amount;
-        sums.set(bucket.key, acc);
-        ownerTotal += amount;
-      }
-      owners.push({ owner_id: ownerId, as_of: effective, amount: ownerTotal });
-    }
-    const buckets = [...sums.values()].sort(
-      (a, b) =>
-        (rank.get(a.key) ?? order.length) - (rank.get(b.key) ?? order.length),
-    );
-    return {
-      period: label,
-      as_of: latest,
-      total: buckets.reduce((n, b) => n + b.amount, 0),
-      buckets,
-      owners,
-      carried,
-    };
-  });
+  return (
+    periodRange(
+      periodOf(sorted[0], period),
+      periodOf(sorted.at(-1)!, period),
+      period,
+    )
+      .map((label) => {
+        const sums = new Map<string, AssetBucket>();
+        const owners: AssetTimelinePoint["owners"] = [];
+        const carried: string[] = [];
+        let latest = "";
+        for (const ownerId of ownerIds) {
+          const byDate = byOwner.get(ownerId);
+          if (!byDate) continue;
+          // 기간 안에 여러 건이면 가장 최신 기록, 없으면 그 이전의 마지막 기록을 이어 쓴다.
+          const effective = [...byDate.keys()]
+            .filter((d) => periodOf(d, period) <= label)
+            .sort()
+            .pop();
+          if (!effective) continue;
+          if (periodOf(effective, period) !== label) carried.push(ownerId);
+          if (effective > latest) latest = effective;
+          let ownerTotal = 0;
+          for (const [groupKey, amount] of byDate.get(effective)!) {
+            const bucket = axisBucketOf(groupKey, axis);
+            const acc = sums.get(bucket.key) ?? { ...bucket, amount: 0 };
+            acc.amount += amount;
+            sums.set(bucket.key, acc);
+            ownerTotal += amount;
+          }
+          owners.push({
+            owner_id: ownerId,
+            as_of: effective,
+            amount: ownerTotal,
+          });
+        }
+        const buckets = [...sums.values()].sort(
+          (a, b) =>
+            (rank.get(a.key) ?? order.length) -
+            (rank.get(b.key) ?? order.length),
+        );
+        return {
+          period: label,
+          as_of: latest,
+          total: buckets.reduce((n, b) => n + b.amount, 0),
+          buckets,
+          owners,
+          carried,
+        };
+      })
+      // 아무도 그 기간에 기록하지 않았으면 축에서 뺀다. 직전 값을 그대로 이어 그린 평평한 구간은
+      // 실제로 변화가 없었다는 뜻이 아니라 기록이 없었다는 뜻이라 증감을 잘못 읽게 만든다.
+      // 한 사람이라도 그 기간에 기록했으면 남기고, 기록이 없는 사람만 직전 값을 이어 쓴다.
+      .filter((p) => p.owners.length > p.carried.length)
+  );
 }
 export const assetChangeRate = (now: number, before: number) =>
   before > 0 ? (now - before) / before : null;
