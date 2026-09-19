@@ -1,9 +1,17 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
-import { Plus, RefreshCw, TriangleAlert, ArrowUpRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Plus,
+  RefreshCw,
+  TriangleAlert,
+  ArrowUpRight,
+  LineChart,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import {
   assetAxes,
+  assetChangeRate,
   assetCompact,
   assetGroups,
   assetMoney,
@@ -12,13 +20,17 @@ import {
   assetSignedPct,
   assetRanges,
   assetTimelineSeries,
+  findAssetGroup,
   periodLabel,
   type AssetAxis,
   type AssetPeriod,
   type AssetRange,
+  type AssetRisk,
+  type AssetStockBoard,
+  type AssetSummary,
 } from "@/lib/assets";
 import type { AssetOverview } from "@/server/assets";
-import { AssetPie, AssetTrend, assetColor } from "./asset-chart";
+import { AssetLine, AssetPie, AssetTrend, assetColor } from "./asset-chart";
 import { AssetDetail, type AssetDetailTarget } from "./asset-detail";
 import { RecordForm, type FormSpec } from "./record-form";
 import { today } from "@/lib/format";
@@ -33,6 +45,8 @@ const chartAxes = assetAxes.filter(
   (a) => a.key === "group" || a.key === "parent",
 );
 const recordable = assetGroups.filter((g) => g.key !== "unclassified");
+// 표의 합계 행은 축의 묶음이 아니므로 그룹 key와 겹치지 않는 이름을 쓴다.
+const TOTAL_KEY = "__total__";
 
 export function AssetStatus({
   initialQuery,
@@ -54,6 +68,7 @@ export function AssetStatus({
   const [form, setForm] = useState<FormSpec | null>(null);
   const [toast, setToast] = useState("");
   const [detail, setDetail] = useState<AssetDetailTarget | null>(null);
+  const [trend, setTrend] = useState<string | null>(null);
   const params = new URLSearchParams(query);
   const owner = params.get("owner") || "all";
   const period = (params.get("period") as AssetPeriod) || "month";
@@ -265,6 +280,21 @@ export function AssetStatus({
           </button>
         ))}
       </div>
+      <div
+        className="asset-chips asset-filter-range"
+        role="group"
+        aria-label="기간 범위"
+      >
+        {assetRanges.map((r) => (
+          <button
+            key={r.key}
+            className={range === r.key ? "selected" : ""}
+            onClick={() => update({ range: r.key })}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
   if (error)
@@ -305,6 +335,14 @@ export function AssetStatus({
         ?.buckets.find((b) => b.key === bucket)?.name ?? bucket;
     setDetail({ at, axis, bucket, label });
   };
+  // 위험·안전 박스와 주식 카드는 화면의 분류 기준과 무관하게 항상 자산 그룹으로 연다.
+  const drillGroup = (bucket: string, label: string) =>
+    groupSummary &&
+    setDetail({ at: groupSummary.period, axis: "group", bucket, label });
+  const trendSeries =
+    trend === TOTAL_KEY
+      ? { key: TOTAL_KEY, name: "합계", values: timeline.map((p) => p.total) }
+      : series.find((s) => s.key === trend);
   return (
     <div className="asset-page">
       {heading}
@@ -363,6 +401,27 @@ export function AssetStatus({
                       ? "직전 비교 없음"
                       : `직전 ${assetSignedMoney(groupSummary.change)} (${assetSignedPct(groupSummary.change_rate)})`}
                   </small>
+                  {/* 구성원이 한 명이면 총자산과 같은 값이라 적지 않는다. */}
+                  {data.ownerTotals.length > 1 && (
+                    <ul className="asset-kpi-owners">
+                      {data.ownerTotals.map((o) => (
+                        <li key={o.owner_id}>
+                          <span>{o.name}</span>
+                          <b>{assetCompact(o.total)}</b>
+                          <small>
+                            {o.as_of
+                              ? o.as_of.replaceAll("-", ".")
+                              : "기록 없음"}
+                          </small>
+                          <em className={changeTone(o.change)}>
+                            {o.change === null
+                              ? "—"
+                              : `${o.change > 0 ? "▲" : o.change < 0 ? "▼" : ""}${assetCompact(Math.abs(o.change))}`}
+                          </em>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
                 <div>
                   <span>연평균 자산 증가율</span>
@@ -442,21 +501,6 @@ export function AssetStatus({
                     </button>
                   ))}
                 </div>
-                <div
-                  className="asset-chips"
-                  role="group"
-                  aria-label="기간 범위"
-                >
-                  {assetRanges.map((r) => (
-                    <button
-                      key={r.key}
-                      className={range === r.key ? "selected" : ""}
-                      onClick={() => update({ range: r.key })}
-                    >
-                      {r.label}
-                    </button>
-                  ))}
-                </div>
               </div>
               <section className="panel">
                 <div className="section-heading compact">
@@ -478,58 +522,105 @@ export function AssetStatus({
                   />
                 </div>
               </section>
+              {groupSummary && (
+                <section className="panel">
+                  <div className="section-heading compact">
+                    <h2>위험 · 안전 자산</h2>
+                    <span className="muted small">
+                      {periodLabel(groupSummary.period)} 기준 · 세부 분류 비율은
+                      각 묶음 안의 비중
+                    </span>
+                  </div>
+                  <AssetRiskBoard summary={groupSummary} onRow={drillGroup} />
+                </section>
+              )}
               <section className="panel">
                 <div className="section-heading compact">
-                  <h2>기간별 금액·비중·증감</h2>
+                  <h2>주식 보유 현황</h2>
                   <span className="muted small">
-                    {period === "year" ? "연별" : "월별"} · 셀을 누르면 종목을
-                    봅니다
+                    {groupSummary
+                      ? `${periodLabel(groupSummary.period)} 최신 기록`
+                      : "최신 기록"}{" "}
+                    · 금액 상위 5종목
+                  </span>
+                </div>
+                <div className="asset-stock-grid">
+                  {data.stocks.map((board) => (
+                    <AssetStockCard
+                      key={board.key}
+                      board={board}
+                      onOpen={() => drillGroup(board.key, board.name)}
+                    />
+                  ))}
+                </div>
+              </section>
+              <section className="panel">
+                <div className="section-heading compact">
+                  <h2>기간별 금액·증감</h2>
+                  <span className="muted small">
+                    {period === "year" ? "연별" : "월별"} · 이름을 누르면 추이,
+                    셀을 누르면 종목을 봅니다
                   </span>
                 </div>
                 <AssetMatrix
                   timeline={timeline}
                   series={series}
                   onCell={drill}
+                  onSeries={setTrend}
                 />
-              </section>
-              <section className="panel">
-                <div className="section-heading compact">
-                  <h2>구성원별</h2>
-                  <span className="muted small">최신 기간 기준</span>
-                </div>
-                <div className="asset-owner-cards">
-                  {data.ownerTotals.map((o) => (
-                    <div key={o.owner_id}>
-                      <span>{o.name}</span>
-                      <strong>{assetMoney(o.total)}</strong>
-                      <small>
-                        {o.as_of ? o.as_of.replaceAll("-", ".") : "기록 없음"}
-                        {o.change !== null &&
-                          ` · ${assetSignedMoney(o.change)}`}
-                      </small>
-                    </div>
-                  ))}
-                </div>
               </section>
             </>
           )}
         </>
       )}
+      {trendSeries && (
+        <AssetTrendDialog
+          name={trendSeries.name}
+          color={
+            trendSeries.key === TOTAL_KEY
+              ? "#3f4a3f"
+              : assetColor(trendSeries.key)
+          }
+          unit={period === "year" ? "연별" : "월별"}
+          periods={points}
+          values={trendSeries.values}
+          onClose={() => setTrend(null)}
+        />
+      )}
       {overlays}
     </div>
   );
 }
-// 한 칸에 금액·비중·증감을 함께 적는다. 값마다 표를 따로 만들면 세 번 훑어야 한다.
+// 증감은 색만으로 읽히면 안 된다. 화살표를 함께 붙여 색을 못 보는 화면에서도 방향이 남게 한다.
+// 부호는 화살표가 이미 말하므로 금액은 절댓값으로 적는다.
+const changeTone = (change: number | null) =>
+  !change ? "flat" : change > 0 ? "up" : "down";
+function changeText(change: number | null, rate: number | null) {
+  if (change === null) return "—";
+  const arrow = change > 0 ? "▲" : change < 0 ? "▼" : "";
+  const pct = rate === null ? "" : ` ${Math.abs(rate * 100).toFixed(1)}%`;
+  return `${arrow}${assetCompact(Math.abs(change))}${pct}`;
+}
+// 한 칸에 금액과 직전 기간 대비 증감을 적는다. 비중은 위 파이·위험 박스가 이미 보여주므로 빼고,
+// 표는 "얼마에서 얼마로 움직였는가" 한 가지만 읽게 한다. 합계는 기준선이므로 맨 위에 둔다.
 function AssetMatrix({
   timeline,
   series,
   onCell,
+  onSeries,
 }: {
   timeline: AssetOverview["timelines"][AssetAxis];
   series: { key: string; name: string; values: number[] }[];
   onCell: (period: string, key: string) => void;
+  onSeries: (key: string) => void;
 }) {
-  const totals = useMemo(() => timeline.map((p) => p.total), [timeline]);
+  const rows = useMemo(
+    () => [
+      { key: TOTAL_KEY, name: "합계", values: timeline.map((p) => p.total) },
+      ...series,
+    ],
+    [timeline, series],
+  );
   return (
     <div className="asset-table-scroll">
       <table className="asset-table asset-matrix">
@@ -544,69 +635,294 @@ function AssetMatrix({
           </tr>
         </thead>
         <tbody>
-          {series.map((s) => (
-            <tr key={s.key}>
-              <th scope="row">
-                <i
-                  className="asset-dot"
-                  style={{ background: assetColor(s.key) }}
-                />
-                {s.name}
-              </th>
-              {s.values.map((value, i) => {
-                const change = i === 0 ? null : value - s.values[i - 1];
-                return (
-                  <td key={timeline[i].period}>
-                    <button
-                      className="asset-cell"
-                      onClick={() => onCell(timeline[i].period, s.key)}
-                    >
-                      <b>{assetCompact(value)}</b>
-                      <span>
-                        {assetPct(totals[i] > 0 ? value / totals[i] : null)}
-                      </span>
-                      <em
-                        className={
-                          change === null || change === 0
-                            ? ""
-                            : change > 0
-                              ? "up"
-                              : "down"
-                        }
-                      >
-                        {change === null ? "—" : assetSignedMoney(change)}
-                      </em>
-                    </button>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-          <tr className="asset-total-row">
-            <th scope="row">합계</th>
-            {timeline.map((p, i) => {
-              const change = i === 0 ? null : p.total - totals[i - 1];
-              return (
-                <td key={p.period}>
-                  <b>{assetCompact(p.total)}</b>
-                  <span>100.0%</span>
-                  <em
-                    className={
-                      change === null || change === 0
-                        ? ""
-                        : change > 0
-                          ? "up"
-                          : "down"
-                    }
+          {rows.map((row) => {
+            const total = row.key === TOTAL_KEY;
+            return (
+              <tr key={row.key} className={total ? "asset-total-row" : ""}>
+                <th scope="row">
+                  <button
+                    className="asset-series-button"
+                    onClick={() => onSeries(row.key)}
+                    title={`${row.name} 추이 보기`}
                   >
-                    {change === null ? "—" : assetSignedMoney(change)}
-                  </em>
-                </td>
-              );
-            })}
-          </tr>
+                    <i
+                      className="asset-dot"
+                      style={{
+                        background: total ? "#3f4a3f" : assetColor(row.key),
+                      }}
+                    />
+                    <span>{row.name}</span>
+                    <LineChart size={13} aria-hidden />
+                  </button>
+                </th>
+                {row.values.map((value, i) => {
+                  const before = i === 0 ? null : row.values[i - 1];
+                  const change = before === null ? null : value - before;
+                  const rate =
+                    before === null ? null : assetChangeRate(value, before);
+                  const figures = (
+                    <>
+                      <b>{assetCompact(value)}</b>
+                      <em className={changeTone(change)}>
+                        {changeText(change, rate)}
+                      </em>
+                    </>
+                  );
+                  return (
+                    <td key={timeline[i].period}>
+                      {total ? (
+                        <span className="asset-cell">{figures}</span>
+                      ) : (
+                        <button
+                          className="asset-cell"
+                          onClick={() => onCell(timeline[i].period, row.key)}
+                        >
+                          {figures}
+                        </button>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
+  );
+}
+// 누적 막대에서는 작은 항목의 기울기가 큰 항목에 눌린다. 한 항목만 선으로 따로 본다.
+function AssetTrendDialog({
+  name,
+  color,
+  unit,
+  periods,
+  values,
+  onClose,
+}: {
+  name: string;
+  color: string;
+  unit: string;
+  periods: string[];
+  values: number[];
+  onClose: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (!dialog.current?.open) dialog.current?.showModal();
+  }, []);
+  // dialog의 기본 취소 동작에만 기대지 않는다. 상세 서랍(asset-detail)과 같은 방식으로 직접 듣는다.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  const last = values.at(-1) ?? 0;
+  const first = values.find((v) => v > 0) ?? 0;
+  const change = values.length > 1 ? last - values[0] : null;
+  return (
+    <dialog
+      ref={dialog}
+      className="record-dialog asset-trend-dialog"
+      onCancel={onClose}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      aria-label={`${name} 추이`}
+    >
+      <div className="asset-trend-body">
+        <header>
+          <div>
+            <span className="eyebrow">{unit} 추이</span>
+            <h2>
+              <i className="asset-dot" style={{ background: color }} />
+              {name}
+            </h2>
+            <p className="muted small">
+              최근 {assetMoney(last)}
+              {change !== null && (
+                <>
+                  {" · 기간 내 "}
+                  <em className={!change ? "" : change > 0 ? "up" : "down"}>
+                    {assetSignedMoney(change)} (
+                    {assetSignedPct(assetChangeRate(last, first))})
+                  </em>
+                </>
+              )}
+            </p>
+          </div>
+          <button className="icon-button" aria-label="닫기" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </header>
+        <AssetLine
+          periods={periods}
+          name={name}
+          color={color}
+          values={values}
+        />
+      </div>
+    </dialog>
+  );
+}
+// 위험·안전은 두 덩어리의 비율이 먼저고, 그 안의 세부 분류는 각 덩어리를 분모로 본다.
+// 전체 대비 비중으로 적으면 "안전 자산 안에서 예적금이 얼마인지"를 읽을 수 없다.
+const riskSides: { risk: AssetRisk | null; key: string; label: string }[] = [
+  { risk: "RISKY", key: "RISKY", label: "위험" },
+  { risk: "SAFE", key: "SAFE", label: "안전" },
+  { risk: null, key: "UNKNOWN", label: "미분류" },
+];
+function AssetRiskBoard({
+  summary,
+  onRow,
+}: {
+  summary: AssetSummary;
+  onRow: (key: string, label: string) => void;
+}) {
+  const sides = riskSides
+    .map((side) => {
+      const rows = summary.rows
+        .filter(
+          (r) =>
+            r.amount > 0 && (findAssetGroup(r.key)?.risk ?? null) === side.risk,
+        )
+        .sort((a, b) => b.amount - a.amount);
+      return {
+        ...side,
+        rows,
+        amount: rows.reduce((n, r) => n + r.amount, 0),
+        // 막대는 100%가 아니라 그 묶음의 최대 항목을 가득 찬 길이로 쓴다.
+        // 분류가 잘게 쪼개질수록 모든 막대가 짧아져서 서로 비교가 안 되기 때문이다.
+        max: rows[0]?.amount ?? 0,
+      };
+    })
+    .filter((side) => side.amount > 0);
+  const total = summary.total;
+  const share = (n: number) => (total > 0 ? n / total : null);
+  return (
+    <>
+      <div
+        className="asset-risk-track"
+        role="img"
+        aria-label={sides
+          .map((s) => `${s.label} ${assetPct(share(s.amount))}`)
+          .join(", ")}
+      >
+        {sides.map((side) => (
+          <span
+            key={side.key}
+            style={{
+              width: `${total > 0 ? (side.amount / total) * 100 : 0}%`,
+              background: assetColor(side.key),
+            }}
+          >
+            {side.label} {assetPct(share(side.amount))}
+          </span>
+        ))}
+      </div>
+      <div className="asset-risk-cols">
+        {sides.map((side) => (
+          <div className="asset-risk-col" key={side.key}>
+            <header>
+              <span
+                className="asset-risk-tag"
+                style={{ color: assetColor(side.key) }}
+              >
+                <i style={{ background: assetColor(side.key) }} />
+                {side.label}
+              </span>
+              <strong>{assetPct(share(side.amount))}</strong>
+              <small>
+                {assetCompact(side.amount)} · {side.rows.length}개 분류
+              </small>
+            </header>
+            <ul>
+              {side.rows.map((row) => (
+                <li key={row.key}>
+                  <button onClick={() => onRow(row.key, row.name)}>
+                    <span>{row.name}</span>
+                    <i className="asset-bar">
+                      <b
+                        style={{
+                          width: `${side.max > 0 ? (row.amount / side.max) * 100 : 0}%`,
+                          background: assetColor(row.key),
+                        }}
+                      />
+                    </i>
+                    <em>
+                      {assetPct(
+                        side.amount > 0 ? row.amount / side.amount : null,
+                      )}
+                    </em>
+                    <b>{assetCompact(row.amount)}</b>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+// 종목은 사람이 아니라 종목 단위로 본다. 같은 종목을 둘이 나눠 들고 있어도 규모는 하나다.
+const shares = (n: number | null) =>
+  n === null ? "" : `${Math.round(n).toLocaleString("ko-KR")}주`;
+function AssetStockCard({
+  board,
+  onOpen,
+}: {
+  board: AssetStockBoard;
+  onOpen: () => void;
+}) {
+  const max = board.top[0]?.amount ?? 0;
+  return (
+    <article className="asset-stock-card">
+      <header>
+        <button onClick={onOpen} title={`${board.name} 전체 종목 보기`}>
+          <i
+            className="asset-dot"
+            style={{ background: assetColor(board.key) }}
+          />
+          {board.name}
+        </button>
+        <strong>{assetCompact(board.total)}</strong>
+      </header>
+      <p className="asset-stock-meta">
+        {board.count}종목
+        {board.quantity !== null && ` · 보유 ${shares(board.quantity)}`}
+      </p>
+      {board.top.length ? (
+        <ol className="asset-stock-list">
+          {board.top.map((holding, i) => (
+            <li key={holding.name}>
+              <span className="asset-rank">{i + 1}</span>
+              <div className="asset-stock-name">
+                <strong>{holding.name}</strong>
+                {holding.detail && <small>{holding.detail}</small>}
+              </div>
+              <div className="asset-stock-figure">
+                <strong>{assetCompact(holding.amount)}</strong>
+                <small>
+                  {assetPct(
+                    board.total > 0 ? holding.amount / board.total : null,
+                  )}
+                  {holding.quantity !== null &&
+                    ` · ${shares(holding.quantity)}`}
+                </small>
+              </div>
+              <i className="asset-bar">
+                <b
+                  style={{
+                    width: `${max > 0 ? (holding.amount / max) * 100 : 0}%`,
+                    background: assetColor(board.key),
+                  }}
+                />
+              </i>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="muted small">기록된 종목이 없습니다.</p>
+      )}
+    </article>
   );
 }

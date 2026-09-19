@@ -5,12 +5,15 @@ import {
   assetGroupName,
   assetRulesVersion,
   assetCagr,
+  assetStockBoardGroups,
   axisBucketOf,
   buildAssetSummary,
+  buildAssetStockBoards,
   buildAssetTimeline,
   periodOf,
   sliceTimeline,
   type AssetAxis,
+  type AssetStockBoard,
   type AssetRange,
   type AssetPeriod,
   type AssetLinePoint,
@@ -328,6 +331,8 @@ export type AssetOverview = {
   summaries: Record<AssetAxis, AssetSummary | null>;
   cagr: number | null;
   currencyMix: { KRW: number; USD: number; NONE: number };
+  // 주식 요약 카드용. 최신 기간에 유효한 스냅샷의 원본 종목만 담는다.
+  stocks: AssetStockBoard[];
   ownerTotals: {
     owner_id: string;
     name: string;
@@ -362,6 +367,41 @@ async function readPoints(
     group_key: r.group_key as string,
     amount: r.amount as number,
   }));
+}
+// 주식 요약 카드는 최신 기간에 실제로 쓰인 스냅샷만 본다.
+// 시계열이 고른 (소유자, 기준일) 쌍을 그대로 받아 이월된 구성원도 같은 기준으로 집계한다.
+async function readStockBoards(
+  client: PoolClient,
+  actor: Actor,
+  effective: { owner_id: string; as_of: string }[],
+  names: Map<string, string>,
+): Promise<AssetStockBoard[]> {
+  if (!effective.length) return buildAssetStockBoards([]);
+  const rows = await query(
+    `SELECT s.owner_id::text AS owner_id, i.group_key, i.name, i.broker,
+            i.amount::float8 AS amount, i.quantity::float8 AS quantity
+     FROM asset_snapshots s
+     JOIN asset_snapshot_items i ON i.household_id=s.household_id AND i.snapshot_id=s.id
+     WHERE s.household_id=$1 AND i.group_key = ANY($2::text[])
+       AND (s.owner_id, s.as_of) IN (SELECT * FROM unnest($3::uuid[], $4::date[]))`,
+    [
+      actor.householdId,
+      [...assetStockBoardGroups],
+      effective.map((e) => e.owner_id),
+      effective.map((e) => e.as_of),
+    ],
+    client,
+  );
+  return buildAssetStockBoards(
+    rows.map((r) => ({
+      group_key: r.group_key as string,
+      name: r.name as string,
+      broker: r.broker as string,
+      owner_name: names.get(r.owner_id as string) ?? "",
+      amount: r.amount as number,
+      quantity: r.quantity as number | null,
+    })),
+  );
 }
 export async function readAssetOverview(
   actor: Actor,
@@ -418,6 +458,12 @@ export async function readAssetOverview(
     const latestCurrency = timelines.currency.filter((p) => p.total > 0).at(-1);
     const mix = (key: string) =>
       latestCurrency?.buckets.find((b) => b.key === key)?.amount ?? 0;
+    const stocks = await readStockBoards(
+      client,
+      actor,
+      latestGroup?.owners ?? [],
+      new Map(chosen.map((o) => [o.id, o.name])),
+    );
     return {
       owners,
       owner: params.owner && params.owner !== "all" ? params.owner : "all",
@@ -428,6 +474,7 @@ export async function readAssetOverview(
       summaries,
       cagr: assetCagr(timelines.group),
       currencyMix: { KRW: mix("KRW"), USD: mix("USD"), NONE: mix("NONE") },
+      stocks,
       ownerTotals: chosen.map((o) => {
         const withData = timelines.group.filter((p) => p.total > 0);
         const now = withData.at(-1)?.owners.find((x) => x.owner_id === o.id);

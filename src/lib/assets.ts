@@ -655,6 +655,83 @@ export function assetTimelineSeries(timeline: AssetTimelinePoint[]) {
     ),
   }));
 }
+// 주식 요약 카드가 쓰는 집계. 최신 기간에 유효한 스냅샷의 원본 항목만 받는다.
+// 같은 종목을 여러 구성원이 들고 있으면 한 줄로 합친다. TOP 5는 사람별이 아니라 종목별 규모를 본다.
+export const assetStockBoardGroups = ["kr_stock", "foreign_equity"] as const;
+export type AssetHoldingRow = {
+  group_key: string;
+  name: string;
+  broker: string;
+  owner_name: string;
+  amount: number;
+  quantity: number | null;
+};
+export type AssetHolding = {
+  name: string;
+  detail: string;
+  amount: number;
+  quantity: number | null;
+};
+export type AssetStockBoard = {
+  key: string;
+  name: string;
+  total: number;
+  count: number;
+  // 수량이 하나도 기록되지 않은 그룹은 0이 아니라 "모름"이므로 null로 둔다.
+  quantity: number | null;
+  top: AssetHolding[];
+};
+export function buildAssetStockBoards(
+  rows: AssetHoldingRow[],
+): AssetStockBoard[] {
+  return assetStockBoardGroups.map((key) => {
+    const merged = new Map<
+      string,
+      {
+        name: string;
+        brokers: Set<string>;
+        owners: Set<string>;
+        amount: number;
+        quantity: number | null;
+      }
+    >();
+    for (const row of rows) {
+      if (row.group_key !== key) continue;
+      const acc = merged.get(row.name) ?? {
+        name: row.name,
+        brokers: new Set<string>(),
+        owners: new Set<string>(),
+        amount: 0,
+        quantity: null,
+      };
+      acc.amount += row.amount;
+      if (row.quantity !== null)
+        acc.quantity = (acc.quantity ?? 0) + row.quantity;
+      if (row.broker) acc.brokers.add(row.broker);
+      if (row.owner_name) acc.owners.add(row.owner_name);
+      merged.set(row.name, acc);
+    }
+    const holdings = [...merged.values()].sort((a, b) => b.amount - a.amount);
+    const quantities = holdings
+      .map((h) => h.quantity)
+      .filter((q): q is number => q !== null);
+    return {
+      key,
+      name: assetGroupName(key),
+      total: holdings.reduce((n, h) => n + h.amount, 0),
+      count: holdings.length,
+      quantity: quantities.length
+        ? quantities.reduce((n, q) => n + q, 0)
+        : null,
+      top: holdings.slice(0, 5).map((h) => ({
+        name: h.name,
+        detail: [...h.brokers, ...h.owners].join(" · "),
+        amount: h.amount,
+        quantity: h.quantity,
+      })),
+    };
+  });
+}
 export const assetMoney = (n: number) =>
   new Intl.NumberFormat("ko-KR").format(Math.round(n)) + "원";
 export function assetCompact(n: number) {

@@ -69,10 +69,14 @@
 }
 .asset-filters {
   display: flex;
-  gap: 14px;
-  align-items: end;
+  gap: 14px 20px;
+  align-items: center;
   flex-wrap: wrap;
+  justify-content: space-between;
   margin: 22px 0 18px;
+}
+.asset-filter-range {
+  margin-left: auto;
 }
 .asset-chips {
   display: flex;
@@ -138,6 +142,51 @@
   font-size: 11px;
   color: var(--muted);
   overflow-wrap: anywhere;
+}
+/* 구성원별 내역은 총자산 카드 안에서 본다. 총액을 보는 자리와 누가 얼마인지 보는 자리를 나누지 않는다. */
+.asset-kpi-owners {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 6px;
+}
+.asset-kpi-owners li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 8px;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+.asset-kpi-owners span {
+  font-size: 12px;
+  color: var(--ink);
+  letter-spacing: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asset-kpi-owners b {
+  font-size: 13px;
+  text-align: right;
+}
+.asset-kpi-owners em {
+  font-style: normal;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+.asset-kpi-owners em.flat {
+  color: #9aa392;
+  font-weight: 400;
+}
+.asset-kpi-owners em.up {
+  color: #c4362f;
+}
+.asset-kpi-owners em.down {
+  color: #2f5fc4;
 }
 /* 국내 시세 표기 관행을 따른다. 증가는 빨강, 하락은 파랑이다. */
 .asset-page .up {
@@ -272,32 +321,6 @@
   display: flex;
   gap: 4px;
   justify-content: flex-end;
-}
-.asset-owner-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-  margin-top: 16px;
-}
-.asset-owner-cards > div {
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  min-width: 0;
-}
-.asset-owner-cards span {
-  font-size: 11px;
-  color: var(--muted);
-}
-.asset-owner-cards strong {
-  display: block;
-  margin: 5px 0 3px;
-  font-size: 17px;
-  overflow-wrap: anywhere;
-}
-.asset-owner-cards small {
-  font-size: 11px;
-  color: var(--muted);
 }
 @media (max-width: 900px) {
   .asset-chart-grid {
@@ -525,6 +548,21 @@
   .asset-record-list {
     max-height: none;
   }
+  .asset-filter-range {
+    margin-left: 0;
+  }
+  .asset-risk-track {
+    height: 26px;
+  }
+  .asset-risk-track span {
+    font-size: 11px;
+  }
+  .asset-trend-body {
+    padding: 16px;
+  }
+  .asset-line-canvas {
+    height: 240px;
+  }
 }
 .asset-plot-controls {
   display: flex;
@@ -548,46 +586,321 @@
   color: var(--green);
   font-weight: 600;
 }
+.asset-matrix {
+  font-variant-numeric: tabular-nums;
+}
 .asset-matrix td {
-  padding: 4px;
+  padding: 3px 4px;
+  border-bottom: 0;
+}
+.asset-matrix tbody tr {
+  border-bottom: 1px solid #f1f2ec;
+}
+.asset-matrix tbody tr:hover {
+  background: #fafbf6;
+}
+/* 기간이 많으면 가로로 스크롤한다. 이름 칸이 같이 밀려나가면 어느 줄을 보는지 잃는다. */
+.asset-matrix th[scope="row"] {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #fff;
+  padding: 3px 12px 3px 0;
+  box-shadow: 1px 0 0 var(--line);
+}
+.asset-matrix tbody tr:hover th[scope="row"] {
+  background: #fafbf6;
+}
+.asset-matrix thead th {
+  font-size: 11px;
+  padding-bottom: 7px;
+}
+.asset-series-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: none;
+  padding: 4px 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.asset-series-button svg {
+  color: #b6bdad;
+}
+.asset-series-button:hover {
+  color: var(--green);
+}
+.asset-series-button:hover svg {
+  color: var(--green);
 }
 .asset-matrix .asset-cell {
   display: grid;
-  gap: 1px;
-  padding: 6px 8px;
-  line-height: 1.25;
+  gap: 2px;
+  padding: 5px 8px;
+  line-height: 1.3;
 }
 .asset-matrix .asset-cell b {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
-.asset-matrix .asset-cell span {
-  font-size: 10px;
-  color: var(--muted);
-}
+/* .asset-page .up/.down보다 선택자가 강해 색이 덮이므로 여기서 다시 지정한다. */
 .asset-matrix .asset-cell em {
-  font-size: 10px;
+  font-size: 10.5px;
   font-style: normal;
+  font-weight: 600;
+  white-space: nowrap;
 }
-.asset-matrix .asset-total-row td {
-  display: table-cell;
-  text-align: right;
+.asset-matrix .asset-cell em.flat {
+  color: #9aa392;
+  font-weight: 400;
+}
+.asset-matrix .asset-cell em.up {
+  color: #c4362f;
+}
+.asset-matrix .asset-cell em.down {
+  color: #2f5fc4;
+}
+.asset-matrix .asset-total-row {
+  background: var(--green-pale);
+}
+.asset-matrix .asset-total-row:hover,
+.asset-matrix .asset-total-row:hover th[scope="row"],
+.asset-matrix .asset-total-row th[scope="row"] {
+  background: var(--green-pale);
+}
+.asset-matrix .asset-total-row .asset-cell b {
+  font-size: 13.5px;
   font-weight: 700;
 }
-.asset-matrix .asset-total-row b,
-.asset-matrix .asset-total-row span,
-.asset-matrix .asset-total-row em {
-  display: block;
-  font-style: normal;
+.asset-matrix .asset-total-row .asset-cell em {
+  font-size: 11px;
+  font-weight: 700;
 }
-.asset-matrix .asset-total-row span {
-  font-size: 10px;
-  font-weight: 400;
+.asset-matrix .asset-total-row th[scope="row"] {
+  box-shadow: 1px 0 0 #d8e0cd;
+}
+/* 항목 하나만 선으로 보는 팝업. */
+/* 모바일에서 .record-dialog는 바닥 시트로 바뀐다. 그 폭을 덮어쓰지 않도록 100%까지만 넓힌다. */
+.asset-trend-dialog {
+  width: min(720px, 100%);
+}
+.asset-trend-body {
+  padding: 22px 24px 24px;
+}
+.asset-trend-body header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.asset-trend-body h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 5px 0 4px;
+  font-size: 20px;
+}
+.asset-trend-body em {
+  font-style: normal;
+  font-weight: 600;
+}
+.asset-line-canvas {
+  position: relative;
+  width: 100%;
+  height: 300px;
+}
+/* 위험·안전: 한 줄 막대로 비율을 먼저 보이고, 그 아래에 세부 분류를 좁게 붙인다. */
+.asset-risk-track {
+  display: flex;
+  height: 30px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f2f4fa;
+}
+.asset-risk-track span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.asset-risk-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px 26px;
+  margin-top: 14px;
+}
+.asset-risk-col header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.asset-risk-tag {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.asset-risk-tag i {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+}
+.asset-risk-col header strong {
+  font-size: 15px;
+}
+.asset-risk-col header small {
+  margin-left: auto;
+  font-size: 11px;
   color: var(--muted);
 }
-.asset-matrix .asset-total-row em {
+.asset-risk-col ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.asset-risk-col li button {
+  display: grid;
+  grid-template-columns: minmax(64px, 96px) minmax(0, 1fr) 44px 60px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  background: none;
+  padding: 3px 4px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 11.5px;
+  color: inherit;
+  text-align: left;
+}
+.asset-risk-col li button:hover {
+  background: #eef1f8;
+}
+.asset-risk-col li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asset-risk-col li em,
+.asset-risk-col li > button > b {
+  font-style: normal;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.asset-risk-col li em {
+  color: var(--muted);
+}
+.asset-bar {
+  display: block;
+  height: 7px;
+  border-radius: 999px;
+  background: #f0f2ea;
+  overflow: hidden;
+}
+.asset-bar b {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+/* 주식 요약 카드. */
+.asset-stock-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+.asset-stock-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 16px;
+  min-width: 0;
+}
+.asset-stock-card header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.asset-stock-card header button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+}
+.asset-stock-card header button:hover {
+  color: var(--green);
+}
+.asset-stock-card header strong {
+  font-size: 16px;
+}
+.asset-stock-meta {
+  margin: 3px 0 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.asset-stock-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.asset-stock-list li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 8px;
+  padding: 5px 0;
+  border-top: 1px solid #f1f2ec;
+}
+.asset-rank {
   font-size: 10px;
+  font-weight: 700;
+  color: #aab29f;
+}
+.asset-stock-name {
+  min-width: 0;
+}
+.asset-stock-name strong {
+  display: block;
+  font-size: 12.5px;
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asset-stock-name small,
+.asset-stock-figure small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.asset-stock-figure {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.asset-stock-figure strong {
+  display: block;
+  font-size: 12.5px;
+}
+.asset-stock-list .asset-bar {
+  grid-column: 2 / -1;
+  height: 4px;
 }
 .asset-export {
   margin-left: auto;

@@ -73,6 +73,3 @@
 
 금
  - 금 * (한국투자증권)
-
-### 샘플 raw 데이터
- - sample_raw_data.csv

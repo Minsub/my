@@ -1,7 +1,14 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { Chart } from "chart.js/auto";
-import { assetCompact, assetMoney, assetPct, periodLabel } from "@/lib/assets";
+import {
+  assetCompact,
+  assetMoney,
+  assetPct,
+  assetSignedMoney,
+  assetSignedPct,
+  periodLabel,
+} from "@/lib/assets";
 // 그룹마다 색을 고정한다. 조회할 때마다 색이 바뀌면 시계열을 눈으로 따라갈 수 없다.
 const fixed: Record<string, string> = {
   kr_stock: "#6366f1",
@@ -57,6 +64,34 @@ export function AssetTrend({
     if (!ref.current) return;
     const visible = series.filter((s) => !hidden.includes(s.key));
     const symlog = (v: number) => Math.sign(v) * Math.log10(1 + Math.abs(v));
+    // 누적 막대 맨 위에 그 기간의 합산 금액을 적는다. 막대 높이만으로는 총자산이 얼마인지 못 읽는다.
+    // 펼침 모드는 누적이 아니라 대칭 로그 축이라 합계를 그릴 자리가 없으므로 건너뛴다.
+    const stackTotals = {
+      id: "assetStackTotals",
+      afterDatasetsDraw(chart: Chart) {
+        if (expand || !visible.length) return;
+        const { ctx } = chart;
+        const meta = chart.getDatasetMeta(0);
+        ctx.save();
+        ctx.font = "700 10px system-ui";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.fillStyle = "#3f4a3f";
+        // 라벨이 겹치면 못 읽는다. 최신 기간부터 자리를 잡고 겹치는 것만 버린다.
+        let leftmost = Infinity;
+        for (let i = periods.length - 1; i >= 0; i--) {
+          const total = visible.reduce((n, s) => n + (s.values[i] ?? 0), 0);
+          const bar = meta.data[i];
+          if (!total || !bar) continue;
+          const text = assetCompact(total);
+          const half = ctx.measureText(text).width / 2 + 4;
+          if (bar.x + half > leftmost) continue;
+          ctx.fillText(text, bar.x, chart.scales.y.getPixelForValue(total) - 3);
+          leftmost = bar.x - half;
+        }
+        ctx.restore();
+      },
+    };
     const chart = new Chart(ref.current, {
       type: "bar",
       data: {
@@ -76,6 +111,8 @@ export function AssetTrend({
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
+        // 합계 라벨이 잘리지 않도록 위쪽을 비워둔다.
+        layout: { padding: { top: expand ? 0 : 16 } },
         interaction: { mode: "index", intersect: false },
         onClick: (_, points) => {
           const hit = points[0];
@@ -122,6 +159,7 @@ export function AssetTrend({
           },
         },
       },
+      plugins: [stackTotals],
     });
     return () => chart.destroy();
   }, [periods, series, hidden, expand, onPoint]);
@@ -268,5 +306,93 @@ export function AssetPie({
         ))}
       </div>
     </div>
+  );
+}
+// 표에서 한 항목을 눌렀을 때 그 항목만 선으로 본다. 누적 막대에서는 작은 항목의 기울기가 보이지 않는다.
+export function AssetLine({
+  periods,
+  name,
+  color,
+  values,
+}: {
+  periods: string[];
+  name: string;
+  color: string;
+  values: number[];
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    if (!ref.current) return;
+    const chart = new Chart(ref.current, {
+      type: "line",
+      data: {
+        labels: periods.map(periodLabel),
+        datasets: [
+          {
+            label: name,
+            data: values,
+            borderColor: color,
+            backgroundColor: color + "22",
+            borderWidth: 2,
+            pointRadius: periods.length > 24 ? 0 : 3,
+            pointBackgroundColor: color,
+            fill: true,
+            tension: 0.25,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => assetMoney(Number(ctx.parsed.y)),
+              // 기간이 많으면 눈으로 직전 값을 못 찾는다. 툴팁에 증감을 같이 적는다.
+              afterLabel: (ctx) => {
+                const before = values[ctx.dataIndex - 1];
+                if (before === undefined) return "";
+                const change = Number(ctx.parsed.y) - before;
+                return `직전 대비 ${assetSignedMoney(change)} (${assetSignedPct(
+                  before > 0 ? change / before : null,
+                )})`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { maxRotation: 0, maxTicksLimit: 8, font: { size: 11 } },
+          },
+          // 한 항목만 보는 화면이라 0부터 그리면 대부분 평평한 선이 된다.
+          // 여기서는 모양을 읽는 것이 목적이므로 값 범위에 맞추고, 축이 0이 아님을 아래에 적는다.
+          y: {
+            grace: "8%",
+            grid: { color: "#e9edf5" },
+            ticks: {
+              maxTicksLimit: 5,
+              font: { size: 11 },
+              callback: (v) => assetCompact(Number(v)),
+            },
+          },
+        },
+      },
+    });
+    return () => chart.destroy();
+  }, [periods, name, color, values]);
+  return (
+    <>
+      <div className="asset-line-canvas">
+        <canvas ref={ref} role="img" aria-label={`${name} 금액 추이`} />
+      </div>
+      <p className="asset-note">
+        세로축은 0이 아니라 이 항목의 값 범위에 맞췄습니다. 변화의 모양을 보기
+        위한 표시이며 정확한 금액은 점 위에 올려 확인하세요.
+      </p>
+    </>
   );
 }

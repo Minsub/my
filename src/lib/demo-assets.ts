@@ -5,6 +5,7 @@ import {
   assetGroupName,
   axisBucketOf,
   buildAssetSummary,
+  buildAssetStockBoards,
   buildAssetTimeline,
   periodOf,
   sliceTimeline,
@@ -314,6 +315,23 @@ export function demoAssetOverview(params: URLSearchParams) {
   const mix = (key: string) =>
     currency?.buckets.find((b) => b.key === key)?.amount ?? 0;
   const withData = timelines.group.filter((p) => p.total > 0);
+  // 화면과 같은 기준을 쓰려고 최신 기간에 유효한 (소유자, 기준일) 쌍으로 원본 항목을 모은다.
+  const effective = withData.at(-1)?.owners ?? [];
+  const stocks = buildAssetStockBoards(
+    effective.flatMap((e) => {
+      const snapshot = plan.find(
+        (s) => ownerId(s.owner) === e.owner_id && s.as_of === e.as_of,
+      );
+      return (snapshot?.items ?? []).map((i) => ({
+        group_key: i.group_key,
+        name: i.name,
+        broker: i.broker,
+        owner_name: snapshot!.owner,
+        amount: i.amount,
+        quantity: i.quantity,
+      }));
+    }),
+  );
   return {
     owners: list,
     owner,
@@ -324,6 +342,7 @@ export function demoAssetOverview(params: URLSearchParams) {
     summaries,
     cagr: assetCagr(timelines.group),
     currencyMix: { KRW: mix("KRW"), USD: mix("USD"), NONE: mix("NONE") },
+    stocks,
     ownerTotals: ids.map((id) => {
       const now = withData.at(-1)?.owners.find((x) => x.owner_id === id);
       const then = withData.at(-2)?.owners.find((x) => x.owner_id === id);
