@@ -39,7 +39,7 @@ const descriptions: Partial<Record<Operation, string>> = {
   asset_save_owner:
     "자산 소유자를 등록하거나 수정합니다. 스냅샷을 기록하기 전에 소유자가 있어야 합니다.",
   asset_record_snapshot:
-    "한 사람의 그 날짜 자산 현황 전체를 저장합니다. 같은 사람·같은 날짜로 저장하면 기존 값을 통째로 교체하므로 항상 전체 포트폴리오를 한 번에 보냅니다. 금액은 원화 환산 정수이며 asset_get_classification_rules의 group_key를 사용합니다.",
+    "한 사람의 그 날짜 자산 현황 전체를 저장합니다. 원본 자산 목록의 한 줄이 items 한 개입니다. 그룹별로 합산하지 말고 종목명을 그대로 name에 넣으세요. 같은 사람·같은 날짜로 저장하면 기존 값을 통째로 교체하므로 항상 전체 포트폴리오를 한 번에 보냅니다. 금액은 원화 환산 정수이며 group_key는 asset_get_classification_rules의 값을 사용합니다.",
   asset_delete_snapshot: "잘못 등록한 날짜의 자산 기록을 삭제합니다.",
 };
 export function mcpHandler(actor: Actor) {
@@ -352,7 +352,7 @@ export function mcpHandler(actor: Actor) {
           "asset_classify_rows",
           {
             description:
-              "원본 자산 행을 규칙으로만 분류해 돌려줍니다. 규칙은 금융상품과 국내 ETF만 확정합니다. needs_review가 true인 개별 종목은 상장 거래소를 기준으로 직접 판단하세요.",
+              "원본 자산 행을 규칙으로만 분류해 돌려줍니다. 규칙은 금융상품과 국내 ETF만 확정합니다. needs_review가 true인 개별 종목은 상장 거래소를 기준으로 직접 판단하세요. 저장은 이 응답이 아니라 원본 행에 group_key를 합쳐 만든 items로 합니다.",
             inputSchema: z.object({
               rows: z
                 .array(
@@ -396,7 +396,8 @@ export function mcpHandler(actor: Actor) {
               rules_version: assetRulesVersion,
               items,
               needs_review: items.filter((i) => i.needs_review).length,
-              lines: [...totals]
+              // 합계 대조용이다. 저장 단위가 아니므로 lines라는 옛 이름을 쓰지 않는다.
+              group_totals_for_check: [...totals]
                 .filter(([, amount]) => amount > 0)
                 .map(([group_key, amount]) => ({ group_key, amount })),
             });

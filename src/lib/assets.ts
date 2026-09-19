@@ -13,7 +13,7 @@ export type AssetGroup = {
   not?: string[];
 };
 // 룰을 고치면 이 값을 올린다. 스냅샷에 함께 저장해 "어떤 기준으로 만든 숫자인가"를 추적한다.
-export const assetRulesVersion = "2026-09-18";
+export const assetRulesVersion = "2026-09-19";
 export const assetGroups: readonly AssetGroup[] = [
   {
     key: "kr_stock",
@@ -185,14 +185,30 @@ export const assetRules: readonly AssetRule[] = [
   {
     priority: 20,
     group: "cash",
-    any_of: ["\\bCMA\\b", "^예수금", "예수금$"],
-    why: "CMA RP는 RP를 포함하지만 현금성이므로 발행어음/RP보다 먼저 판정한다.",
+    any_of: [
+      "\\bCMA\\b",
+      "^예수금",
+      "예수금$",
+      "^현금$",
+      "현금성\\s*자산",
+      "\\bMMF\\b",
+      "신종\\s*종류형",
+    ],
+    why: "CMA RP는 RP를 포함하지만 현금성이므로 발행어음/RP보다 먼저 판정한다. MMF·현금성자산도 같은 이유로 여기서 먼저 걷어낸다. 증권사가 회차를 붙인 MMF(삼성신종종류형MMF제4호-CP)가 개별 채권 패턴에 걸리면 안전자산 구성이 뒤집힌다.",
   },
   {
     priority: 30,
     group: "deposit",
-    any_of: ["\\bIMA\\b", "발행어음\\s*적립", "적금", "정기예금", "파킹"],
-    why: "적립식 발행어음은 발행어음/RP가 아니라 적립성 상품이므로 먼저 판정한다.",
+    any_of: [
+      "\\bIMA\\b",
+      "발행어음\\s*적립",
+      "적금",
+      "정기예금",
+      "파킹",
+      "^예금$",
+      "예적금",
+    ],
+    why: "적립식 발행어음은 발행어음/RP가 아니라 적립성 상품이므로 먼저 판정한다. 계좌 밖 자산은 이름이 `예금` 한 단어로 들어오므로 앵커를 걸어 `정기예금`과 따로 받는다.",
   },
   {
     priority: 40,
@@ -304,12 +320,16 @@ export function assetClassificationRules() {
       "rules는 금융상품(발행어음·RP·채권·예적금·금·현금·국내 ETF)만 확정한다. 개별 종목명은 규칙으로 판별되지 않는다.",
       "개별 종목은 상장 거래소를 기준으로 직접 판단한다. 국내 거래소면 kr_stock, 해외 거래소 직접보유면 foreign_equity다. 한글 음차 표기(코카콜라, 월트 디즈니)도 해외 거래소 종목이면 foreign_equity다.",
       "확실하지 않으면 unclassified에 담고 사용자에게 확인을 요청한다. 추측으로 다른 그룹에 넣지 않는다.",
-      "같은 group_key끼리 금액을 합산해 그룹당 한 줄로 만든 뒤 asset_record_snapshot의 lines로 보낸다.",
+      "분류가 끝나면 그 결과를 원본 행과 다시 합친다. 원본 한 행이 items 한 개다. 같은 group_key끼리 금액을 합산하지 않는다.",
+      "items의 name은 원본에 적힌 종목명을 그대로 쓴다(삼성전자). 그룹 이름(주식)을 name에 넣으면 그룹을 눌러도 무엇이 들어 있는지 볼 수 없다.",
+      "원본에 있는 증권사·수량·수익금·수익률은 broker·quantity·profit·profit_rate로 함께 보내고, 없는 값은 null로 둔다. 수익률은 비율이다. 1.94%는 0.0194다.",
       "rules_version을 그대로 함께 보낸다.",
     ],
     write_contract: {
       tool: "asset_record_snapshot",
-      note: "같은 owner_id와 as_of로 저장하면 그 날짜의 기존 값을 전부 교체한다. 일부 그룹만 보내면 나머지는 사라진다. 항상 그 사람의 자산 전체를 한 번에 보낸다.",
+      unit: "원본 종목 한 줄 = items 한 개",
+      items: "{group_key, name, broker, amount, quantity, profit, profit_rate}",
+      note: "그룹 합계는 서버가 items에서 계산하므로 보내지 않는다. 같은 owner_id와 as_of로 저장하면 그 날짜의 기존 값을 전부 교체한다. 일부만 보내면 나머지는 사라지므로 항상 그 사람의 자산 전체를 한 번에 보낸다.",
     },
   };
 }

@@ -1,4 +1,4 @@
-// docs/assert-management/sample_raw_data.csv를 자산 그룹으로 묶어 스냅샷 1건으로 저장한다.
+// docs/assert-management/sample_raw_data2.csv를 자산 그룹으로 묶어 스냅샷 1건으로 저장한다.
 // 일회성 초기 적재용이며 MCP를 거치지 않고 앱의 execute()를 그대로 쓴다.
 // 사용: tsx scripts/seed-assets.ts --owner <이름> --as-of YYYY-MM-DD [--apply]
 import { config } from "dotenv";

@@ -1,6 +1,6 @@
 # 자산관리
 
-`/assets` 아래의 화면과 자산 스냅샷 데이터의 의미를 설명한다. 원본 요구사항은 [DESIGN.md](DESIGN.md)이고, 분류 검증에 쓰는 샘플은 `sample_raw_data.csv`다.
+`/assets` 아래의 화면과 자산 스냅샷 데이터의 의미를 설명한다. 원본 요구사항은 [DESIGN.md](DESIGN.md)이고, 분류 검증에 쓰는 샘플은 `sample_raw_data2.csv`다.
 
 ## 화면
 
@@ -80,7 +80,18 @@
 - `*미국* 패턴의 ETF`는 이름에 `ETF` 글자가 없어 판별되지 않는다. 국내 운용사 브랜드 접두사로 ETF를 가린다.
 - `금 *`를 `금*`로 구현하면 `SOL 금융지주플러스고배당`이 금이 된다. 뒤에 공백이나 숫자를 요구한다.
 
+계좌 밖 자산과 현금성 자산은 이름이 한 단어로 들어온다. `예금`·`현금`은 `정기예금`·`CMA`를 보는 기존 패턴에 걸리지 않아 매번 AI 판단으로 넘어갔다(민섭 기준 총자산의 11.7%). `^예금$`·`^현금$`을 앵커로 받고, MMF와 현금성자산도 현금으로 확정한다. 증권사가 회차를 붙인 `삼성신종종류형MMF제4호-CP`는 p20에서 걷어내지 않으면 p80 개별 채권 패턴에 걸린다.
+
 **규칙이 답하지 않는 영역이 있다.** 개별 종목은 상장 거래소를 알아야 판별된다. `삼성전자`와 `코카콜라`는 둘 다 정규식으로는 구분되지 않으므로 규칙은 `unclassified`를 돌려주고, 룰 응답의 `instructions`가 AI에게 "상장 거래소를 기준으로 직접 판단하고 모르면 사용자에게 물어라"라고 지시한다. 샘플 52행 기준 규칙이 확정하는 것은 38행이고 14행(개별 종목)은 AI가 판단한다. 이 경계는 `tests/assets.test.ts`가 고정한다.
+
+실제 자산목록 분류 결과(`rules_version` 2026-09-19)
+
+| 파일 | 행 | 규칙 확정 | AI 판단 | 미분류 | 총액 |
+|---|---:|---:|---:|---:|---:|
+| `민섭_자산목록.csv` | 54 | 40 | 14 | 0 | 533,614,060 |
+| `장미_자산목록.csv` | 35 | 22 | 13 | 0 | 207,399,970 |
+
+`*_classified.csv`는 같은 폴더에 있고 `rule_group_key`(규칙 결과)와 `final_group_key`(AI 판단까지 반영)를 나눠 담아 사람이 검토할 수 있게 한다.
 
 룰을 고치면 `assetRulesVersion`을 올린다. 스냅샷에 `rules_version`으로 저장되어 어떤 기준으로 만든 숫자인지 추적할 수 있다.
 
@@ -105,6 +116,8 @@
 
 권장 순서: `asset_get_classification_rules` → (필요하면 `asset_classify_rows`) → `asset_list_owners` → `asset_record_snapshot`.
 
+**저장 단위는 원본 종목 한 줄이다.** 007이 그룹 합계 테이블을 항목 테이블로 바꿨으므로 룰 응답의 `instructions`와 `write_contract`가 "원본 한 행이 `items` 한 개"라고 지시하고, 그룹 합계는 서버가 항목에서 계산한다. 합산하라는 옛 안내가 남아 있으면 AI가 `items`의 `name`에 종목명 대신 그룹명을 넣어 저장하고, 그룹을 눌러도 무엇이 들어 있는지 볼 수 없게 된다. `asset_classify_rows`가 돌려주는 그룹별 합계는 저장용이 아니라 합계 대조용이라 `group_totals_for_check`라는 이름을 쓴다.
+
 명령별 scope는 `src/lib/contracts.ts`의 `commandScopes`가 단일 기준이다. `Record<Operation, Scope | null>`이므로 명령을 추가하고 맵에 넣지 않으면 타입 검사가 실패한다. 접두사 추론을 쓰던 예전 방식은 새 도메인을 `wine:write`로 흘려보냈다.
 
 ## 저장과 조회
@@ -116,7 +129,7 @@
 
 ## 초기 적재
 
-`scripts/seed-assets.ts`는 `sample_raw_data.csv`를 그룹으로 묶어 스냅샷 1건으로 저장하고, 그룹화 결과를 같은 폴더에 CSV로 남긴다. MCP를 거치지 않고 앱의 `execute()`를 그대로 쓰므로 검증·멱등성·activity_log가 동일하게 적용된다.
+`scripts/seed-assets.ts`는 `sample_raw_data2.csv`를 그룹으로 묶어 스냅샷 1건으로 저장하고, 그룹화 결과를 같은 폴더에 CSV로 남긴다. MCP를 거치지 않고 앱의 `execute()`를 그대로 쓰므로 검증·멱등성·activity_log가 동일하게 적용된다.
 
 ```sh
 tsx scripts/seed-assets.ts --owner 민섭 --as-of 2026-09-18          # 미리보기 + CSV 생성
@@ -150,4 +163,4 @@ npm test                 # tests/assets.test.ts 포함
 npx playwright test --grep "records an asset snapshot"
 ```
 
-`tests/assets.test.ts`는 `sample_raw_data.csv` 52행의 분류 결과와 우선순위 충돌 5건, 집계·이어쓰기·증감 계산을 고정한다. `tests/integration/domain.test.ts`의 `asset snapshots`는 scope 격리, 같은 날 교체, 다른 공간 격리, 32비트를 넘는 금액, 권한 규칙을 확인한다.
+`tests/assets.test.ts`는 `sample_raw_data2.csv` 52행의 분류 결과와 우선순위 충돌 5건, 집계·이어쓰기·증감 계산을 고정한다. `tests/integration/domain.test.ts`의 `asset snapshots`는 scope 격리, 같은 날 교체, 다른 공간 격리, 32비트를 넘는 금액, 권한 규칙을 확인한다.

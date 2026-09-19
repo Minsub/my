@@ -20,7 +20,7 @@ import { demoAssetPlan } from "../src/lib/demo-assets";
 
 // 실제 증권사 화면에서 뽑은 샘플이다. 룰을 고치면 이 표가 먼저 깨져야 한다.
 const sample = readFileSync(
-  "docs/assert-management/sample_raw_data.csv",
+  "docs/assert-management/sample_raw_data2.csv",
   "utf8",
 )
   .replace(/^﻿/, "")
@@ -156,6 +156,28 @@ describe("자산 그룹 카탈로그와 룰", () => {
     // 한 단어짜리 영문 국내 종목을 해외주식으로 넘기지 않는다.
     expect(classifyAsset("NAVER").group_key).toBe("unclassified");
     expect(classifyAsset("KODEX 200").group_key).toBe("kr_stock");
+  });
+  it("계좌 밖 자산과 현금성 자산을 규칙으로 확정한다", () => {
+    // 계좌 밖 자산은 이름이 한 단어로 들어온다. 규칙이 답하지 않으면 매번 AI 판단에 맡겨진다.
+    expect(classifyAsset("예금").group_key).toBe("deposit");
+    expect(classifyAsset("현금").group_key).toBe("cash");
+    expect(classifyAsset("예적금").group_key).toBe("deposit");
+    // MMF·현금성자산은 현금성으로 본다.
+    expect(classifyAsset("한국투자증권 현금성자산").group_key).toBe("cash");
+    expect(classifyAsset("삼성신종종류형MMF제4호-CP").group_key).toBe("cash");
+    // 앵커를 걸었으므로 기존 예금 계열을 흔들지 않는다.
+    expect(classifyAsset("정기예금 12개월").group_key).toBe("deposit");
+    expect(classifyAsset("예수금").group_key).toBe("cash");
+    // 이름에 현금이 들어가도 현금성이 아니면 가져가지 않는다.
+    expect(classifyAsset("현금흐름개선 2호").group_key).not.toBe("cash");
+  });
+  it("룰 응답이 종목 단위 저장을 지시한다", () => {
+    const text = assetClassificationRules().instructions.join(" ");
+    // 007에서 그룹 합계 테이블을 버렸다. 합산하라는 안내가 남으면 그룹명이 종목명 자리에 들어간다.
+    expect(text).not.toContain("lines");
+    expect(text).toContain("원본 한 행이 items 한 개다");
+    expect(text).toContain("합산하지 않는다");
+    expect(assetClassificationRules().write_contract.items).toContain("name");
   });
   it("룰 응답이 AI가 쓰는 항목을 모두 담는다", () => {
     const payload = assetClassificationRules();

@@ -142,7 +142,7 @@ export const commandGuide = {
     result:
       "스냅샷 ID·버전·총액·항목 수와 그룹별 교체 전후 값(changes). replaced가 true면 기존 기록을 덮어쓴 것입니다.",
     example:
-      "증권사 화면의 자산 목록을 그룹으로 나눠서 오늘 날짜로 내 자산현황을 기록해줘.",
+      "증권사 화면의 자산 목록을 종목 그대로 오늘 날짜로 내 자산현황에 기록해줘.",
   },
   asset_delete_snapshot: {
     title: "자산 기록 삭제",
@@ -235,7 +235,7 @@ export const readGuide: Record<string, Entry> = {
       "원본 자산 행을 규칙으로만 분류합니다. 규칙은 발행어음·RP·채권·예적금·금·현금과 국내 ETF를 확정하고, 개별 종목은 판단하지 않습니다.",
     input: "rows[{name, broker, amount}] (최대 300행).",
     result:
-      "items(행별 group_key와 needs_review), needs_review 건수, lines(그룹별 합계). needs_review 행은 상장 거래소를 기준으로 직접 판단합니다.",
+      "items(행별 group_key와 needs_review), needs_review 건수, group_totals_for_check(합계 대조용 그룹별 합계). needs_review 행은 상장 거래소를 기준으로 직접 판단합니다. 저장은 원본 행에 group_key를 합쳐 만든 items로 합니다.",
     example: "이 자산 목록을 그룹별로 나눠줘.",
   },
   asset_list_owners: {
