@@ -1,15 +1,11 @@
 import { appUrl } from "@/server/auth";
+import { allScopes } from "@/lib/types";
 export async function GET() {
   return Response.json(
     {
       resource: `${appUrl()}/api/mcp`,
       authorization_servers: [`${appUrl()}/api/auth`],
-      scopes_supported: [
-        "coffee:read",
-        "coffee:write",
-        "wine:read",
-        "wine:write",
-      ],
+      scopes_supported: allScopes,
       bearer_methods_supported: ["header"],
     },
     { headers: { "Access-Control-Allow-Origin": "*" } },

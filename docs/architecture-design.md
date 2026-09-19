@@ -1,6 +1,6 @@
 # MONO — 현재 아키텍처
 
-2026-09-08 구현 기준. 이전 Drizzle·도메인별 폴더 제안은 현재 구조가 아니다. 페이지 확장은 [개발 가이드](development.md)를 따른다.
+2026-09-18 구현 기준. 이전 Drizzle·도메인별 폴더 제안은 현재 구조가 아니다. 페이지 확장은 [개발 가이드](development.md)를 따른다.
 
 ## 실행 구조
 
@@ -13,6 +13,9 @@ flowchart LR
   Commands --> Execute[execute · 변경 서비스]
   MCP --> Snapshot
   MCP --> Execute
+  Browser --> Assets[/api/assets · 자산 조회]
+  MCP --> Assets
+  Assets --> DB[(Neon PostgreSQL)]
   Browser --> Photos[/api/wine/id/photo]
   MCP --> Upload[uploadWinePhoto]
   Photos --> Upload
@@ -42,11 +45,13 @@ flowchart LR
 | `src/server/db.ts` | pg Pool(max 5), 파라미터 쿼리, transaction, DATE 문자열 파서 |
 | `src/server/security.ts` | webActor/mcpActor, 활성 멤버십·scope, Origin, DB 기반 rateLimit, 오류 응답 |
 | `src/server/auth.ts` | Google 로그인, OWNER_EMAIL 최초 소유자, 초대 검증, OAuth/JWT 발급·폐기 |
-| `src/server/mcp.ts` | 25개 도구 등록, scope별 노출, 서비스 호출, 결과·오류 변환 |
+| `src/server/mcp.ts` | 35개 도구 등록, scope별 노출, 서비스 호출, 결과·오류 변환 |
 | `src/lib/mcp-guide.ts`, `src/components/mcp-guide.tsx` | 설정에서 보여주는 도구 목록과 사용 안내 |
 | `src/server/wine-photos.ts` | 사진 검증·압축·권한·버전·중복 방지·저장 |
 | `src/lib/wine-cellar.ts` | 웹·MCP가 공유하는 최근 구입가/평점 계산, 필터·정렬 |
 | `src/server/cash.ts`, `cash-parser.ts`, `src/lib/cash.ts` | 웹 전용 XLSX 원본 저장·검증·집계. 공통 snapshot과 분리 |
+| `src/lib/assets.ts` | 자산 그룹 카탈로그·분류 룰·집계 순수 함수. 웹·서버·MCP가 공유하는 단일 기준 |
+| `src/server/assets.ts`, `/api/assets` | 자산 스냅샷 저장·조회. 공통 snapshot과 분리하고 쓰기는 execute 경유 |
 | `db/migrations/*.sql` | 적용 순서가 있는 실제 도메인 스키마 |
 
 `(family)`는 URL에 포함되지 않는다. 별도 `(family)/layout.tsx`나 `modules/*/repository.ts`, `/api/coffee/*`는 현재 없다. 새 페이지 파일 하나를 추가하는 것만으로 기존 공통 메뉴가 자동 연결되지는 않는다.
@@ -57,7 +62,7 @@ Actor는 `{userId, householdId, role, scopes, channel, clientId?}`다. 입력에
 
 웹은 Better Auth 세션, MCP는 OAuth Bearer token을 사용한다. Google access token을 MCP에 재사용하지 않는다. MCP는 DCR, Authorization Code+PKCE(S256), discovery, resource 검증, refresh를 지원한다. CIMD 전용 연결은 구현하지 않았다. access token 15분, refresh token 30일 설정이다.
 
-scope는 `coffee:read/write`, `wine:read/write`. scope만으로 소유권을 대체하지 않는다. 관리자는 공용 항목을 수정할 수 있고 구성원은 본인이 만든 항목을 수정한다. 평가·세팅은 본인 기록이다. 본인 AI 연결을 해제하면 저장된 동의와 토큰 및 JWT 발급시각 차단으로 기존 토큰이 무효화된다. 매 요청 활성 멤버십을 확인한다.
+scope는 `coffee:read/write`, `wine:read/write`, `asset:read/write`. 명령별 scope는 `src/lib/contracts.ts`의 `commandScopes`가 단일 기준이며 `Record<Operation, Scope | null>`이라 새 명령을 넣지 않으면 타입 검사가 실패한다. 접두사 추론을 쓰면 새 도메인이 `wine:write`로 공개된다. discovery와 401 challenge는 `allScopes`에서 파생한다. scope만으로 소유권을 대체하지 않는다. 관리자는 공용 항목을 수정할 수 있고 구성원은 본인이 만든 항목을 수정한다. 평가·세팅은 본인 기록이다. 본인 AI 연결을 해제하면 저장된 동의와 토큰 및 JWT 발급시각 차단으로 기존 토큰이 무효화된다. 매 요청 활성 멤버십을 확인한다.
 
 UI 숨김은 보안 검사가 아니다. 쿠키 기반 변경은 sameOrigin, 모든 서버 입구는 인증과 권한 검사를 유지한다. RLS를 쓰고 있다고 가정하지 않는다. 현재는 애플리케이션에서 공간 조건과 관계 검사를 적용하며 일부 관계는 복합 FK가 보강한다. 운영 DB 역할은 현재 owner 역할이므로 최소권한 전용 역할은 후속 운영 개선이다.
 
@@ -78,6 +83,10 @@ UI 숨김은 보안 검사가 아니다. 쿠키 기반 변경은 sameOrigin, 모
 ## 환경과 변경 정책
 
 로컬 `.env.local`은 개발 DB, `.env.vercel.local`은 명시 실행용 운영 값이다. 자동화 테스트는 로컬 `_test` DB를 초기화한다. 운영/개발/테스트를 섞지 않는다. 적용한 SQL은 수정하지 않고 새 migration을 추가한다. 빌드는 DB를 변경하지 않는다. 코드 롤백과 DB 복구는 별개다. 자세한 절차는 [운영 문서](deployment.md)에 있다.
+
+## 자산 스냅샷
+
+`/assets/status`는 전용 `/api/assets`로 조회하고 쓰기는 공통 `POST /api/commands`를 쓴다. 자산 시계열을 공통 `snapshot`에 넣지 않은 이유는 `snapshot`이 도메인 전체를 매번 읽고 모든 MCP 조회 도구가 그것을 호출하기 때문이다. `asset_snapshots`는 `(household_id, owner_id, as_of)`가 유일하며 같은 날 재등록은 `asset_snapshot_items` 전체 교체다. 그룹 합계는 항목에서 유도하고 별도 합계 테이블을 두지 않는다. 금액은 `bigint`이고 `pg`가 int8을 문자열로 반환하므로 조회에서 `::float8`로 캐스팅한다. 자산 그룹은 코드 상수이며 `group_key`에 SQL CHECK를 걸지 않는다. 자세한 규칙은 [자산관리 문서](assert-management/README.md)에 있다.
 
 ## 가계부 원본 파일
 

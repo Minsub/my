@@ -6,6 +6,7 @@ import {
   errorResponse,
 } from "@/server/security";
 import { appUrl, configured } from "@/server/auth";
+import { allScopes } from "@/lib/types";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 async function handler(request: Request) {
@@ -51,7 +52,7 @@ async function handler(request: Request) {
         {
           status: 401,
           headers: {
-            "WWW-Authenticate": `Bearer resource_metadata="${appUrl()}/.well-known/oauth-protected-resource", scope="coffee:read coffee:write wine:read wine:write"`,
+            "WWW-Authenticate": `Bearer resource_metadata="${appUrl()}/.well-known/oauth-protected-resource", scope="${allScopes.join(" ")}"`,
           },
         },
       );

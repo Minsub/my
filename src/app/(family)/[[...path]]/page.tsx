@@ -17,8 +17,7 @@ export default async function Page({
   const { path: parts = [] } = await params;
   const path = "/" + parts.join("/");
   const isRegisteredHtml =
-    /^\/etc\/html\/[^/]+$/.test(path) &&
-    Boolean(findHtmlPage(parts[2] ?? ""));
+    /^\/etc\/html\/[^/]+$/.test(path) && Boolean(findHtmlPage(parts[2] ?? ""));
   if (
     ![
       "/",
@@ -29,6 +28,9 @@ export default async function Page({
       "/settings",
       "/cash",
       "/cash/old",
+      "/assets",
+      "/assets/status",
+      "/assets/records",
       "/etc/html",
     ].includes(path) &&
     !isRegisteredHtml &&
@@ -50,13 +52,14 @@ export default async function Page({
       (x): x is [string, string] => typeof x[1] === "string",
     ),
   );
-  if (path === "/cash") {
+  if (path === "/cash" || path.startsWith("/assets/")) {
     const p = new URLSearchParams();
     for (const [key, value] of Object.entries(raw)) {
       if (Array.isArray(value)) value.forEach((v) => p.append(key, v));
       else if (value) p.set(key, value);
     }
-    q.cashQuery = p.toString();
+    if (path === "/cash") q.cashQuery = p.toString();
+    else q.assetQuery = p.toString();
   }
   return (
     <AppShell

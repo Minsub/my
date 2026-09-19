@@ -15,6 +15,7 @@ import { getPool, query } from "../../src/server/db";
 import { getAuth } from "../../src/server/auth";
 import { actorForUser, mcpActor } from "../../src/server/security";
 import { execute, snapshot } from "../../src/server/service";
+import { readAssetOverview } from "../../src/server/assets";
 import { POST } from "../../src/app/api/commands/route";
 import {
   PROTOCOL_VERSION_META_KEY,
@@ -640,5 +641,279 @@ describe("cash file isolation and replacement", () => {
     expect(
       (await downloadCash(owner, file.id)).content.equals(cashWorkbook(22000)),
     ).toBe(true);
+  });
+});
+describe("asset snapshots", () => {
+  let assetMember: Actor;
+  beforeAll(async () => {
+    await execute(owner, "family_invite", {
+      idempotency_key: key(),
+      email: "asset-member@test.example",
+      role: "member",
+    });
+    const signed = await signup("asset-member@test.example", "자산 구성원");
+    assetMember = await actorForUser((await signed.json()).user.id, "web");
+  });
+  // 도구 설명에도 다른 도구 이름이 나오므로 본문 문자열이 아니라 도구 목록으로 확인한다.
+  const mcpToolNames = async (actor: Actor) => {
+    const response = await mcpHandler(actor)(
+      new Request("http://localhost:3000/api/mcp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+          "MCP-Protocol-Version": "2025-11-25",
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/list",
+          params: {},
+        }),
+      }),
+    );
+    const text = await response.text();
+    const data = text.slice(text.indexOf("data: ") + 6).split("\n")[0];
+    return (JSON.parse(data).result.tools as { name: string }[]).map(
+      (t) => t.name,
+    );
+  };
+  const ownerOf = async (actor: Actor, name: string) =>
+    (await execute(actor, "asset_save_owner", {
+      idempotency_key: key(),
+      name,
+    })) as { id: string; name: string };
+  it("keeps asset commands out of other domain scopes", async () => {
+    const wineOnly: Actor = {
+      ...owner,
+      channel: "mcp",
+      scopes: ["wine:write"],
+    };
+    await expect(
+      execute(wineOnly, "asset_save_owner", {
+        idempotency_key: key(),
+        name: "무단",
+      }),
+    ).rejects.toThrow();
+    const tools = await mcpToolNames(wineOnly);
+    expect(tools).toContain("wine_consume");
+    expect(tools).not.toContain("asset_record_snapshot");
+    expect(tools).not.toContain("asset_get_classification_rules");
+    const assetReader: Actor = {
+      ...owner,
+      channel: "mcp",
+      scopes: ["asset:read"],
+    };
+    const readTools = await mcpToolNames(assetReader);
+    expect(readTools).toContain("asset_get_classification_rules");
+    expect(readTools).toContain("asset_list_owners");
+    expect(readTools).not.toContain("asset_record_snapshot");
+    await expect(
+      readAssetOverview({ ...owner, scopes: ["wine:read"] }, {}),
+    ).rejects.toThrow();
+  });
+  it("replaces the whole day and reports what changed", async () => {
+    const person = await ownerOf(owner, "민섭");
+    const first = (await execute(owner, "asset_record_snapshot", {
+      idempotency_key: key(),
+      owner_id: person.id,
+      as_of: "2026-06-30",
+      items: [
+        {
+          group_key: "kr_stock",
+          name: "삼성전자",
+          amount: 47320000,
+          quantity: 182,
+        },
+        { group_key: "gold", name: "금 99.99_1kg", amount: 12500400 },
+      ],
+    })) as Record<string, unknown>;
+    expect(first.replaced).toBe(false);
+    expect(first.total).toBe(59820400);
+    expect(first.previous_total).toBeNull();
+    const second = (await execute(owner, "asset_record_snapshot", {
+      idempotency_key: key(),
+      owner_id: person.id,
+      as_of: "2026-06-30",
+      expected_version: 1,
+      items: [{ group_key: "kr_stock", name: "테스트", amount: 50000000 }],
+    })) as Record<string, unknown>;
+    expect(second.replaced).toBe(true);
+    expect(second.version).toBe(2);
+    expect(second.total).toBe(50000000);
+    expect(second.previous_total).toBe(59820400);
+    // 빠진 그룹은 0으로 사라졌다는 사실이 결과에 남아야 한다.
+    const changes = second.changes as { group_key: string; delta: number }[];
+    expect(changes.find((c) => c.group_key === "gold")!.delta).toBe(-12500400);
+    const overview = await readAssetOverview(owner, {});
+    expect(overview.summaries.group!.total).toBe(50000000);
+    expect(
+      overview.summaries.group!.rows.find(
+        (r: { key: string }) => r.key === "gold",
+      ),
+    ).toBeUndefined();
+    // 오래된 version으로 저장하면 거부한다.
+    await expect(
+      execute(owner, "asset_record_snapshot", {
+        idempotency_key: key(),
+        owner_id: person.id,
+        as_of: "2026-06-30",
+        expected_version: 1,
+        items: [{ group_key: "cash", name: "테스트", amount: 1 }],
+      }),
+    ).rejects.toThrow(/변경되었습니다/);
+  });
+  it("handles amounts beyond the 32-bit range without precision loss", async () => {
+    const person = await ownerOf(owner, "큰 금액");
+    const saved = (await execute(owner, "asset_record_snapshot", {
+      idempotency_key: key(),
+      owner_id: person.id,
+      as_of: "2026-07-31",
+      items: [{ group_key: "kr_stock", name: "테스트", amount: 9007199254 }],
+    })) as Record<string, unknown>;
+    expect(saved.total).toBe(9007199254);
+    const overview = await readAssetOverview(owner, { owner: person.id });
+    expect(overview.summaries.group!.total).toBe(9007199254);
+    expect(typeof overview.summaries.group!.total).toBe("number");
+  });
+  it("carries each member's latest record forward in the combined view", async () => {
+    const a = await ownerOf(owner, "이어쓰기 A");
+    const b = await ownerOf(owner, "이어쓰기 B");
+    await execute(owner, "asset_record_snapshot", {
+      idempotency_key: key(),
+      owner_id: a.id,
+      as_of: "2026-08-31",
+      items: [{ group_key: "cash", name: "테스트", amount: 1000 }],
+    });
+    await execute(owner, "asset_record_snapshot", {
+      idempotency_key: key(),
+      owner_id: b.id,
+      as_of: "2026-09-15",
+      items: [{ group_key: "cash", name: "테스트", amount: 2000 }],
+    });
+    const overview = await readAssetOverview(owner, {});
+    const point = overview.timelines.group.find((p) => p.period === "2026-09")!;
+    expect(point.owners.find((o) => o.owner_id === a.id)).toEqual({
+      owner_id: a.id,
+      as_of: "2026-08-31",
+      amount: 1000,
+    });
+    expect(point.carried).toContain(a.id);
+  });
+  it("keeps other households out of the asset view", async () => {
+    const mine = await ownerOf(owner, "격리 테스트");
+    await execute(owner, "asset_record_snapshot", {
+      idempotency_key: key(),
+      owner_id: mine.id,
+      as_of: "2026-05-31",
+      items: [{ group_key: "cash", name: "테스트", amount: 777 }],
+    });
+    const theirs = await readAssetOverview(outsider, {});
+    expect(theirs.owners).toHaveLength(0);
+    expect(theirs.summaries.group).toBeNull();
+    // 다른 공간의 소유자 ID를 넘겨도 찾지 못한다.
+    await expect(
+      execute(outsider, "asset_record_snapshot", {
+        idempotency_key: key(),
+        owner_id: mine.id,
+        as_of: "2026-05-31",
+        items: [{ group_key: "cash", name: "테스트", amount: 1 }],
+      }),
+    ).rejects.toThrow();
+  });
+  it("rejects an unknown owner name with the names that do exist", async () => {
+    await ownerOf(owner, "이름조회");
+    await expect(
+      execute(owner, "asset_record_snapshot", {
+        idempotency_key: key(),
+        owner_name: "없는사람",
+        as_of: "2026-05-31",
+        items: [{ group_key: "cash", name: "테스트", amount: 1 }],
+      }),
+    ).rejects.toThrow(/이름조회/);
+    const byName = (await execute(owner, "asset_record_snapshot", {
+      idempotency_key: key(),
+      owner_name: "이름조회",
+      as_of: "2026-05-31",
+      items: [{ group_key: "cash", name: "테스트", amount: 5 }],
+    })) as Record<string, unknown>;
+    expect(byName.total).toBe(5);
+  });
+  it("repeats an identical request and refuses a reused key with new input", async () => {
+    const person = await ownerOf(owner, "멱등");
+    const reused = key();
+    const input = {
+      idempotency_key: reused,
+      owner_id: person.id,
+      as_of: "2026-04-30",
+      items: [{ group_key: "cash", name: "테스트", amount: 100 }],
+    };
+    const first = (await execute(owner, "asset_record_snapshot", input)) as {
+      version: number;
+    };
+    const again = (await execute(owner, "asset_record_snapshot", input)) as {
+      version: number;
+    };
+    expect(again.version).toBe(first.version);
+    await expect(
+      execute(owner, "asset_record_snapshot", {
+        ...input,
+        items: [{ group_key: "cash", name: "테스트", amount: 200 }],
+      }),
+    ).rejects.toThrow();
+  });
+  it("lets only the author or an admin change a record", async () => {
+    const person = await ownerOf(assetMember, "구성원 소유자");
+    await execute(assetMember, "asset_record_snapshot", {
+      idempotency_key: key(),
+      owner_id: person.id,
+      as_of: "2026-03-31",
+      items: [{ group_key: "cash", name: "테스트", amount: 10 }],
+    });
+    // 관리자는 구성원 기록을 고칠 수 있다.
+    await execute(owner, "asset_record_snapshot", {
+      idempotency_key: key(),
+      owner_id: person.id,
+      as_of: "2026-03-31",
+      expected_version: 1,
+      items: [{ group_key: "cash", name: "테스트", amount: 20 }],
+    });
+    const adminOwned = await ownerOf(owner, "관리자 소유자");
+    await execute(owner, "asset_record_snapshot", {
+      idempotency_key: key(),
+      owner_id: adminOwned.id,
+      as_of: "2026-03-31",
+      items: [{ group_key: "cash", name: "테스트", amount: 30 }],
+    });
+    await expect(
+      execute(assetMember, "asset_record_snapshot", {
+        idempotency_key: key(),
+        owner_id: adminOwned.id,
+        as_of: "2026-03-31",
+        expected_version: 1,
+        items: [{ group_key: "cash", name: "테스트", amount: 40 }],
+      }),
+    ).rejects.toThrow(/관리자만/);
+  });
+  it("deletes a wrong record and leaves the rest", async () => {
+    const person = await ownerOf(owner, "삭제 대상");
+    const saved = (await execute(owner, "asset_record_snapshot", {
+      idempotency_key: key(),
+      owner_id: person.id,
+      as_of: "2026-02-28",
+      items: [{ group_key: "cash", name: "테스트", amount: 9 }],
+    })) as { id: string };
+    await execute(owner, "asset_delete_snapshot", {
+      idempotency_key: key(),
+      id: saved.id,
+    });
+    const overview = await readAssetOverview(owner, { owner: person.id });
+    expect(overview.summaries.group).toBeNull();
+    expect(
+      await query(
+        "SELECT count(*)::int AS n FROM asset_snapshot_items WHERE snapshot_id=$1",
+        [saved.id],
+      ),
+    ).toEqual([{ n: 0 }]);
   });
 });

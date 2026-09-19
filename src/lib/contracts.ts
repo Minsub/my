@@ -1,11 +1,17 @@
 import { z } from "zod";
 import { today } from "./format";
+import { assetGroupKeys } from "./assets";
+import type { Scope } from "./types";
 const id = z.uuid();
 const text = z.string().trim().max(5000);
 const name = z.string().trim().min(1).max(200);
 const date = z.iso.date().default(today);
 const version = z.number().int().positive();
 const amount = z.number().int().min(0).max(100000000).nullable();
+// 자산 금액은 원화 환산 정수다. 원두 가격용 amount(1억)를 재사용할 수 없다.
+const krwAmount = z.number().int().min(0).max(1000000000000);
+const assetGroupKey = z.enum(assetGroupKeys);
+const ownerName = z.string().trim().min(1).max(40);
 const url = z.union([
   z.literal(""),
   z
@@ -134,6 +140,70 @@ export const commandSchemas = {
       archived: z.boolean(),
     })
     .strict(),
+  asset_save_owner: z
+    .object({
+      ...key,
+      id: id.optional(),
+      expected_version: version.optional(),
+      name: ownerName,
+      // 사용자 ID를 인자로 받지 않는다. 연결은 인증된 본인 계정으로만 한다.
+      // 생략하면 기존 연결을 유지하고, true는 내 계정 연결, false는 연결 해제다.
+      link_to_me: z.boolean().optional(),
+      sort_order: z.number().int().min(0).max(999).default(0),
+      active: z.boolean().default(true),
+    })
+    .strict(),
+  asset_record_snapshot: z
+    .object({
+      ...key,
+      owner_id: id.optional(),
+      owner_name: ownerName.optional(),
+      as_of: date,
+      // 기존 기록을 덮어쓸 때만 필요하다. 값을 주면 다른 곳에서 바뀐 경우 거부한다.
+      expected_version: version.nullable().default(null),
+      rules_version: z.string().trim().max(40).default(""),
+      note: text.default(""),
+      // 그룹 합계가 아니라 원본 항목을 그대로 보낸다. 같은 이름이 여러 번 나올 수 있다.
+      items: z
+        .array(
+          z
+            .object({
+              group_key: assetGroupKey,
+              name: z.string().trim().min(1).max(200),
+              broker: z.string().trim().max(100).default(""),
+              amount: krwAmount,
+              quantity: z
+                .number()
+                .nonnegative()
+                .max(1e12)
+                .nullable()
+                .default(null),
+              profit: z
+                .number()
+                .int()
+                .min(-1000000000000)
+                .max(1000000000000)
+                .nullable()
+                .default(null),
+              // 비율이다. 1.94%는 0.0194로 보낸다.
+              profit_rate: z
+                .number()
+                .min(-1)
+                .max(1000)
+                .nullable()
+                .default(null),
+            })
+            .strict(),
+        )
+        .min(1)
+        .max(300),
+    })
+    .strict()
+    .refine(
+      (d) => Boolean(d.owner_id) !== Boolean(d.owner_name),
+      "소유자를 owner_id 또는 owner_name 중 하나로 지정해주세요.",
+    ),
+  asset_delete_snapshot: z.object({ ...key, id }).strict(),
   family_invite: z
     .object({
       ...key,
@@ -147,6 +217,32 @@ export const commandSchemas = {
   family_cancel_invite: z.object({ ...key, id }).strict(),
 };
 export type Operation = keyof typeof commandSchemas;
+// 접두사로 scope를 추론하면 새 도메인이 조용히 다른 도메인 권한에 실려 나간다.
+// Record<Operation, ...>이므로 명령을 추가하고 여기에 넣지 않으면 타입 검사가 실패한다.
+// null은 scope가 아닌 다른 규칙으로 막는 명령이다(가족 관리는 웹 관리자, 보관은 domain별 write).
+export const commandScopes: Record<Operation, Scope | null> = {
+  coffee_create_brand: "coffee:write",
+  coffee_update_brand: "coffee:write",
+  coffee_create_bean: "coffee:write",
+  coffee_update_bean: "coffee:write",
+  coffee_save_preference: "coffee:write",
+  coffee_create_machine: "coffee:write",
+  coffee_log_brew_setting: "coffee:write",
+  wine_create: "wine:write",
+  wine_update: "wine:write",
+  wine_receive_stock: "wine:write",
+  wine_consume: "wine:write",
+  wine_log_tasting: "wine:write",
+  wine_reverse_event: "wine:write",
+  wine_save_glass: "wine:write",
+  asset_save_owner: "asset:write",
+  asset_record_snapshot: "asset:write",
+  asset_delete_snapshot: "asset:write",
+  archive_item: null,
+  family_invite: null,
+  family_remove: null,
+  family_cancel_invite: null,
+};
 export type Command = {
   [K in Operation]: {
     operation: K;

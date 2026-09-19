@@ -17,6 +17,9 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | `/wine` | 보유량 대시보드, 확장 필터·정렬·가격 목록 | wine-cellar.tsx |
 | `/wine/{uuid}` | 정보·입고·소비·취소·시음·사진 | app-shell.tsx, wine-photo-upload.tsx |
 | `/wine/glasses` | 와인잔 등록·수정 | app-shell.tsx |
+| `/assets` | 자산관리 하위 화면 목록. 항목은 lib/assets.ts의 assetSubMenus에서 관리 | asset-hub.tsx |
+| `/assets/status` | 구성원 필터, 총자산·CAGR·통화비율, 자산 추이(누적 막대)와 구성(파이), 기간별 금액·비중·증감 표, 묶음 클릭 시 오른쪽 상세 | asset-status.tsx, asset-chart.tsx, asset-detail.tsx |
+| `/assets/records` | 등록 이력, 원본 항목 목록, 전체 CSV 내보내기 | asset-records.tsx |
 | `/cash` | 연·월별 흐름·항목별 평균/비중·거래 조회·파일 관리 | cash-dashboard.tsx, cash-analysis.tsx, cash-files.tsx |
 | `/cash/old` | 원본 단일 HTML 분석 + 엑셀 API 자동 연결 | cash-old.tsx, single-html-page.tsx |
 | `/etc/html` | 등록된 단일 HTML 도구의 제목·설명·원본 파일 목록 | html-pages.tsx, lib/html-pages.ts |
@@ -58,3 +61,18 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 ## 가계부 데이터 의미
 
 가계부는 거래 행 대신 파일명별 최신 XLSX 원본을 Neon bytea에 저장한다. 같은 이름 업로드는 원본 교체이며 이전 버전은 보관하지 않는다. 웹 전용이며 기존 MCP에는 노출하지 않는다. 원화·음수·날짜·평균 분모·제외 규칙과 파일 접근은 [가계부 기능](cash-money/README.md)을 따른다.
+
+## 자산 데이터 의미
+
+자산현황은 구성원별 자산을 그룹으로 나눠 등록일 기준 시계열로 남긴다. 상세는 [자산관리 문서](assert-management/README.md)를 따른다.
+
+- 금액은 원화 환산 정수다. 서버는 환율을 적용하지 않는다. 그룹의 통화종류는 환노출 통화지 거래 통화가 아니다.
+- 자산은 원본 항목(투자 이름·증권사·금액·수량·수익금·수익률) 단위로 저장하고 그룹 합계는 항목의 합으로 유도한다.
+- 화면은 월(`YYYY/MM`)이나 연 단위로 본다. 한 기간에 기록이 여러 건이면 그 기간의 최신 기록을 쓴다.
+- 구성원마다 기록 주기가 달라도 된다. 기록이 없는 기간은 그 사람의 직전 기록을 이월해 합산한다.
+- 증감 색은 국내 시세 표기 관행을 따라 증가 빨강, 하락 파랑이다.
+- 스냅샷은 한 사람의 그 날짜 자산 전체다. 같은 `(소유자, 기준일)`로 다시 저장하면 그 날짜를 통째로 교체한다.
+- 소유자는 공간 안의 라벨이며 로그인 계정과 1:1이 아니다. 계정이 없는 구성원의 자산도 기록할 수 있다.
+- 소유자마다 등록일이 다르면 종합 보기는 각 시점에 그 사람의 직전 스냅샷을 이어 쓴다. 화면에 어떤 구성원이 이어 쓴 값인지 표시한다.
+- 자산 그룹과 분류 룰은 `src/lib/assets.ts`의 코드 상수다. 룰을 고치면 `assetRulesVersion`을 올리고 스냅샷에 함께 저장한다.
+- 규칙은 금융상품과 국내 ETF만 확정한다. 개별 종목은 상장 거래소를 알아야 하므로 AI가 판단하고, 판단이 서지 않으면 미분류로 남겨 화면에 경고로 노출한다.

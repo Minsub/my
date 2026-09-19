@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { commandSchemas } from "../src/lib/contracts";
+import { commandSchemas, commandScopes } from "../src/lib/contracts";
+import { allScopes } from "../src/lib/types";
 import { kgPrice, dateLabel } from "../src/lib/format";
 import { hasImportedTasting, parseAirtable } from "../scripts/import";
 import { seedBrands, seedBeans } from "../src/lib/seed-data";
@@ -126,5 +127,89 @@ describe("input and migration semantics", () => {
         repurchase: false,
       }),
     ).toBe(true);
+  });
+});
+describe("자산 명령 검증", () => {
+  const key = "11111111-2222-4333-8444-555555555555";
+  const owner = "aaaaaaaa-bbbb-4ccc-9ddd-eeeeeeeeeeee";
+  const record = (input: Record<string, unknown>) =>
+    commandSchemas.asset_record_snapshot.safeParse({
+      idempotency_key: key,
+      owner_id: owner,
+      items: [{ group_key: "kr_stock", name: "삼성전자", amount: 1000 }],
+      ...input,
+    });
+  it("모든 명령이 scope 맵에 들어 있다", () => {
+    for (const operation of Object.keys(commandSchemas))
+      expect(operation in commandScopes, operation).toBe(true);
+    for (const scope of Object.values(commandScopes))
+      if (scope) expect(allScopes).toContain(scope);
+    expect(commandScopes.asset_record_snapshot).toBe("asset:write");
+    expect(commandScopes.wine_create).toBe("wine:write");
+  });
+  it("기준일을 생략하면 오늘로 기록한다", () => {
+    const parsed = record({});
+    expect(parsed.success).toBe(true);
+    expect(parsed.data!.as_of).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(parsed.data!.expected_version).toBeNull();
+  });
+  it("소유자를 정확히 한 가지 방법으로만 지정한다", () => {
+    expect(record({ owner_id: undefined, owner_name: "민섭" }).success).toBe(
+      true,
+    );
+    expect(record({ owner_name: "민섭" }).success).toBe(false);
+    expect(record({ owner_id: undefined }).success).toBe(false);
+  });
+  it("금액과 그룹을 검증한다", () => {
+    expect(
+      record({ items: [{ group_key: "없는그룹", name: "t", amount: 1 }] })
+        .success,
+    ).toBe(false);
+    expect(
+      record({ items: [{ group_key: "kr_stock", name: "t", amount: -1 }] })
+        .success,
+    ).toBe(false);
+    expect(
+      record({ items: [{ group_key: "kr_stock", name: "t", amount: 1.5 }] })
+        .success,
+    ).toBe(false);
+    // 원두 가격 한도(1억)가 아니라 자산 한도(1조)를 쓴다.
+    expect(
+      record({
+        items: [{ group_key: "kr_stock", name: "t", amount: 470914060 }],
+      }).success,
+    ).toBe(true);
+    expect(
+      record({
+        items: [{ group_key: "kr_stock", name: "t", amount: 1000000000001 }],
+      }).success,
+    ).toBe(false);
+    expect(record({ items: [] }).success).toBe(false);
+  });
+  it("같은 그룹의 종목이 여러 개여도 받는다", () => {
+    // 미국 국채처럼 같은 이름이 여러 번 나오는 자료가 실제로 있다.
+    expect(
+      record({
+        items: [
+          { group_key: "foreign_bond", name: "미국 국채", amount: 1 },
+          { group_key: "foreign_bond", name: "미국 국채", amount: 2 },
+        ],
+      }).success,
+    ).toBe(true);
+  });
+  it("소유자 이름을 다듬고 길이를 제한한다", () => {
+    const parsed = commandSchemas.asset_save_owner.safeParse({
+      idempotency_key: key,
+      name: "  민섭  ",
+    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.data!.name).toBe("민섭");
+    expect(parsed.data!.link_to_me).toBeUndefined();
+    expect(
+      commandSchemas.asset_save_owner.safeParse({
+        idempotency_key: key,
+        name: "가".repeat(41),
+      }).success,
+    ).toBe(false);
   });
 });

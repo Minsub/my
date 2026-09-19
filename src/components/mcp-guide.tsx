@@ -32,6 +32,20 @@ const groups = [
     ),
   },
   {
+    title: "자산 조회",
+    scope: "asset:read · 자산 현황·분류 기준 조회",
+    entries: Object.entries(readGuide).filter(([id]) =>
+      id.startsWith("asset_"),
+    ),
+  },
+  {
+    title: "자산 등록과 기록",
+    scope: "asset:write · 자산 현황 기록",
+    entries: Object.entries(commandGuide).filter(([id]) =>
+      id.startsWith("asset_"),
+    ),
+  },
+  {
     title: "가족 요약",
     scope: "허용한 조회 권한에 따라 결과 제공",
     entries: Object.entries(readGuide).filter(([id]) =>
@@ -133,7 +147,10 @@ export function McpGuide() {
           아닙니다.
         </p>
       </details>
-      <h3>도구별 사용 안내 · 25개</h3>
+      <h3>
+        도구별 사용 안내 ·{" "}
+        {groups.reduce((n, group) => n + group.entries.length, 0)}개
+      </h3>
       <p className="muted small">
         그룹을 펼친 뒤 도구를 선택하면 입력값·결과·요청 예시를 볼 수 있어요.
         모든 값을 직접 입력할 필요는 없고 AI가 도구 호출에 사용합니다.

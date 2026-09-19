@@ -34,12 +34,12 @@ export function WorkspaceHome({
       value: `${data.wines.filter((w) => !w.archived).reduce((s, w) => s + w.stock, 0)}병 보유`,
     },
     {
-      path: "/cash",
-      label: "가계부",
-      eyebrow: "CASH",
-      description: "엑셀로 모으고, 수입과 지출의 흐름을 확인하세요.",
+      path: "/assets",
+      label: "자산관리",
+      eyebrow: "ASSETS",
+      description: "가계부의 수입·지출과 구성원별 자산 현황을 함께 봅니다.",
       icon: Wallet,
-      value: "파일로 갱신하는 대시보드",
+      value: "가계부 · 자산현황",
     },
   ];
   return (

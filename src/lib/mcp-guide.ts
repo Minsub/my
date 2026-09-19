@@ -124,6 +124,33 @@ export const commandGuide = {
     result: "저장된 와인잔과 버전.",
     example: "리델 피노 누아 잔을 등록해줘.",
   },
+  asset_save_owner: {
+    title: "자산 소유자 등록·수정",
+    description:
+      "자산현황에 표시할 소유자를 관리합니다. 로그인 계정이 없는 구성원도 등록할 수 있습니다.",
+    input:
+      "name(표시 이름). 선택: id·expected_version(수정), link_to_me(내 계정과 연결), sort_order, active.",
+    result: "저장된 소유자와 버전.",
+    example: "자산 소유자에 장미를 추가해줘.",
+  },
+  asset_record_snapshot: {
+    title: "자산 현황 기록",
+    description:
+      "한 사람의 그 날짜 자산 현황 전체를 원본 종목 단위로 저장합니다. 같은 사람·같은 날짜로 저장하면 그 날짜를 통째로 교체합니다. 그룹 합계는 항목에서 자동으로 계산합니다.",
+    input:
+      "owner_id 또는 owner_name, items[{group_key, name, broker, amount, quantity, profit, profit_rate}] (최대 300개). 선택: as_of(기본 오늘), expected_version(덮어쓸 때), rules_version, note. 금액은 원화 환산 정수이고 수익률은 1.94%를 0.0194로 보냅니다.",
+    result:
+      "스냅샷 ID·버전·총액·항목 수와 그룹별 교체 전후 값(changes). replaced가 true면 기존 기록을 덮어쓴 것입니다.",
+    example:
+      "증권사 화면의 자산 목록을 그룹으로 나눠서 오늘 날짜로 내 자산현황을 기록해줘.",
+  },
+  asset_delete_snapshot: {
+    title: "자산 기록 삭제",
+    description: "잘못된 날짜로 저장한 자산 기록을 지웁니다.",
+    input: "id(스냅샷 UUID).",
+    result: "삭제 여부와 대상 날짜.",
+    example: "어제 잘못 등록한 자산 기록을 지워줘.",
+  },
 } satisfies Record<
   Exclude<Operation, `family_${string}` | "archive_item">,
   Entry
@@ -193,13 +220,74 @@ export const readGuide: Record<string, Entry> = {
       "wines, glasses, tastings, as_of(조회 시각), next_cursor. 추천만으로 재고가 차감되지는 않습니다.",
     example: "오늘 연어 요리에 맞는 보유 와인과 잔을 추천해줘.",
   },
+  asset_get_classification_rules: {
+    title: "자산 분류 기준 조회",
+    description:
+      "원본 자산 목록을 자산 그룹으로 나누는 기준을 반환합니다. 그룹 정의·우선순위 규칙·금액 단위·저장 규칙이 함께 들어 있습니다.",
+    input: "없음.",
+    result:
+      "rules_version, groups(그룹과 통화·위험 구분), rules(priority 오름차순 규칙), instructions, write_contract.",
+    example: "자산을 어떤 기준으로 묶어야 하는지 알려줘.",
+  },
+  asset_classify_rows: {
+    title: "자산 행 분류 미리보기",
+    description:
+      "원본 자산 행을 규칙으로만 분류합니다. 규칙은 발행어음·RP·채권·예적금·금·현금과 국내 ETF를 확정하고, 개별 종목은 판단하지 않습니다.",
+    input: "rows[{name, broker, amount}] (최대 300행).",
+    result:
+      "items(행별 group_key와 needs_review), needs_review 건수, lines(그룹별 합계). needs_review 행은 상장 거래소를 기준으로 직접 판단합니다.",
+    example: "이 자산 목록을 그룹별로 나눠줘.",
+  },
+  asset_list_owners: {
+    title: "자산 소유자 목록",
+    description: "등록된 소유자와 각자의 최신 등록일·총액을 조회합니다.",
+    input: "없음.",
+    result:
+      "owners(id, name, active, linked_to_me, latest)와 자산현황 화면 링크.",
+    example: "자산 소유자가 누가 있어?",
+  },
+  asset_get_summary: {
+    title: "자산 현황 요약",
+    description:
+      "최신 기간의 자산 구성과 직전 기간 대비 증감을 조회합니다. 자산그룹·상위그룹·통화·위험 기준으로 볼 수 있습니다.",
+    input:
+      "선택: owner_id(생략하면 전체 합계), axis(group/parent/currency/risk), period(month/year).",
+    result:
+      "summary(총액·증감·묶음별 금액과 비중), cagr(연평균 증가율), currency_mix(원화·달러 금액), owners(소유자별 총액), unclassified.",
+    example: "우리 자산 위험자산 비중이 지난달보다 얼마나 늘었어?",
+  },
+  asset_list_snapshots: {
+    title: "자산 시계열 조회",
+    description:
+      "기간별 자산 추이를 조회합니다. 한 기간에 기록이 여러 건이면 그 기간의 최신 기록을 쓰고, 기록이 없는 소유자는 직전 기록을 이어 씁니다.",
+    input: "선택: owner_id, axis, period(month/year), from, to.",
+    result: "points(기간별 총액·묶음별 금액·carried·as_of).",
+    example: "올해 자산 추이를 상위그룹 기준으로 보여줘.",
+  },
+  asset_list_items: {
+    title: "묶음 상세 종목 조회",
+    description:
+      "어떤 기간의 한 묶음에 실제로 어떤 종목이 들어 있는지 조회합니다.",
+    input:
+      "at(월이면 YYYY-MM, 연이면 YYYY). 선택: owner_id, axis, period, bucket(생략하면 그 기간 전체).",
+    result: "items(이름·증권사·금액·수량·수익금·수익률·소유자·기준일), total.",
+    example: "지난달 해외 주식에 뭐가 들어 있었어?",
+  },
+  asset_list_records: {
+    title: "등록 이력과 원본 항목",
+    description:
+      "언제 무엇을 등록했는지와 한 등록 건의 원본 항목 전체를 조회합니다.",
+    input: "선택: snapshot(생략하면 가장 최근 등록 건).",
+    result: "snapshots(등록 이력), selected(그 등록 건의 원본 항목 전체).",
+    example: "마지막으로 등록한 자산 원본을 그대로 보여줘.",
+  },
   household_get_summary: {
     title: "가족 컬렉션 요약",
     description: "연결 시 허용한 도메인의 집계를 조회합니다.",
     input: "없음.",
     result:
-      "coffee_beans(보관함 제외 원두 종류 수), wine_bottles(보관함 포함 전체 와인 재고 합). 조회 권한 없는 도메인은 생략합니다.",
-    example: "우리 가족 원두 종류와 와인 병수를 알려줘.",
+      "coffee_beans(보관함 제외 원두 종류 수), wine_bottles(보관함 포함 전체 와인 재고 합), asset_total·asset_as_of(최신 자산 총액과 기준일). 조회 권한 없는 도메인은 생략합니다.",
+    example: "우리 원두 종류와 와인 병수, 자산 총액을 알려줘.",
   },
 };
 export const photoGuide: Record<string, Entry> = {

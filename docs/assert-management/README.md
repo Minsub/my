@@ -1,0 +1,153 @@
+# 자산관리
+
+`/assets` 아래의 화면과 자산 스냅샷 데이터의 의미를 설명한다. 원본 요구사항은 [DESIGN.md](DESIGN.md)이고, 분류 검증에 쓰는 샘플은 `sample_raw_data.csv`다.
+
+## 화면
+
+| URL | 역할 | 구현 |
+|---|---|---|
+| `/assets` | 자산관리 하위 화면 목록. 항목은 `src/lib/assets.ts`의 `assetSubMenus` 한 곳에서 관리한다 | `asset-hub.tsx` |
+| `/assets/status` | 구성원 필터, KPI 3종, 자산 추이(누적 막대)·구성(파이), 기간별 금액·비중·증감 표 | `asset-status.tsx`, `asset-chart.tsx`, `asset-detail.tsx` |
+| `/assets/records` | 등록 이력, 원본 항목 목록, 전체 CSV 내보내기 | `asset-records.tsx` |
+
+`/assets/records`는 허브 목록에 두지 않고 `/assets/status`의 버튼으로만 들어간다.
+
+### 화면 규칙
+
+- 상단 필터는 구성원 하나뿐이다. 통화·위험 비중은 필터가 아니라 KPI와 집계로 항상 보여준다.
+- 기록이 없는 구성원을 골라도 구성원 칩은 그대로 남는다. 그래야 다시 다른 구성원으로 돌아갈 수 있다.
+- 기간 범위(전체·최근 1·2·5년)는 조회 범위가 아니라 **표시 범위**다. 이월을 모두 계산한 뒤 잘라내므로, 분기에 한 번 기록하는 구성원의 값이 창 시작에서 사라지지 않는다. 기본값은 최근 1년이다.
+- 자산 추이는 누적 막대다. 작은 항목의 증감이 큰 항목에 눌리므로 "작은 항목 확대"를 켜면 항목을 나란히 놓고 대칭 로그 축으로 펼친다.
+- 기간별 표는 한 칸에 금액·비중·증감을 함께 적는다. 증감 색은 국내 시세 표기 관행을 따라 **증가 빨강, 하락 파랑**이다.
+| `/cash`, `/cash/old` | 가계부. URL은 그대로 두고 상위 메뉴만 자산관리로 묶었다 | 기존 그대로 |
+
+상단/하단 메뉴의 `가계부`는 `자산관리`로 바뀌었고 개수는 6개 그대로다.
+
+## 데이터 의미
+
+- **자산은 원본 항목 단위로 저장한다.** 한 기록은 투자 이름·증권사·금액·수량·수익금·수익률을 가진 항목의 묶음이고, 그룹 합계는 항목의 합으로 유도한다. 그래야 그룹을 눌렀을 때 무엇이 들어 있는지 보여줄 수 있다.
+- **화면은 날짜가 아니라 기간(월 `YYYY/MM`·연) 단위로 본다.** 한 기간에 기록이 여러 건이면 그 기간의 가장 최신 기록을 쓴다. 연별 보기는 그 해의 마지막 기록이다.
+- **구성원마다 기록 주기가 달라도 된다.** 한 사람은 매달, 다른 사람은 분기에 한 번 기록해도 된다. 기록이 없는 기간에는 그 사람의 **직전 기록을 이월**해 합산하고, 이월한 구성원을 `carried`로 알려 화면에 표시한다. 이월하지 않으면 한 사람만 기록한 달에 총자산이 급락한다.
+- **금액은 원화 환산 정수다.** 증권사 화면에 표시된 원화 평가금액을 그대로 저장한다. 서버는 환율을 적용하지 않는다.
+- 그룹의 **통화종류는 환노출 통화**지 거래 통화가 아니다. 국내상장 미국 ETF는 원화로 사지만 통화종류가 달러다.
+- 스냅샷은 **한 사람의 그 날짜 자산 전체**다. 같은 `(소유자, 기준일)`로 다시 저장하면 그 날짜를 통째로 교체한다. 일부 그룹만 보내면 나머지는 사라진다. 그래서 저장 결과에 그룹별 교체 전후 값(`changes`)을 함께 돌려준다.
+- 0원 항목은 저장하지 않는다. 빠진 그룹은 조회할 때 직전 값과 비교해 0으로 다룬다.
+- 소유자는 **공간 안의 라벨**(`asset_owners`)이며 로그인 계정과 1:1이 아니다. 계정이 없는 구성원의 자산도 기록할 수 있고, `user_id` 연결은 선택이다. 접근 경계는 전적으로 `household_id`가 담당한다.
+- 소유자마다 등록일이 다를 수 있다. **종합 보기는 각 시점마다 소유자별로 그 날짜 이하 최신 스냅샷을 이어 쓴다.** 이어 쓴 소유자는 응답의 `carried`에 들어가고 화면에도 표시한다. 날짜별 단순 합산을 하면 한 사람만 등록한 날 총자산이 급락한다.
+- 수정·삭제는 등록한 사람 또는 관리자만 할 수 있다(`cash_files`와 같은 규칙).
+
+## 자산 그룹
+
+`src/lib/assets.ts`의 `assetGroups`가 단일 기준이다. DB에 두지 않는 이유는 룰의 우선순위 한 줄이 분류 결과를 좌우하므로 코드 리뷰와 회귀 테스트 대상이어야 하기 때문이다. `asset_snapshot_lines.group_key`에는 CHECK를 걸지 않고 `contracts.ts`의 zod enum이 검증한다. 그룹을 늘릴 때 migration이 필요 없고, 카탈로그에서 빠진 옛 key도 과거 스냅샷에 그대로 남아 합계에서 누락되지 않는다.
+
+| key | 이름 | 통화 | 위험 | 상위그룹 |
+|---|---|---|---|---|
+| kr_stock | 주식 | 원화 | 위험 | 주식(원화) |
+| foreign_equity | 해외 주식 | 달러 | 위험 | 주식(달러) |
+| kr_listed_foreign_equity | 국내상장 해외주식 | 달러 | 위험 | 주식(달러) |
+| kr_bond | 국내 채권 | 원화 | 안전 | 상품(원화) |
+| foreign_bond | 해외 채권 | 달러 | 안전 | 상품(달러) |
+| usd_note_rp | 달러 발행어음/RP | 달러 | 안전 | 상품(달러) |
+| krw_note_rp | 원화 발행어음/RP | 원화 | 안전 | 상품(원화) |
+| deposit | 예적금 | 원화 | 안전 | 상품(원화) |
+| cash | 현금 | 원화 | 안전 | 상품(원화) |
+| gold | 금 | - | 안전 | 금 |
+| unclassified | 미분류 | - | - | 미분류 |
+
+축은 네 가지다. 화면에서는 자산 그룹과 상위 그룹을 고를 수 있고, 통화·위험은 KPI와 집계에 쓴다.
+
+`해외 주식`은 `국내상장 해외주식`과 별도로 관리한다. 둘 다 달러·위험이지만 계좌와 세금이 다르고, 샘플 52행 중 10행·1.28억이 해외 거래소 직접보유다.
+
+`unclassified`(미분류)는 DESIGN.md에 없는 안전밸브다. 판단이 서지 않는 자산을 숨기지 않고 남기며, 금액이 0보다 크면 화면 상단에 경고를 띄운다.
+
+## 분류 룰
+
+`assetRules`는 `priority` 오름차순으로 평가하고 처음 맞은 규칙 하나만 적용한다. 실제 데이터에는 여러 규칙에 동시에 맞는 값이 흔해서 전순서가 필요하다.
+
+| 값 | 함께 맞는 규칙 | 결과 |
+|---|---|---|
+| `퍼스트 발행어음 적립(정액)` | 예적금 · 원화 발행어음/RP | 예적금 |
+| `퍼스트 외화 발행어음 약정(USD)` | 달러 · 원화 발행어음/RP | 달러 발행어음/RP |
+| `CMA RP` | 현금 · 원화 발행어음/RP | 현금 |
+| `미국 국채` | 해외 채권 · 미국 ETF | 해외 채권 |
+| `KODEX 27-12 회사채(AA-이상)액티브` | 국내 채권 · 주식 | 국내 채권 |
+
+원본 패턴에서 고친 것
+
+- `T * DD/MM/YY`는 실제로 `MM/DD/YY`다(`T 0.5 08/31/27`).
+- `외화RP(USD) *`는 실제 값에 공백이 없어 맞지 않는다. `USD|외화` + `발행어음|RP` 조합으로 바꿨다.
+- `* RP`는 접미 패턴이라 `ISA특판RP(e)-24시간`을 놓친다. 단어 경계로 바꿨다.
+- `*미국* 패턴의 ETF`는 이름에 `ETF` 글자가 없어 판별되지 않는다. 국내 운용사 브랜드 접두사로 ETF를 가린다.
+- `금 *`를 `금*`로 구현하면 `SOL 금융지주플러스고배당`이 금이 된다. 뒤에 공백이나 숫자를 요구한다.
+
+**규칙이 답하지 않는 영역이 있다.** 개별 종목은 상장 거래소를 알아야 판별된다. `삼성전자`와 `코카콜라`는 둘 다 정규식으로는 구분되지 않으므로 규칙은 `unclassified`를 돌려주고, 룰 응답의 `instructions`가 AI에게 "상장 거래소를 기준으로 직접 판단하고 모르면 사용자에게 물어라"라고 지시한다. 샘플 52행 기준 규칙이 확정하는 것은 38행이고 14행(개별 종목)은 AI가 판단한다. 이 경계는 `tests/assets.test.ts`가 고정한다.
+
+룰을 고치면 `assetRulesVersion`을 올린다. 스냅샷에 `rules_version`으로 저장되어 어떤 기준으로 만든 숫자인지 추적할 수 있다.
+
+## MCP
+
+`asset:read` / `asset:write` scope를 새로 쓴다. **기존 AI 연결에는 자동으로 부여되지 않는다.** 설정 화면에서 연결을 해제하고 다시 연결해야 자산 도구가 보인다.
+
+| 도구 | scope | 용도 |
+|---|---|---|
+| `asset_get_classification_rules` | asset:read | 그룹·우선순위 규칙·금액 단위·저장 규칙 |
+| `asset_classify_rows` | asset:read | 원본 행을 규칙으로만 분류한 결과와 `needs_review` |
+| `asset_list_owners` | asset:read | 소유자와 최신 등록일·총액 |
+| `asset_get_summary` | asset:read | 최신 기간 구성·증감·CAGR·통화 비중 |
+| `asset_list_snapshots` | asset:read | 기간별 시계열 |
+| `asset_list_items` | asset:read | 한 기간·한 묶음의 원본 종목 |
+| `asset_list_records` | asset:read | 등록 이력과 한 건의 원본 항목 전체 |
+
+웹에서는 `GET /api/assets?view=export`가 저장한 원본 항목 전체를 CSV로 준다. 화면 필터와 이월을 적용하지 않은 저장 그대로의 값이다.
+| `asset_save_owner` | asset:write | 소유자 등록·수정 |
+| `asset_record_snapshot` | asset:write | 그 날짜 자산 전체 저장(교체) |
+| `asset_delete_snapshot` | asset:write | 잘못 등록한 날짜 삭제 |
+
+권장 순서: `asset_get_classification_rules` → (필요하면 `asset_classify_rows`) → `asset_list_owners` → `asset_record_snapshot`.
+
+명령별 scope는 `src/lib/contracts.ts`의 `commandScopes`가 단일 기준이다. `Record<Operation, Scope | null>`이므로 명령을 추가하고 맵에 넣지 않으면 타입 검사가 실패한다. 접두사 추론을 쓰던 예전 방식은 새 도메인을 `wine:write`로 흘려보냈다.
+
+## 저장과 조회
+
+- 스키마: `db/migrations/006_assets.sql`(`asset_owners`, `asset_snapshots`)과 `007_asset_items.sql`(`asset_snapshot_items`). 007이 006의 그룹 합계 테이블을 항목 테이블로 옮기고 지운다.
+- 쓰기는 공통 `POST /api/commands` → `execute()`를 쓴다. 멱등성(`mutation_requests`)·`activity_log`·트랜잭션·권한 검사를 그대로 얻는다.
+- 조회는 전용 `GET /api/assets`와 `src/server/assets.ts`다. 자산은 공통 `snapshot()`에 넣지 않는다. `snapshot()`은 도메인 전체를 매번 읽고 모든 MCP 조회 도구가 호출하므로, 커피 목록 한 번 볼 때마다 전 기간 자산을 읽게 된다.
+- 금액은 `bigint`다. `pg`가 int8을 문자열로 돌려주므로 조회에서 `::float8`로 캐스팅한다. 상한 1조는 2^53보다 작아 정확하다.
+
+## 초기 적재
+
+`scripts/seed-assets.ts`는 `sample_raw_data.csv`를 그룹으로 묶어 스냅샷 1건으로 저장하고, 그룹화 결과를 같은 폴더에 CSV로 남긴다. MCP를 거치지 않고 앱의 `execute()`를 그대로 쓰므로 검증·멱등성·activity_log가 동일하게 적용된다.
+
+```sh
+tsx scripts/seed-assets.ts --owner 민섭 --as-of 2026-09-18          # 미리보기 + CSV 생성
+tsx scripts/seed-assets.ts --owner 민섭 --as-of 2026-09-18 --apply  # 저장까지
+```
+
+`ASSET_SEED_ENV`로 환경 파일을 고를 수 있고 기본값은 `.env.local`(개발 DB)이다. 스크립트가 만드는 파일
+
+- `grouped_data.csv` — 그룹별 합계·비중·항목 수
+- `grouped_raw_data.csv` — 원본 행마다 어느 그룹으로 갔는지
+
+raw 데이터는 증권사 계좌만 담고 있어 계좌 밖 자산은 스크립트 상단 `manual` 배열에서 더한다. 현재 예적금 5,000만원과 현금 1,200만원이 들어 있다. 개별 종목 14건은 상장 거래소를 알아야 하므로 같은 파일의 `listedOverrides`에 명시했다.
+
+## 로컬 확인용 가상 데이터
+
+`scripts/seed-demo-assets.ts`가 민섭·장미 각 24개월치(총 48건)를 만든다. 생성기는 `src/lib/demo-assets.ts`에 있고 시드가 고정이라 매번 같은 값이 나온다. `/demo?view=/assets/status`도 같은 생성기를 쓴다.
+
+```sh
+tsx scripts/seed-demo-assets.ts                   # 미리보기
+tsx scripts/seed-demo-assets.ts --apply --reset   # 기존 기록을 지우고 새로 채움
+```
+
+`--reset`은 그 공간의 자산 기록을 전부 지운다. 실제 기록이 있는 DB에서는 쓰지 않는다.
+
+기록 주기를 일부러 다르게 만들었다. 민섭은 24개월 매달, 장미는 분기에 한 번(8건)이라 이월 동작을 화면에서 바로 확인할 수 있다. 주기는 `src/lib/demo-assets.ts`의 `cadence`에서 바꾼다.
+
+## 검증
+
+```sh
+npm test                 # tests/assets.test.ts 포함
+npx playwright test --grep "records an asset snapshot"
+```
+
+`tests/assets.test.ts`는 `sample_raw_data.csv` 52행의 분류 결과와 우선순위 충돌 5건, 집계·이어쓰기·증감 계산을 고정한다. `tests/integration/domain.test.ts`의 `asset snapshots`는 scope 격리, 같은 날 교체, 다른 공간 격리, 32비트를 넘는 금액, 권한 규칙을 확인한다.

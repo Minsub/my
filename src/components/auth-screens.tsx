@@ -167,6 +167,8 @@ const scopeLabels: Record<string, string> = {
   "coffee:write": "원두·평가·세팅 기록",
   "wine:read": "와인·재고·시음 조회",
   "wine:write": "와인 입고·소비·시음 기록",
+  "asset:read": "자산 현황·구성원·분류 기준 조회",
+  "asset:write": "자산 현황 등록·수정",
   openid: "내 계정 확인",
   profile: "내 이름 확인",
   email: "내 이메일 확인",

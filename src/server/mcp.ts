@@ -1,9 +1,21 @@
 import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
-import { commandSchemas, listSchema, type Operation } from "@/lib/contracts";
+import {
+  commandSchemas,
+  commandScopes,
+  listSchema,
+  type Operation,
+} from "@/lib/contracts";
 import { snapshot, execute } from "./service";
 import { photoSchema, uploadWinePhoto } from "./wine-photos";
 import { wineFacts, filterWines, type WineFilters } from "@/lib/wine-cellar";
+import { readAssetHistory, readAssetItems, readAssetOverview } from "./assets";
+import {
+  assetClassificationRules,
+  assetGroupName,
+  assetRulesVersion,
+  classifyAsset,
+} from "@/lib/assets";
 import { query } from "./db";
 import { AppError, rateLimit } from "./security";
 import { appUrl } from "./auth";
@@ -24,17 +36,18 @@ const descriptions: Partial<Record<Operation, string>> = {
     "와인 재고를 소비합니다. 부족하면 거부합니다. 시음도 함께 기록할 수 있습니다.",
   coffee_save_preference: "인증된 사용자 본인의 원두 취향을 저장합니다.",
   wine_log_tasting: "재고 변화 없이 시음을 기록합니다.",
+  asset_save_owner:
+    "자산 소유자를 등록하거나 수정합니다. 스냅샷을 기록하기 전에 소유자가 있어야 합니다.",
+  asset_record_snapshot:
+    "한 사람의 그 날짜 자산 현황 전체를 저장합니다. 같은 사람·같은 날짜로 저장하면 기존 값을 통째로 교체하므로 항상 전체 포트폴리오를 한 번에 보냅니다. 금액은 원화 환산 정수이며 asset_get_classification_rules의 group_key를 사용합니다.",
+  asset_delete_snapshot: "잘못 등록한 날짜의 자산 기록을 삭제합니다.",
 };
 export function mcpHandler(actor: Actor) {
   return createMcpHandler(
     (server) => {
       for (const [operation, schema] of Object.entries(commandSchemas)) {
-        if (operation.startsWith("family_") || operation === "archive_item")
-          continue;
-        const scope: Scope = operation.startsWith("coffee_")
-          ? "coffee:write"
-          : "wine:write";
-        if (!actor.scopes.includes(scope)) continue;
+        const scope = commandScopes[operation as Operation];
+        if (!scope || !actor.scopes.includes(scope)) continue;
         server.registerTool(
           operation,
           {
@@ -47,7 +60,9 @@ export function mcpHandler(actor: Actor) {
               readOnlyHint: false,
               destructiveHint:
                 operation === "wine_consume" ||
-                operation === "wine_reverse_event",
+                operation === "wine_reverse_event" ||
+                operation === "asset_delete_snapshot" ||
+                operation === "asset_record_snapshot",
               idempotentHint: true,
               openWorldHint: false,
             },
@@ -309,6 +324,194 @@ export function mcpHandler(actor: Actor) {
             });
           },
         );
+      if (actor.scopes.includes("asset:read")) {
+        const assetScope = {
+          _meta: {
+            securitySchemes: [{ type: "oauth2", scopes: ["asset:read"] }],
+          },
+          annotations: { readOnlyHint: true, openWorldHint: false },
+        };
+        const view = z.object({
+          owner_id: z.uuid().optional(),
+          axis: z
+            .enum(["group", "parent", "currency", "risk"])
+            .default("group"),
+          period: z.enum(["month", "year"]).default("month"),
+        });
+        server.registerTool(
+          "asset_get_classification_rules",
+          {
+            description:
+              "증권사 화면의 원본 자산 목록을 자산 그룹으로 나누는 기준을 반환합니다. 그룹 목록·우선순위 규칙·금액 단위·저장 규칙이 함께 들어 있습니다. 자산을 기록하기 전에 먼저 호출하세요.",
+            inputSchema: z.object({}),
+            ...assetScope,
+          },
+          async () => output(assetClassificationRules()),
+        );
+        server.registerTool(
+          "asset_classify_rows",
+          {
+            description:
+              "원본 자산 행을 규칙으로만 분류해 돌려줍니다. 규칙은 금융상품과 국내 ETF만 확정합니다. needs_review가 true인 개별 종목은 상장 거래소를 기준으로 직접 판단하세요.",
+            inputSchema: z.object({
+              rows: z
+                .array(
+                  z
+                    .object({
+                      name: z.string().trim().min(1).max(200),
+                      broker: z.string().trim().max(100).optional(),
+                      amount: z
+                        .number()
+                        .int()
+                        .min(0)
+                        .max(1000000000000)
+                        .optional(),
+                    })
+                    .strict(),
+                )
+                .min(1)
+                .max(300),
+            }),
+            ...assetScope,
+          },
+          async ({ rows }) => {
+            const items = rows.map((row) => {
+              const result = classifyAsset(row.name);
+              return {
+                ...row,
+                group_key: result.group_key,
+                group_name: assetGroupName(result.group_key),
+                matched_priority: result.priority,
+                needs_review: result.needs_review,
+              };
+            });
+            const totals = new Map<string, number>();
+            for (const item of items)
+              if (item.amount !== undefined)
+                totals.set(
+                  item.group_key,
+                  (totals.get(item.group_key) ?? 0) + item.amount,
+                );
+            return output({
+              rules_version: assetRulesVersion,
+              items,
+              needs_review: items.filter((i) => i.needs_review).length,
+              lines: [...totals]
+                .filter(([, amount]) => amount > 0)
+                .map(([group_key, amount]) => ({ group_key, amount })),
+            });
+          },
+        );
+        server.registerTool(
+          "asset_list_owners",
+          {
+            description:
+              "자산 소유자와 각자의 최신 등록일·총액을 조회합니다. asset_record_snapshot에 쓸 owner_id를 여기서 얻습니다.",
+            inputSchema: z.object({}),
+            ...assetScope,
+          },
+          async () => {
+            const data = await readAssetOverview(actor, {});
+            return output({
+              owners: data.owners.map((o) => ({
+                id: o.id,
+                name: o.name,
+                active: o.active,
+                version: o.version,
+                linked_to_me: o.linked,
+                latest:
+                  data.ownerTotals.find((t) => t.owner_id === o.id) ?? null,
+              })),
+              url: `${appUrl()}/assets/status`,
+            });
+          },
+        );
+        server.registerTool(
+          "asset_get_summary",
+          {
+            description:
+              "최신 기간의 자산 구성과 직전 기간 대비 증감을 조회합니다. owner_id를 생략하면 활성 소유자 전체 합계입니다. axis로 자산그룹·상위그룹·통화·위험 기준을 고릅니다.",
+            inputSchema: view,
+            ...assetScope,
+          },
+          async ({ owner_id, axis, period }) => {
+            const data = await readAssetOverview(actor, {
+              owner: owner_id,
+              period,
+            });
+            return output({
+              axis,
+              period: data.period,
+              scope: owner_id ? "owner" : "all",
+              summary: data.summaries[axis],
+              cagr: data.cagr,
+              currency_mix: data.currencyMix,
+              owners: data.ownerTotals,
+              unclassified: data.unclassified,
+              rules_version: data.rules_version,
+              url: `${appUrl()}/assets/status`,
+            });
+          },
+        );
+        server.registerTool(
+          "asset_list_snapshots",
+          {
+            description:
+              "자산 시계열을 조회합니다. 기간에 기록이 여러 건이면 그 기간의 최신 기록을 쓰고, 기록이 없는 소유자는 직전 기록을 이어 씁니다. carried에 그런 소유자가 들어갑니다.",
+            inputSchema: view.extend({
+              from: z.iso.date().optional(),
+              to: z.iso.date().optional(),
+            }),
+            ...assetScope,
+          },
+          async ({ owner_id, axis, period, from, to }) => {
+            const data = await readAssetOverview(actor, {
+              owner: owner_id,
+              period,
+              from,
+              to,
+            });
+            return output({
+              axis,
+              period: data.period,
+              points: data.timelines[axis],
+            });
+          },
+        );
+        server.registerTool(
+          "asset_list_items",
+          {
+            description:
+              "어떤 기간의 한 묶음에 실제로 어떤 종목이 들어 있는지 조회합니다. at은 월이면 YYYY-MM, 연이면 YYYY입니다. bucket을 생략하면 그 기간 전체 항목을 돌려줍니다.",
+            inputSchema: view.extend({
+              at: z.string().regex(/^\d{4}(-\d{2})?$/),
+              bucket: z.string().max(60).optional(),
+            }),
+            ...assetScope,
+          },
+          async ({ owner_id, axis, period, at, bucket }) =>
+            output(
+              await readAssetItems(actor, {
+                owner: owner_id,
+                period,
+                axis,
+                at,
+                bucket,
+              }),
+            ),
+        );
+        server.registerTool(
+          "asset_list_records",
+          {
+            description:
+              "등록 이력과 한 등록 건의 원본 항목 전체를 조회합니다. snapshot을 생략하면 가장 최근 등록 건을 폅니다.",
+            inputSchema: z.object({ snapshot: z.uuid().optional() }),
+            ...assetScope,
+          },
+          async ({ snapshot }) =>
+            output(await readAssetHistory(actor, { snapshot })),
+        );
+      }
       server.registerTool(
         "household_get_summary",
         {
@@ -324,6 +527,15 @@ export function mcpHandler(actor: Actor) {
               : {}),
             ...(actor.scopes.includes("wine:read")
               ? { wine_bottles: s.wines.reduce((n, w) => n + w.stock, 0) }
+              : {}),
+            ...(actor.scopes.includes("asset:read")
+              ? await (async () => {
+                  const a = await readAssetOverview(actor, {});
+                  return {
+                    asset_total: a.summaries.group?.total ?? 0,
+                    asset_as_of: a.summaries.group?.as_of ?? null,
+                  };
+                })()
               : {}),
           });
         },

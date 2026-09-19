@@ -2,7 +2,12 @@ import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import { query, transaction } from "./db";
 import { AppError, requireScope } from "./security";
-import { parseCommand, type Operation } from "@/lib/contracts";
+import { commandScopes, parseCommand, type Operation } from "@/lib/contracts";
+import {
+  deleteAssetSnapshot,
+  recordAssetSnapshot,
+  saveAssetOwner,
+} from "./assets";
 import type { Actor, Snapshot } from "@/lib/types";
 const tables = {
   brand: "coffee_brands",
@@ -106,8 +111,9 @@ export async function execute(
   raw: unknown,
 ) {
   const command = parseCommand(operation, raw);
-  if (operation.startsWith("coffee_")) requireScope(actor, "coffee:write");
-  if (operation.startsWith("wine_")) requireScope(actor, "wine:write");
+  // 접두사 추론을 쓰지 않는다. 명령별 scope는 contracts.ts의 commandScopes가 단일 기준이다.
+  const required = commandScopes[operation];
+  if (required) requireScope(actor, required);
   if (
     operation.startsWith("family_") &&
     (actor.role !== "owner" || actor.channel !== "web")
@@ -485,6 +491,28 @@ export async function execute(
           client,
         );
         label = row.name;
+        break;
+      }
+      case "asset_save_owner": {
+        const d = command.input;
+        result = await saveAssetOwner(client, actor, d);
+        label = `자산 소유자 ${d.name}`;
+        break;
+      }
+      case "asset_record_snapshot": {
+        const saved = await recordAssetSnapshot(client, actor, command.input);
+        result = saved;
+        label = `${saved.owner.name} ${saved.as_of} 자산`;
+        break;
+      }
+      case "asset_delete_snapshot": {
+        const removed = await deleteAssetSnapshot(
+          client,
+          actor,
+          command.input.id,
+        );
+        result = removed;
+        label = `${removed.as_of} 자산 기록 삭제`;
         break;
       }
       case "family_invite": {

@@ -1,6 +1,9 @@
 "use client";
 import { CashOld } from "./cash-old";
 import { CashDashboard } from "./cash-dashboard";
+import { AssetHub } from "./asset-hub";
+import { AssetStatus } from "./asset-status";
+import { AssetRecords } from "./asset-records";
 import { HtmlPageList, HtmlPageView } from "./html-pages";
 import { WorkspaceHome } from "./workspace-home";
 import { WineCellar } from "./wine-cellar";
@@ -48,7 +51,7 @@ const nav = [
   { href: "/", label: "홈", icon: Home },
   { href: "/coffee", label: "커피 원두", icon: Coffee },
   { href: "/wine", label: "와인 셀러", icon: WineIcon },
-  { href: "/cash", label: "가계부", icon: Wallet },
+  { href: "/assets", label: "자산관리", icon: Wallet },
   { href: "/etc/html", label: "기타", icon: FileCode2 },
   { href: "/settings", label: "설정", icon: Settings },
 ];
@@ -128,8 +131,8 @@ export function AppShell({
     [coffeeSort, setCoffeeSort] = useState(initialQuery.sort ?? "name");
   const active = path.startsWith("/coffee")
     ? "/coffee"
-    : path.startsWith("/cash")
-      ? "/cash"
+    : path.startsWith("/cash") || path.startsWith("/assets")
+      ? "/assets"
       : path.startsWith("/etc")
         ? "/etc/html"
         : path.startsWith("/wine")
@@ -1549,6 +1552,15 @@ export function AppShell({
   else if (path === "/wine") content = renderWine();
   else if (path === "/wine/glasses") content = renderGlasses();
   else if (selectedWine) content = renderWineDetail(selectedWine);
+  else if (path === "/assets") content = <AssetHub href={href} />;
+  else if (path === "/assets/status")
+    content = (
+      <AssetStatus initialQuery={initialQuery} demo={demo} href={href} />
+    );
+  else if (path === "/assets/records")
+    content = (
+      <AssetRecords initialQuery={initialQuery} demo={demo} href={href} />
+    );
   else if (path === "/cash/old") content = <CashOld demo={demo} />;
   else if (path === "/cash")
     content = <CashDashboard initialQuery={initialQuery} demo={demo} />;

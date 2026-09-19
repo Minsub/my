@@ -26,6 +26,7 @@ test("protects data and MCP while demo stays read-only", async ({
 }) => {
   expect((await request.get("/api/data")).status()).toBe(401);
   expect((await request.get("/api/cash")).status()).toBe(401);
+  expect((await request.get("/api/assets")).status()).toBe(401);
   expect((await request.get("/api/cash/files")).status()).toBe(401);
   const mcp = await request.get("/api/mcp");
   expect(mcp.status()).toBe(401);
@@ -139,6 +140,9 @@ test("keyboard closes forms and all main pages fit the viewport", async ({
     "/",
     "/coffee",
     "/coffee/brands",
+    "/assets",
+    "/assets/status",
+    "/assets/records",
     "/cash",
     "/wine?stock=all",
     "/wine/glasses",
@@ -728,4 +732,77 @@ test("cash dense history keeps mobile comparisons readable and all detail pages 
   await page.screenshot({
     path: `test-results/visual/${info.project.name}-cash-history-comparison.png`,
   });
+});
+
+test("records an asset snapshot and shows it on the status page", async ({
+  page,
+}) => {
+  // 데스크톱·모바일이 같은 DB를 차례로 쓰므로 빈 상태부터 확인하도록 초기화한다.
+  await query("DELETE FROM asset_snapshots");
+  await query("DELETE FROM asset_owners");
+  await login(page);
+  await page.goto("/assets");
+  await page.getByRole("link", { name: /자산현황/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "자산현황", exact: false }),
+  ).toBeVisible();
+  // 소유자가 없으면 먼저 등록을 안내한다.
+  await expect(
+    page.getByRole("heading", { name: "자산 소유자를 먼저 등록해주세요" }),
+  ).toBeVisible();
+  await page
+    .locator(".empty-state")
+    .getByRole("button", { name: "소유자 추가" })
+    .click();
+  await page.getByLabel("이름", { exact: true }).fill("민섭");
+  await page.getByRole("button", { name: "저장" }).click();
+  await expect(
+    page.getByRole("heading", { name: "이 구성원의 자산 기록이 없습니다" }),
+  ).toBeVisible();
+  await page
+    .locator(".empty-state")
+    .getByRole("button", { name: "자산 기록", exact: true })
+    .click();
+  await page.getByLabel("주식 (주식(원화))").fill("47320000");
+  await page.getByLabel("금 (금)").fill("12500400");
+  await page.getByRole("button", { name: "저장" }).click();
+  const summary = page.getByRole("region", { name: "자산 요약" });
+  await expect(summary).toContainText("59,820,400원");
+  await expect(page.getByText("원화 / 달러 비율")).toBeVisible();
+  // 분류 기준을 바꿔도 합계가 유지되고 URL에 남는다.
+  await page.getByRole("button", { name: "상위 그룹", exact: true }).click();
+  await expect(page).toHaveURL(/axis=parent/);
+  await expect(summary).toContainText("59,820,400원");
+  await expect(
+    page.getByRole("rowheader", { name: "주식(원화)" }),
+  ).toBeVisible();
+  // 표의 한 칸을 누르면 그 묶음의 원본 종목이 옆에서 열린다.
+  await page.locator(".asset-cell").first().click();
+  const drawer = page.getByRole("dialog", { name: /상세/ });
+  // 수동 입력은 그룹 이름을 항목 이름으로 저장한다.
+  await expect(drawer).toContainText("주식");
+  await expect(drawer).toContainText("47,320,000원");
+  await page.keyboard.press("Escape");
+  // 기록 이력은 별도 페이지에서 원본 항목까지 본다.
+  await page.getByRole("link", { name: /기록 이력/ }).click();
+  await expect(page).toHaveURL(/\/assets\/records/);
+  await expect(
+    page.getByRole("rowheader", { name: "주식", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("rowheader", { name: "금", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("직접 기록")).toBeVisible();
+  // 모든 원본 항목을 CSV로 받을 수 있다.
+  const csv = await page.request.get("/api/assets?view=export");
+  expect(csv.ok()).toBe(true);
+  expect(csv.headers()["content-type"]).toContain("text/csv");
+  const body = await csv.text();
+  expect(body.split("\n")[0]).toContain("상위그룹");
+  expect(body).toContain("주식(원화)");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
 });

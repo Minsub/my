@@ -1,5 +1,11 @@
 export type Role = "owner" | "member";
-export type Scope = "coffee:read" | "coffee:write" | "wine:read" | "wine:write";
+export type Scope =
+  | "coffee:read"
+  | "coffee:write"
+  | "wine:read"
+  | "wine:write"
+  | "asset:read"
+  | "asset:write";
 export type Actor = {
   userId: string;
   householdId: string;
@@ -147,6 +153,8 @@ export const allScopes: Scope[] = [
   "coffee:write",
   "wine:read",
   "wine:write",
+  "asset:read",
+  "asset:write",
 ];
 export const roastOptions = ["약배전", "중배전", "강배전"];
 export const wineTypes = [
