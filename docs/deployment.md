@@ -61,7 +61,9 @@ node --env-file=.env.vercel.local node_modules/tsx/dist/cli.mjs scripts/seed.ts
 node --env-file=.env.vercel.local node_modules/tsx/dist/cli.mjs scripts/export.ts
 ```
 
-개발 환경은 `npm run db:migrate`, `npm run dev`로 실행한다. migration은 Better Auth 스키마와 SQL 파일을 적용하고 checksum을 기록한다. 적용 파일은 수정하지 않는다. 현재 001~004가 적용돼 있으며 새 작업은 그다음 번호부터 추가한다.
+개발 환경은 `npm run db:migrate`, `npm run dev`로 실행한다. migration은 Better Auth 스키마와 SQL 파일을 적용하고 checksum을 기록한다. 적용 파일은 수정하지 않는다. 새 작업은 `db/migrations`의 마지막 번호 다음부터 추가한다.
+
+배포는 DB를 바꾸지 않는다. 새 migration이 있는 변경을 배포하면 운영에 위 `scripts/migrate.ts`를 직접 실행해야 한다. 실행 전에는 새 표를 쓰는 화면이 500(`INTERNAL_ERROR`)으로 응답하며, Vercel 로그에는 PostgreSQL code `42P01`(undefined_table)이 남는다. 적용 목록은 운영 DB의 `app_migrations` 표에서 확인한다.
 
 ## 배포 절차
 

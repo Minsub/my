@@ -110,6 +110,12 @@ export function AssetRecords({
       window.setTimeout(() => setToast(""), 5000);
     }
   }
+  // CSV 내보내기는 오류·로딩 화면에서도 누를 수 있다. 토스트를 모든 반환 경로에 붙인다.
+  const overlays = toast ? (
+    <div className="toast" role="status">
+      {toast}
+    </div>
+  ) : null;
   const heading = (
     <div className="page-heading">
       <div>
@@ -142,6 +148,7 @@ export function AssetRecords({
             <RefreshCw size={15} /> 다시 시도
           </button>
         </div>
+        {overlays}
       </div>
     );
   if (!data)
@@ -149,6 +156,7 @@ export function AssetRecords({
       <div className="asset-page">
         {heading}
         <p className="muted">불러오는 중입니다…</p>
+        {overlays}
       </div>
     );
   if (!data.snapshots.length)
@@ -162,6 +170,7 @@ export function AssetRecords({
           <h3>아직 등록된 기록이 없습니다</h3>
           <p>자산현황에서 기록을 추가하면 여기에 이력이 쌓입니다.</p>
         </div>
+        {overlays}
       </div>
     );
   const detail = data.selected;
@@ -281,11 +290,7 @@ export function AssetRecords({
           )}
         </section>
       </div>
-      {toast && (
-        <div className="toast" role="status">
-          {toast}
-        </div>
-      )}
+      {overlays}
     </div>
   );
 }

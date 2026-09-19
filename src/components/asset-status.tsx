@@ -191,6 +191,30 @@ export function AssetStatus({
       },
     });
   const activeOwners = data?.owners.filter((o) => o.active) ?? [];
+  // 머리말 버튼은 오류·로딩 화면에도 그대로 나온다. 그 화면에서 눌러도 창이 떠야 하므로
+  // 모달과 토스트는 모든 반환 경로에 함께 붙인다.
+  const overlays = (
+    <>
+      {detail && (
+        <AssetDetail
+          target={detail}
+          owner={owner}
+          period={period}
+          demo={demo}
+          demoItems={demoAssetItems}
+          onClose={() => setDetail(null)}
+        />
+      )}
+      {form && (
+        <RecordForm spec={form} onClose={() => setForm(null)} onSave={save} />
+      )}
+      {toast && (
+        <div className="toast" role="status">
+          {toast}
+        </div>
+      )}
+    </>
+  );
   const heading = (
     <div className="page-heading">
       <div>
@@ -256,6 +280,7 @@ export function AssetStatus({
             <RefreshCw size={15} /> 다시 시도
           </button>
         </div>
+        {overlays}
       </div>
     );
   if (loading || !data)
@@ -263,6 +288,7 @@ export function AssetStatus({
       <div className="asset-page">
         {heading}
         <p className="muted">불러오는 중입니다…</p>
+        {overlays}
       </div>
     );
   const summary = data.summaries[axis];
@@ -489,24 +515,7 @@ export function AssetStatus({
           )}
         </>
       )}
-      {detail && (
-        <AssetDetail
-          target={detail}
-          owner={owner}
-          period={period}
-          demo={demo}
-          demoItems={demoAssetItems}
-          onClose={() => setDetail(null)}
-        />
-      )}
-      {form && (
-        <RecordForm spec={form} onClose={() => setForm(null)} onSave={save} />
-      )}
-      {toast && (
-        <div className="toast" role="status">
-          {toast}
-        </div>
-      )}
+      {overlays}
     </div>
   );
 }

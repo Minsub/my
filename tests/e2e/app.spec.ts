@@ -734,6 +734,34 @@ test("cash dense history keeps mobile comparisons readable and all detail pages 
   });
 });
 
+// 조회가 실패해도 머리말 버튼은 그대로 보인다. 그 상태에서 눌러도 창이 떠야 한다.
+test("keeps the owner form usable when the asset query fails", async ({
+  page,
+}) => {
+  await login(page);
+  await page.route("**/api/assets?*", (route) =>
+    route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "처리 중 오류가 발생했습니다.",
+        },
+      }),
+    }),
+  );
+  await page.goto("/assets/status");
+  await expect(page.locator(".asset-error")).toBeVisible();
+  await page
+    .locator(".page-heading")
+    .getByRole("button", { name: "소유자 추가" })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "자산 소유자 추가" }),
+  ).toBeVisible();
+  await page.unroute("**/api/assets?*");
+});
 test("records an asset snapshot and shows it on the status page", async ({
   page,
 }) => {
