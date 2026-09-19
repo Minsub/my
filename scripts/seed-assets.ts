@@ -1,8 +1,9 @@
-// docs/assert-management/sample_raw_data2.csv를 자산 그룹으로 묶어 스냅샷 1건으로 저장한다.
+// 증권사에서 뽑은 CSV를 자산 그룹으로 묶어 스냅샷 1건으로 저장한다.
 // 일회성 초기 적재용이며 MCP를 거치지 않고 앱의 execute()를 그대로 쓴다.
-// 사용: tsx scripts/seed-assets.ts --owner <이름> --as-of YYYY-MM-DD [--apply]
+// 입력 CSV는 실제 보유·금액이라 이 공개 저장소에 두지 않는다. --csv로 직접 지정한다.
+// 사용: tsx scripts/seed-assets.ts --owner <이름> --as-of YYYY-MM-DD --csv <경로> [--apply]
 import { config } from "dotenv";
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 config({ path: process.env.ASSET_SEED_ENV ?? ".env.local", quiet: true });
 
@@ -71,10 +72,14 @@ async function main() {
   if (!ownerName || !asOf?.match(/^\d{4}-\d{2}-\d{2}$/))
     throw Error("사용법: --owner <이름> --as-of YYYY-MM-DD [--apply]");
 
-  const rows = readFileSync(
-    "docs/assert-management/sample_raw_data2.csv",
-    "utf8",
-  )
+  // 원본 CSV는 실제 보유·금액이라 공개 저장소에 두지 않는다. 쓰는 사람이 직접 준비한다.
+  const source = arg("csv") ?? "docs/assert-management/sample_raw_data2.csv";
+  if (!existsSync(source))
+    throw Error(
+      `${source}를 찾을 수 없습니다. 이 CSV는 실제 보유 내역이라 저장소에 포함하지 않습니다. ` +
+        "'투자 이름,증권사,금액,수량,수익금,수익률' 헤더의 파일을 만든 뒤 --csv <경로>로 지정하세요.",
+    );
+  const rows = readFileSync(source, "utf8")
     .replace(/^\uFEFF/, "")
     .trim()
     .split(/\r?\n/)

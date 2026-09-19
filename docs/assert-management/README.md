@@ -1,6 +1,6 @@
 # 자산관리
 
-`/assets` 아래의 화면과 자산 스냅샷 데이터의 의미를 설명한다. 원본 요구사항은 [DESIGN.md](DESIGN.md)이고, 분류 검증에 쓰는 샘플은 `sample_raw_data2.csv`다.
+`/assets` 아래의 화면과 자산 스냅샷 데이터의 의미를 설명한다. 원본 요구사항은 [DESIGN.md](DESIGN.md)다. 분류 검증에 쓰는 종목명 52줄은 `tests/assets.test.ts` 안에 있다. **실제 보유·금액이 담긴 CSV는 이 공개 저장소에 두지 않는다.**
 
 ## 화면
 
@@ -8,7 +8,7 @@
 |---|---|---|
 | `/assets` | 자산관리 하위 화면 목록. 항목은 `src/lib/assets.ts`의 `assetSubMenus` 한 곳에서 관리한다 | `asset-hub.tsx` |
 | `/assets/status` | 구성원·기간 범위 필터, KPI 3종(총자산 카드에 구성원별 내역 포함), 자산 추이(누적 막대)·구성(파이), 위험·안전 구성, 주식 보유 현황, 기간별 금액·증감 표 | `asset-status.tsx`, `asset-chart.tsx`, `asset-detail.tsx` |
-| `/assets/records` | 등록 이력, 원본 항목 목록, 전체 CSV 내보내기 | `asset-records.tsx` |
+| `/assets/records` | 등록 이력, 원본 항목 목록, 항목 한 줄의 자산그룹·금액 수정, 전체 CSV 내보내기 | `asset-records.tsx` |
 
 `/assets/records`는 허브 목록에 두지 않고 `/assets/status`의 버튼으로만 들어간다.
 
@@ -40,6 +40,9 @@
 - 소유자는 **공간 안의 라벨**(`asset_owners`)이며 로그인 계정과 1:1이 아니다. 계정이 없는 구성원의 자산도 기록할 수 있고, `user_id` 연결은 선택이다. 접근 경계는 전적으로 `household_id`가 담당한다.
 - 소유자마다 등록일이 다를 수 있다. **종합 보기는 각 시점마다 소유자별로 그 날짜 이하 최신 스냅샷을 이어 쓴다.** 이어 쓴 소유자는 응답의 `carried`에 들어가고 화면에도 표시한다. 날짜별 단순 합산을 하면 한 사람만 등록한 날 총자산이 급락한다.
 - 수정·삭제는 등록한 사람 또는 관리자만 할 수 있다(`cash_files`와 같은 규칙).
+- **기록 이력에서는 항목 한 줄의 자산그룹과 금액만 고칠 수 있다**(`asset_update_item`). 분류를 잘못 넣었거나 금액에 오타가 난 한 줄 때문에 그 날짜 전체를 다시 보내게 하면 나머지 항목이 사라질 위험만 커진다. 이름·증권사·수량·수익은 원본이므로 화면에서 바꾸지 않고, 그 날짜의 구성 자체가 달라졌으면 `asset_record_snapshot`으로 다시 기록한다.
+- 한 줄 수정은 **스냅샷 version을 확인하고 올린다.** 같은 날짜를 다른 곳에서 다시 저장했으면 거부한다. 항목에 따로 version을 두지 않는 이유는 스냅샷이 그 날짜의 완결된 단위이고, 한 줄이 바뀌면 그 날짜의 내용이 바뀐 것이기 때문이다.
+- 금액은 1원 이상만 받는다. 0원 항목은 저장하지 않는 규칙이라 수정으로도 0을 만들 수 없다. 줄을 없애려면 그 날짜를 다시 기록한다.
 
 ## 자산 그룹
 
@@ -117,6 +120,7 @@
 웹에서는 `GET /api/assets?view=export`가 저장한 원본 항목 전체를 CSV로 준다. 화면 필터와 이월을 적용하지 않은 저장 그대로의 값이다.
 | `asset_save_owner` | asset:write | 소유자 등록·수정 |
 | `asset_record_snapshot` | asset:write | 그 날짜 자산 전체 저장(교체) |
+| `asset_update_item` | asset:write | 저장된 항목 한 줄의 자산그룹·금액 수정 |
 | `asset_delete_snapshot` | asset:write | 잘못 등록한 날짜 삭제 |
 
 권장 순서: `asset_get_classification_rules` → (필요하면 `asset_classify_rows`) → `asset_list_owners` → `asset_record_snapshot`.
@@ -134,7 +138,7 @@
 
 ## 초기 적재
 
-`scripts/seed-assets.ts`는 `sample_raw_data2.csv`를 그룹으로 묶어 스냅샷 1건으로 저장하고, 그룹화 결과를 같은 폴더에 CSV로 남긴다. MCP를 거치지 않고 앱의 `execute()`를 그대로 쓰므로 검증·멱등성·activity_log가 동일하게 적용된다.
+`scripts/seed-assets.ts`는 증권사에서 뽑은 CSV를 그룹으로 묶어 스냅샷 1건으로 저장하고, 그룹화 결과를 같은 폴더에 CSV로 남긴다. 입력 CSV는 저장소에 없으므로 `--csv <경로>`로 직접 지정한다(헤더: `투자 이름,증권사,금액,수량,수익금,수익률`). MCP를 거치지 않고 앱의 `execute()`를 그대로 쓰므로 검증·멱등성·activity_log가 동일하게 적용된다.
 
 ```sh
 tsx scripts/seed-assets.ts --owner 민섭 --as-of 2026-09-18          # 미리보기 + CSV 생성
@@ -168,4 +172,4 @@ npm test                 # tests/assets.test.ts 포함
 npx playwright test --grep "records an asset snapshot"
 ```
 
-`tests/assets.test.ts`는 `sample_raw_data2.csv` 52행의 분류 결과와 우선순위 충돌 5건, 집계·이어쓰기·증감 계산을 고정한다. `tests/integration/domain.test.ts`의 `asset snapshots`는 scope 격리, 같은 날 교체, 다른 공간 격리, 32비트를 넘는 금액, 권한 규칙을 확인한다.
+`tests/assets.test.ts`는 파일 안에 적어둔 종목명 52줄의 분류 결과와 우선순위 충돌 5건, 집계·이어쓰기·증감 계산을 고정한다. 종목명만 담고 금액은 담지 않는다. 저장소가 공개돼 있고 룰 검증에 필요한 것은 이름뿐이다. `tests/integration/domain.test.ts`의 `asset snapshots`는 scope 격리, 같은 날 교체, 다른 공간 격리, 32비트를 넘는 금액, 권한 규칙을 확인한다.

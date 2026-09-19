@@ -268,6 +268,82 @@ export async function recordAssetSnapshot(
     ),
   };
 }
+// 저장된 기록의 한 줄만 고친다. 분류가 틀렸거나 금액에 오타가 난 경우가 실제로 잦은데,
+// 그것 때문에 그 날짜 전체를 다시 보내게 하면 나머지 항목이 사라질 위험만 커진다.
+// 스냅샷 행을 먼저 잠그고 버전을 확인한 뒤 고친다. 같은 날짜를 다시 저장한 사람과 경쟁하면 거부한다.
+export async function updateAssetSnapshotItem(
+  client: PoolClient,
+  actor: Actor,
+  input: {
+    snapshot_id: string;
+    item_id: string;
+    expected_version: number;
+    group_key?: string;
+    amount?: number;
+  },
+) {
+  const [snapshot] = await query(
+    "SELECT * FROM asset_snapshots WHERE household_id=$1 AND id=$2 FOR UPDATE",
+    [actor.householdId, input.snapshot_id],
+    client,
+  );
+  if (!snapshot)
+    throw new AppError("NOT_FOUND", "기록을 찾을 수 없습니다.", 404);
+  assertCanEdit(actor, snapshot);
+  if (snapshot.version !== input.expected_version)
+    throw new AppError(
+      "VERSION_CONFLICT",
+      "이 기록이 변경되었습니다. 다시 조회한 뒤 수정해주세요.",
+      409,
+    );
+  const [item] = await query(
+    `SELECT ${ITEM_COLUMNS} FROM asset_snapshot_items i
+     WHERE i.household_id=$1 AND i.snapshot_id=$2 AND i.id=$3 FOR UPDATE`,
+    [actor.householdId, input.snapshot_id, input.item_id],
+    client,
+  );
+  if (!item) throw new AppError("NOT_FOUND", "항목을 찾을 수 없습니다.", 404);
+  const before = {
+    group_key: item.group_key as string,
+    amount: item.amount as number,
+  };
+  const after = {
+    group_key: input.group_key ?? before.group_key,
+    amount: input.amount ?? before.amount,
+  };
+  await query(
+    "UPDATE asset_snapshot_items SET group_key=$4,amount=$5 WHERE household_id=$1 AND snapshot_id=$2 AND id=$3",
+    [
+      actor.householdId,
+      input.snapshot_id,
+      input.item_id,
+      after.group_key,
+      after.amount,
+    ],
+    client,
+  );
+  // 항목이 바뀌면 그 날짜의 내용이 바뀐 것이다. 스냅샷 버전을 올려 다음 수정이 최신 값을 보게 한다.
+  const [updated] = await query(
+    "UPDATE asset_snapshots SET updated_by=$3,updated_at=now(),version=version+1 WHERE household_id=$1 AND id=$2 RETURNING *",
+    [actor.householdId, input.snapshot_id, actor.userId],
+    client,
+  );
+  return {
+    snapshot_id: input.snapshot_id,
+    item_id: input.item_id,
+    as_of: snapshot.as_of as string,
+    name: item.name as string,
+    version: updated.version as number,
+    before: {
+      ...before,
+      group_name: assetGroupName(before.group_key),
+    },
+    after: {
+      ...after,
+      group_name: assetGroupName(after.group_key),
+    },
+  };
+}
 export async function deleteAssetSnapshot(
   client: PoolClient,
   actor: Actor,

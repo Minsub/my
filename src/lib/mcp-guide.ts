@@ -144,6 +144,15 @@ export const commandGuide = {
     example:
       "증권사 화면의 자산 목록을 종목 그대로 오늘 날짜로 내 자산현황에 기록해줘.",
   },
+  asset_update_item: {
+    title: "자산 기록 항목 수정",
+    description:
+      "이미 저장된 기록에서 항목 한 줄의 자산그룹이나 금액만 고칩니다. 나머지 항목은 그대로 둡니다. 그 날짜 전체를 바꾸려면 자산 현황 기록을 다시 저장합니다.",
+    input:
+      "snapshot_id, item_id, expected_version(그 스냅샷의 version). 바꿀 값으로 group_key 또는 amount 중 하나 이상. 금액은 1원 이상 정수입니다.",
+    result: "수정한 항목의 이름과 그룹·금액의 전후 값, 올라간 스냅샷 버전.",
+    example: "어제 기록에서 삼성전자 금액을 4,732만원으로 고쳐줘.",
+  },
   asset_delete_snapshot: {
     title: "자산 기록 삭제",
     description: "잘못된 날짜로 저장한 자산 기록을 지웁니다.",

@@ -7,6 +7,7 @@ import {
   deleteAssetSnapshot,
   recordAssetSnapshot,
   saveAssetOwner,
+  updateAssetSnapshotItem,
 } from "./assets";
 import type { Actor, Snapshot } from "@/lib/types";
 const tables = {
@@ -503,6 +504,16 @@ export async function execute(
         const saved = await recordAssetSnapshot(client, actor, command.input);
         result = saved;
         label = `${saved.owner.name} ${saved.as_of} 자산`;
+        break;
+      }
+      case "asset_update_item": {
+        const changed = await updateAssetSnapshotItem(
+          client,
+          actor,
+          command.input,
+        );
+        result = changed;
+        label = `${changed.as_of} ${changed.name} 수정`;
         break;
       }
       case "asset_delete_snapshot": {

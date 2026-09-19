@@ -529,6 +529,39 @@
   max-width: 220px;
   white-space: normal;
 }
+/* 기록 이력의 한 줄 수정. 편집 중인 줄만 눈에 띄게 하고 표의 폭은 그대로 둔다. */
+.asset-raw-table tr.editing {
+  background: var(--green-pale);
+}
+.asset-raw-table td {
+  vertical-align: middle;
+}
+.asset-edit-select,
+.asset-edit-amount {
+  border: 1px solid #ccd9c6;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink);
+  padding: 5px 7px;
+  font: inherit;
+  font-size: 12px;
+  min-height: 32px;
+  max-width: 100%;
+}
+.asset-edit-amount {
+  width: 118px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.asset-edit-select:disabled,
+.asset-edit-amount:disabled {
+  opacity: 0.55;
+}
+.asset-edit-select:focus-visible,
+.asset-edit-amount:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 1px;
+}
 @media (max-width: 900px) {
   .asset-records-grid {
     grid-template-columns: minmax(0, 1fr);

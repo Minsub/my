@@ -40,6 +40,8 @@ const descriptions: Partial<Record<Operation, string>> = {
     "자산 소유자를 등록하거나 수정합니다. 스냅샷을 기록하기 전에 소유자가 있어야 합니다.",
   asset_record_snapshot:
     "한 사람의 그 날짜 자산 현황 전체를 저장합니다. 원본 자산 목록의 한 줄이 items 한 개입니다. 그룹별로 합산하지 말고 종목명을 그대로 name에 넣으세요. 같은 사람·같은 날짜로 저장하면 기존 값을 통째로 교체하므로 항상 전체 포트폴리오를 한 번에 보냅니다. 금액은 원화 환산 정수이며 group_key는 asset_get_classification_rules의 값을 사용합니다.",
+  asset_update_item:
+    "이미 저장된 기록에서 항목 한 줄의 자산그룹이나 금액만 고칩니다. 나머지 항목은 그대로 둡니다. 분류를 잘못 넣었거나 금액에 오타가 난 한 줄을 바로잡을 때 쓰고, 그 날짜 전체를 다시 보내야 하면 asset_record_snapshot을 씁니다. snapshot_id·item_id는 asset_list_records에서 얻고 expected_version은 그 스냅샷의 version입니다.",
   asset_delete_snapshot: "잘못 등록한 날짜의 자산 기록을 삭제합니다.",
 };
 export function mcpHandler(actor: Actor) {

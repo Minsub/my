@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import {
   assetGroups,
@@ -18,19 +17,63 @@ import {
 } from "../src/lib/assets";
 import { demoAssetPlan } from "../src/lib/demo-assets";
 
-// 실제 증권사 화면에서 뽑은 샘플이다. 룰을 고치면 이 표가 먼저 깨져야 한다.
-const sample = readFileSync(
-  "docs/assert-management/sample_raw_data2.csv",
-  "utf8",
-)
-  .replace(/^﻿/, "")
-  .trim()
-  .split(/\r?\n/)
-  .slice(1)
-  .map((line) => {
-    const [name, broker, amount] = line.split(",");
-    return { name: name.trim(), broker: broker.trim(), amount: Number(amount) };
-  });
+// 실제 증권사 화면에서 뽑은 종목명 52줄이다. 룰을 고치면 이 표가 먼저 깨져야 한다.
+// 같은 이름이 여러 번 나오는 것은 원본 그대로다. 계좌가 나뉘면 한 종목이 여러 줄로 들어온다.
+// 금액은 담지 않는다. 이 저장소는 공개돼 있고, 룰 검증에 필요한 것은 이름뿐이다.
+const sample = [
+  "삼성전자",
+  "ACE 미국배당다우존스",
+  "RISE 미국나스닥100",
+  "RISE 미국S&P500",
+  "SOL 금융지주플러스고배당",
+  "KODEX 은행",
+  "한국금융지주우",
+  "TIGER 미국S&P500",
+  "KODEX 증권",
+  "한국금융지주",
+  "카카오",
+  "KODEX 200",
+  "SK텔레콤",
+  "TIGER 반도체",
+  "신한지주",
+  "SK스퀘어",
+  "NAVER",
+  "KODEX 27-12 회사채(AA-이상)액티브",
+  "RISE 200",
+  "현대차2우B",
+  "코카콜라",
+  "INVESCO NASDAQ 100",
+  "SCHWAB US DIVIDEND EQUITY",
+  "알파벳 A",
+  "넥스트에라 에너지",
+  "VANGUARD S&P 500",
+  "STATE STREET SPDR PORTFOLIO S&P 500",
+  "제이피모간 체이스",
+  "월트 디즈니",
+  "iShares Global Clean Energy ETF",
+  "퍼스트 발행어음 적립(정액)",
+  "미국 국채",
+  "금 99.99_1kg",
+  "ISA특판RP(e)-24시간",
+  "퍼스트 발행어음 특판(e)",
+  "한국투자캐피탈131-2",
+  "미국 국채",
+  "외화RP(USD)(개인 기간형)",
+  "퍼스트 외화 발행어음 약정(USD)",
+  "퍼스트 외화 발행어음 약정(USD)",
+  "퍼스트 외화 발행어음 약정(USD)",
+  "CMA RP",
+  "T 0.5 08/31/27",
+  "퍼스트 외화 발행어음 약정(USD)",
+  "T 0.375 09/30/27",
+  "미국 국채",
+  "외화RP(USD)자동매매(개인)",
+  "RISE TDF2050액티브 적격",
+  "T 0.375 07/31/27",
+  "한국투자 IMA S1",
+  "주택금융공사MBS2019-18(1-5)(사)",
+  "한국캐피탈550-2",
+];
 
 // 규칙이 확정하는 금융상품과 국내 ETF. 개별 종목명은 상장 거래소를 알아야 하므로 규칙이 답하지 않는다.
 const expected: Record<string, string> = {
@@ -84,9 +127,10 @@ const expected: Record<string, string> = {
 };
 
 describe("자산 그룹 카탈로그와 룰", () => {
-  it("샘플 52행을 읽는다", () => {
+  it("샘플 52행이 모두 기대 그룹을 가지고 있다", () => {
     expect(sample).toHaveLength(52);
-    expect(sample.reduce((n, r) => n + r.amount, 0)).toBe(470914060);
+    // 기대 표에서 빠진 이름이 있으면 아래 분류 검사가 조용히 undefined와 비교된다.
+    for (const name of sample) expect(expected[name], name).toBeTruthy();
   });
   it("모든 룰의 그룹이 카탈로그에 있고 우선순위가 겹치지 않는다", () => {
     const priorities = assetRules.map((r) => r.priority);
@@ -116,18 +160,13 @@ describe("자산 그룹 카탈로그와 룰", () => {
       expect(group.risk === null, group.key).toBe(group.key === "unclassified");
   });
   it("샘플 전 행을 기대한 그룹으로 분류한다", () => {
-    for (const row of sample)
-      expect(classifyAsset(row.name).group_key, row.name).toBe(
-        expected[row.name],
-      );
+    for (const name of sample)
+      expect(classifyAsset(name).group_key, name).toBe(expected[name]);
   });
-  it("규칙이 확정한 행은 금액의 69.5%를 덮고 나머지는 미분류로 남긴다", () => {
-    const unresolved = sample
-      .filter((r) => classifyAsset(r.name).needs_review)
-      .reduce((n, r) => n + r.amount, 0);
-    expect(unresolved).toBe(143707681);
+  it("규칙이 답하지 않는 개별 종목 14행만 미분류로 남긴다", () => {
+    // 규칙은 금융상품과 국내 ETF만 확정한다. 개별 종목이 조용히 어딘가로 분류되면 여기서 걸린다.
     expect(
-      sample.filter((r) => classifyAsset(r.name).needs_review),
+      sample.filter((name) => classifyAsset(name).needs_review),
     ).toHaveLength(14);
   });
   it("여러 규칙이 동시에 맞는 값을 우선순위로 가른다", () => {

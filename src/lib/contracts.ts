@@ -203,6 +203,25 @@ export const commandSchemas = {
       (d) => Boolean(d.owner_id) !== Boolean(d.owner_name),
       "소유자를 owner_id 또는 owner_name 중 하나로 지정해주세요.",
     ),
+  // 기록 한 줄만 고친다. 스냅샷을 통째로 다시 보내는 asset_record_snapshot과 달리
+  // 나머지 항목은 건드리지 않으므로, 분류를 잘못 넣었거나 금액에 오타가 난 한 줄을 바로잡는 데 쓴다.
+  asset_update_item: z
+    .object({
+      ...key,
+      snapshot_id: id,
+      item_id: id,
+      // 스냅샷 단위 버전이다. 다른 곳에서 그 날짜를 다시 저장했으면 거부한다.
+      expected_version: version,
+      group_key: assetGroupKey.optional(),
+      // 0원 항목은 저장하지 않는 규칙이라 여기서도 0으로 내릴 수 없다.
+      // 그 줄을 없애려면 그 날짜를 다시 기록한다.
+      amount: krwAmount.min(1).optional(),
+    })
+    .strict()
+    .refine(
+      (d) => d.group_key !== undefined || d.amount !== undefined,
+      "바꿀 값을 하나 이상 보내주세요.",
+    ),
   asset_delete_snapshot: z.object({ ...key, id }).strict(),
   family_invite: z
     .object({
@@ -237,6 +256,7 @@ export const commandScopes: Record<Operation, Scope | null> = {
   wine_save_glass: "wine:write",
   asset_save_owner: "asset:write",
   asset_record_snapshot: "asset:write",
+  asset_update_item: "asset:write",
   asset_delete_snapshot: "asset:write",
   archive_item: null,
   family_invite: null,

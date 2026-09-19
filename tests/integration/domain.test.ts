@@ -15,7 +15,7 @@ import { getPool, query } from "../../src/server/db";
 import { getAuth } from "../../src/server/auth";
 import { actorForUser, mcpActor } from "../../src/server/security";
 import { execute, snapshot } from "../../src/server/service";
-import { readAssetOverview } from "../../src/server/assets";
+import { readAssetHistory, readAssetOverview } from "../../src/server/assets";
 import { POST } from "../../src/app/api/commands/route";
 import {
   PROTOCOL_VERSION_META_KEY,
@@ -799,6 +799,70 @@ describe("asset snapshots", () => {
       amount: 1000,
     });
     expect(point.carried).toContain(a.id);
+  });
+  // 한 줄 수정은 금액·분류를 바꾸면서 스냅샷 버전을 올린다. 버전과 공간 경계가 무너지면
+  // 다른 사람이 덮어쓴 값 위에 조용히 덧칠된다. 화면에서 눈으로 못 잡는 자리라 여기서 고정한다.
+  it("edits one saved item and guards version and household", async () => {
+    const person = await ownerOf(owner, "한줄수정");
+    const saved = (await execute(owner, "asset_record_snapshot", {
+      idempotency_key: key(),
+      owner_id: person.id,
+      as_of: "2026-04-30",
+      items: [
+        { group_key: "unclassified", name: "알파벳 A", amount: 15654624 },
+        { group_key: "cash", name: "CMA RP", amount: 4427765 },
+      ],
+    })) as { id: string; version: number };
+    const before = await readAssetHistory(owner, { snapshot: saved.id });
+    const target = before.selected!.items.find((i) => i.name === "알파벳 A")!;
+    const changed = (await execute(owner, "asset_update_item", {
+      idempotency_key: key(),
+      snapshot_id: saved.id,
+      item_id: target.id,
+      expected_version: saved.version,
+      group_key: "foreign_equity",
+      amount: 15000000,
+    })) as Record<string, unknown>;
+    expect(changed.version).toBe(saved.version + 1);
+    expect(changed.before).toMatchObject({
+      group_key: "unclassified",
+      amount: 15654624,
+    });
+    expect(changed.after).toMatchObject({
+      group_key: "foreign_equity",
+      amount: 15000000,
+    });
+    // 나머지 항목은 그대로 남고 합계만 바뀐다.
+    const after = await readAssetHistory(owner, { snapshot: saved.id });
+    expect(after.selected!.items).toHaveLength(2);
+    expect(after.selected!.items.find((i) => i.name === "CMA RP")!.amount).toBe(
+      4427765,
+    );
+    expect(after.selected!.snapshot.total).toBe(19427765);
+    // 낡은 버전으로 다시 보내면 거부한다.
+    await expect(
+      execute(owner, "asset_update_item", {
+        idempotency_key: key(),
+        snapshot_id: saved.id,
+        item_id: target.id,
+        expected_version: saved.version,
+        amount: 1,
+      }),
+    ).rejects.toThrow();
+    // 다른 공간에서는 같은 ID로도 찾지 못한다.
+    await expect(
+      execute(outsider, "asset_update_item", {
+        idempotency_key: key(),
+        snapshot_id: saved.id,
+        item_id: target.id,
+        expected_version: saved.version + 1,
+        amount: 1,
+      }),
+    ).rejects.toThrow();
+    expect(
+      (await readAssetHistory(owner, { snapshot: saved.id })).selected!.snapshot
+        .total,
+    ).toBe(19427765);
   });
   it("keeps other households out of the asset view", async () => {
     const mine = await ownerOf(owner, "격리 테스트");

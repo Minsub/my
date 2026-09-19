@@ -19,7 +19,7 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | `/wine/glasses` | 와인잔 등록·수정 | app-shell.tsx |
 | `/assets` | 자산관리 하위 화면 목록. 항목은 lib/assets.ts의 assetSubMenus에서 관리 | asset-hub.tsx |
 | `/assets/status` | 구성원·기간 범위 필터, 총자산(구성원별 내역 포함)·CAGR·통화비율, 자산 추이(누적 막대·기간별 합계 표시)와 구성(파이), 위험·안전 구성, 주식/해외 주식 TOP 5, 기간별 금액·증감 표, 묶음 클릭 시 오른쪽 상세 | asset-status.tsx, asset-chart.tsx, asset-detail.tsx |
-| `/assets/records` | 등록 이력, 원본 항목 목록, 전체 CSV 내보내기 | asset-records.tsx |
+| `/assets/records` | 등록 이력, 원본 항목 목록, 항목 한 줄의 자산그룹·금액 수정, 전체 CSV 내보내기 | asset-records.tsx |
 | `/cash` | 연·월별 흐름·항목별 평균/비중·거래 조회·파일 관리 | cash-dashboard.tsx, cash-analysis.tsx, cash-files.tsx |
 | `/cash/old` | 원본 단일 HTML 분석 + 엑셀 API 자동 연결 | cash-old.tsx, single-html-page.tsx |
 | `/etc/html` | 등록된 단일 HTML 도구의 제목·설명·원본 파일 목록 | html-pages.tsx, lib/html-pages.ts |
