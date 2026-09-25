@@ -69,7 +69,7 @@ node --env-file=.env.vercel.local node_modules/tsx/dist/cli.mjs scripts/export.t
 
 1. 변경 범위 확인, lint/typecheck 및 관련 테스트/빌드.
 2. 스키마 변경이면 개발에서 검증 후 운영 백업. 기존 코드도 동작하는 additive migration을 운영에 적용한다.
-3. 승인된 배포 범위에서 main push 또는 Vercel 배포. CI와 Vercel 배포는 별개라 CI 실패가 자동으로 배포를 막는다고 가정하지 않는다.
+3. 승인된 배포 범위에서 main push 또는 Vercel 배포. push는 사용자가 직접 실행한다. CI와 Vercel 배포는 별개라 CI 실패가 자동으로 배포를 막는다고 가정하지 않는다.
 4. Vercel에서 commit·Production·Ready 확인.
 5. 운영 로그인, 변경 페이지, 비로그인 API 차단, 영향받은 MCP 도구 확인. 네트워크 때문에 확인 못한 범위는 그대로 기록한다.
 
