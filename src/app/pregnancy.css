@@ -1,0 +1,997 @@
+/* 꼬미 / 임신 중 통증 기록. 모바일 우선, MONO 라이트 팔레트 위에 타입 색만 더한다. */
+.pg-page {
+  --pg-tight: #c0695f;
+  --pg-tight-pale: #f8e8e5;
+  --pg-pain: #7a5a93;
+  --pg-pain-pale: #efe7f4;
+  --pg-blood: #a3303c;
+  --pg-blood-pale: #f7e2e3;
+  --pg-warn: #9a6412;
+  --pg-warn-pale: #fbefd9;
+  --pg-danger: #b3261e;
+  --pg-danger-pale: #fae0dd;
+  --pg-faint: #9aa192;
+  max-width: 1080px;
+  font-variant-numeric: tabular-nums;
+}
+.pg-page button {
+  font: inherit;
+  color: inherit;
+}
+.pg-heading {
+  align-items: center;
+}
+.pg-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pg-week {
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: var(--pg-tight-pale);
+  color: var(--pg-tight) !important;
+  font-size: 12px !important;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pg-state {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+.pg-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  max-width: 420px;
+  margin-bottom: 16px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--line);
+}
+.pg-tabs button {
+  height: 38px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted) !important;
+  font-size: 13px;
+  font-weight: 600;
+}
+.pg-tabs button[aria-selected="true"] {
+  background: var(--white);
+  color: var(--ink) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.pg-now {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.pg-col,
+.pg-type {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.pg-type {
+  max-width: 640px;
+}
+.pg-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--white);
+}
+.pg-sec-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  font-weight: 650;
+}
+.pg-sec-title small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+.pg-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.pg-dot.tightening {
+  background: var(--pg-tight);
+}
+.pg-dot.pain {
+  background: var(--pg-pain);
+}
+.pg-dot.bleeding {
+  background: var(--pg-blood);
+}
+
+/* 상태 요약 */
+.pg-status-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.pg-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 650;
+}
+.pg-pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.pg-pill.calm {
+  color: var(--green);
+  background: var(--green-pale);
+}
+.pg-pill.watch {
+  color: var(--pg-warn);
+  background: var(--pg-warn-pale);
+}
+.pg-pill.call {
+  color: var(--pg-danger);
+  background: var(--pg-danger-pale);
+}
+.pg-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.pg-metric {
+  display: grid;
+  gap: 2px;
+}
+.pg-metric-k {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.pg-metric-v {
+  font-size: 28px;
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+}
+.pg-metric-v small {
+  margin-left: 2px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.pg-metric-s {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.pg-guide {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.pg-pending {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--pg-warn-pale);
+  color: var(--pg-warn);
+  font-size: 13px;
+}
+.pg-pending button {
+  border: 0;
+  background: none;
+  color: inherit !important;
+  font-weight: 650;
+  text-decoration: underline;
+}
+
+/* 시작·종료 타일 */
+.pg-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.pg-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 152px;
+  padding: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--white);
+  text-align: left;
+  transition: transform 0.12s ease;
+  touch-action: manipulation;
+}
+.pg-tile:active {
+  transform: scale(0.97);
+}
+.pg-tile-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+}
+.pg-tile.tightening .pg-tile-icon {
+  background: var(--pg-tight-pale);
+  color: var(--pg-tight);
+}
+.pg-tile.pain .pg-tile-icon {
+  background: var(--pg-pain-pale);
+  color: var(--pg-pain);
+}
+.pg-tile-name {
+  display: block;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+}
+.pg-tile-cta {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+.pg-tile-last {
+  display: block;
+  color: var(--pg-faint);
+  font-size: 11px;
+}
+.pg-tile.running {
+  border-color: transparent;
+  color: #fff !important;
+}
+.pg-tile.running.tightening {
+  background: var(--pg-tight);
+}
+.pg-tile.running.pain {
+  background: var(--pg-pain);
+}
+.pg-tile.running .pg-tile-icon {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+.pg-tile.running .pg-tile-cta {
+  color: rgba(255, 255, 255, 0.85);
+}
+.pg-elapsed {
+  font-size: 34px;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.pg-tile.running::after {
+  content: "";
+  position: absolute;
+  top: -30px;
+  right: -30px;
+  width: 110px;
+  height: 110px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  animation: pg-pulse 1.6s ease-out infinite;
+}
+@keyframes pg-pulse {
+  from {
+    transform: scale(0.6);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pg-tile.running::after {
+    animation: none;
+  }
+  .pg-tile {
+    transition: none;
+  }
+}
+.pg-quick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.pg-quick button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 52px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--white);
+  font-size: 14px;
+  font-weight: 600;
+}
+.pg-quick .pg-quick-blood {
+  color: var(--pg-blood) !important;
+}
+
+/* 차트 */
+.pg-strip,
+.pg-hist {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.pg-legend {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.pg-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* 최근 기록 */
+.pg-rows {
+  display: grid;
+}
+.pg-row {
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 8px 2px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  text-align: left;
+}
+.pg-row:first-child {
+  border-top: 0;
+}
+.pg-row-time {
+  font-size: 15px;
+  font-weight: 600;
+}
+.pg-row-what {
+  display: grid;
+  min-width: 0;
+}
+.pg-row-what > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.pg-row-what em {
+  overflow: hidden;
+  color: var(--pg-faint);
+  font-size: 11px;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pg-row-meta {
+  display: grid;
+  justify-items: end;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.pg-row-meta b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.pg-bolts {
+  display: inline-flex;
+  color: var(--pg-warn);
+}
+.pg-empty {
+  padding: 18px 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* 타입별 보기 */
+.pg-seg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.pg-seg button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--white);
+  color: var(--muted) !important;
+  font-size: 13px;
+  font-weight: 600;
+}
+.pg-seg button.tightening[aria-selected="true"] {
+  border-color: var(--pg-tight);
+  background: var(--pg-tight-pale);
+  color: var(--pg-tight) !important;
+}
+.pg-seg button.pain[aria-selected="true"] {
+  border-color: var(--pg-pain);
+  background: var(--pg-pain-pale);
+  color: var(--pg-pain) !important;
+}
+.pg-seg button.bleeding[aria-selected="true"] {
+  border-color: var(--pg-blood);
+  background: var(--pg-blood-pale);
+  color: var(--pg-blood) !important;
+}
+.pg-range {
+  display: flex;
+  gap: 6px;
+}
+.pg-range button {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted) !important;
+  font-size: 12px;
+}
+.pg-range button[aria-pressed="true"] {
+  background: var(--line);
+  color: var(--ink) !important;
+  font-weight: 600;
+}
+.pg-sum3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--white);
+  text-align: center;
+}
+.pg-sum3 div {
+  display: grid;
+  gap: 1px;
+  padding: 10px 4px;
+}
+.pg-sum3 div + div {
+  border-left: 1px solid var(--line);
+}
+.pg-sum3 small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.pg-sum3 b {
+  font-size: 18px;
+  font-weight: 650;
+}
+.pg-tl {
+  padding-top: 4px;
+}
+.pg-day {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+.pg-tl-row {
+  display: grid;
+  grid-template-columns: 1fr 34px 1fr;
+  align-items: center;
+  width: 100%;
+  min-height: 50px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+.pg-tl-l {
+  display: grid;
+  justify-items: end;
+  padding-right: 10px;
+}
+.pg-tl-l b {
+  font-size: 15px;
+  font-weight: 600;
+}
+.pg-tl-l small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.pg-tl-c {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 100%;
+}
+.pg-tl-c::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--line);
+}
+.pg-tl-c span {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.pg-tl-row.tightening .pg-tl-c span {
+  background: var(--pg-tight);
+}
+.pg-tl-row.pain .pg-tl-c span {
+  background: var(--pg-pain);
+}
+.pg-tl-r {
+  padding-left: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.pg-tl-r b {
+  display: block;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.pg-tl-r b.short {
+  color: var(--pg-warn);
+}
+.pg-gap {
+  margin: 4px 0;
+  padding: 4px 0;
+  border-block: 1px dashed var(--line);
+  color: var(--pg-faint);
+  font-size: 11px;
+  text-align: center;
+}
+
+/* 출혈 목록 */
+.pg-bl {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.pg-bl:first-child {
+  border-top: 0;
+}
+.pg-thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 12px;
+  background: var(--pg-blood-pale);
+  color: var(--pg-blood);
+}
+.pg-thumb.empty.none {
+  background: var(--green-pale);
+  color: var(--green);
+}
+.pg-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(9px);
+  transform: scale(1.2);
+}
+.pg-thumb.open img {
+  filter: none;
+  transform: none;
+}
+.pg-thumb > span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+.pg-thumb em {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  padding: 0 5px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 10.5px;
+  font-style: normal;
+}
+.pg-bl-info {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+.pg-bl-info b {
+  font-size: 15px;
+}
+.pg-bl-memo {
+  color: var(--muted);
+  font-size: 12px;
+}
+.pg-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.pg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 11.5px;
+}
+.pg-chip.none {
+  border-color: transparent;
+  background: var(--green-pale);
+  color: var(--green);
+}
+.pg-chip i,
+.pg-swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+.pg-disclaimer {
+  max-width: 640px;
+  margin-top: 20px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+/* 하단 시트 */
+.pg-shade {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(30, 40, 35, 0.36);
+}
+.pg-sheet {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  z-index: 61;
+  width: min(520px, 100%);
+  max-height: 90dvh;
+  padding: 10px 18px calc(22px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  border-radius: 24px 24px 0 0;
+  background: var(--white);
+  transform: translateX(-50%);
+  animation: pg-up 0.22s ease;
+}
+@keyframes pg-up {
+  from {
+    transform: translate(-50%, 40px);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pg-sheet {
+    animation: none;
+  }
+}
+.pg-grab {
+  width: 38px;
+  height: 4px;
+  margin: 0 auto 12px;
+  border-radius: 4px;
+  background: var(--line);
+}
+.pg-sheet h2 {
+  margin-bottom: 4px;
+  font-size: 18px;
+}
+.pg-sheet-sub {
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.pg-field {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+  min-width: 0;
+}
+.pg-field > label,
+.pg-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.pg-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.pg-field input,
+.pg-field textarea {
+  width: 100%;
+  min-width: 0;
+  height: 46px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  font-size: 15px;
+}
+.pg-field textarea {
+  height: 72px;
+  padding: 10px 12px;
+  resize: none;
+}
+.pg-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pg-opts button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  font-size: 13px;
+}
+.pg-opts button[aria-pressed="true"] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #fff !important;
+}
+.pg-photos {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.pg-photo {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 11px;
+}
+.pg-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pg-photo svg:last-child:not(:first-child) {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 2px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
+.pg-photo.add {
+  align-content: center;
+  gap: 2px;
+  border-style: dashed;
+  cursor: pointer;
+}
+.pg-photo.add input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.pg-alert {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--pg-danger-pale);
+  color: var(--pg-danger);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.pg-note {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.pg-error {
+  margin-bottom: 10px;
+  color: var(--pg-danger);
+  font-size: 13px;
+}
+.pg-actions {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+}
+.pg-btn {
+  height: 50px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 650;
+}
+.pg-btn.primary {
+  background: var(--ink);
+  color: #fff !important;
+}
+.pg-btn.ghost {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--pg-danger) !important;
+}
+.pg-btn.ghost.muted {
+  color: var(--muted) !important;
+}
+.pg-toast {
+  position: fixed;
+  left: calc(50% + var(--sidebar) / 2);
+  bottom: 28px;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #334b37;
+  color: #f7faf2;
+  font-size: 13px;
+  transform: translateX(-50%);
+}
+.pg-toast button {
+  border: 0;
+  background: none;
+  color: inherit !important;
+  font-weight: 650;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+.pg-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 56px 12px 80px;
+  background: rgba(10, 12, 11, 0.94);
+}
+.pg-viewer img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+  object-fit: contain;
+}
+.pg-viewer-close {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff !important;
+}
+.pg-viewer-nav {
+  position: absolute;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  color: #fff;
+  font-size: 13px;
+}
+.pg-viewer-nav button {
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff !important;
+}
+
+@media (max-width: 900px) {
+  .pg-now {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 800px) {
+  .pg-heading h1 {
+    font-size: 24px;
+  }
+  .pg-tabs {
+    max-width: none;
+  }
+  .pg-toast {
+    left: 50%;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+}
+@media (max-width: 380px) {
+  .pg-field-row {
+    grid-template-columns: 1fr;
+  }
+  .pg-opts button {
+    padding: 0 11px;
+  }
+}

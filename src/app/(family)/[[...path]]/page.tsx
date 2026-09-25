@@ -32,6 +32,9 @@ export default async function Page({
       "/assets/status",
       "/assets/records",
       "/etc/html",
+      "/hobby",
+      "/baby",
+      "/baby/pregnancy",
     ].includes(path) &&
     !isRegisteredHtml &&
     !/^\/(coffee\/beans|wine)\/[0-9a-f-]{36}$/.test(path)

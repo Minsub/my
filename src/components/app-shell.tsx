@@ -2,6 +2,8 @@
 import { CashOld } from "./cash-old";
 import { CashDashboard } from "./cash-dashboard";
 import { AssetHub } from "./asset-hub";
+import { MenuHub, hobbyMenus, kkomiMenus } from "./menu-hub";
+import { PregnancyLog } from "./pregnancy-log";
 import { AssetStatus } from "./asset-status";
 import { AssetRecords } from "./asset-records";
 import { HtmlPageList, HtmlPageView } from "./html-pages";
@@ -29,6 +31,8 @@ import {
   RefreshCw,
   Search,
   Settings,
+  Shapes,
+  Baby,
   SlidersHorizontal,
   Users,
   Wine as WineIcon,
@@ -49,9 +53,9 @@ import { RecordForm, type FormSpec, type Field } from "./record-form";
 import { ConnectionSettings } from "./connections";
 const nav = [
   { href: "/", label: "홈", icon: Home },
-  { href: "/coffee", label: "커피 원두", icon: Coffee },
-  { href: "/wine", label: "와인 셀러", icon: WineIcon },
+  { href: "/hobby", label: "취미", icon: Shapes },
   { href: "/assets", label: "자산관리", icon: Wallet },
+  { href: "/baby", label: "꼬미", icon: Baby },
   { href: "/etc/html", label: "기타", icon: FileCode2 },
   { href: "/settings", label: "설정", icon: Settings },
 ];
@@ -129,17 +133,20 @@ export function AppShell({
     [stockOnly, setStockOnly] = useState(initialQuery.stock !== "all"),
     [archived, setArchived] = useState(initialQuery.archived === "true"),
     [coffeeSort, setCoffeeSort] = useState(initialQuery.sort ?? "name");
-  const active = path.startsWith("/coffee")
-    ? "/coffee"
-    : path.startsWith("/cash") || path.startsWith("/assets")
-      ? "/assets"
-      : path.startsWith("/etc")
-        ? "/etc/html"
-        : path.startsWith("/wine")
-          ? "/wine"
-          : path.startsWith("/settings")
-            ? "/settings"
-            : "/";
+  const active =
+    path.startsWith("/hobby") ||
+    path.startsWith("/coffee") ||
+    path.startsWith("/wine")
+      ? "/hobby"
+      : path.startsWith("/cash") || path.startsWith("/assets")
+        ? "/assets"
+        : path.startsWith("/baby")
+          ? "/baby"
+          : path.startsWith("/etc")
+            ? "/etc/html"
+            : path.startsWith("/settings")
+              ? "/settings"
+              : "/";
   const href = (url: string) => {
     if (!demo) return url;
     const target = new URL(url, "https://mono.local");
@@ -620,7 +627,11 @@ export function AppShell({
     return (
       <div className="empty-state">
         <div className="empty-icon">
-          {active === "/wine" ? <WineIcon size={30} /> : <Coffee size={30} />}
+          {path.startsWith("/wine") ? (
+            <WineIcon size={30} />
+          ) : (
+            <Coffee size={30} />
+          )}
         </div>
         <h3>{title}</h3>
         <p>{desc}</p>
@@ -1552,6 +1563,34 @@ export function AppShell({
   else if (path === "/wine") content = renderWine();
   else if (path === "/wine/glasses") content = renderGlasses();
   else if (selectedWine) content = renderWineDetail(selectedWine);
+  else if (path === "/hobby")
+    content = (
+      <MenuHub
+        eyebrow="MONO / HOBBY"
+        title="취미"
+        description="커피 원두와 와인 셀러를 한곳에서 엽니다."
+        items={hobbyMenus}
+        href={href}
+      />
+    );
+  else if (path === "/baby")
+    content = (
+      <MenuHub
+        eyebrow="MONO / KKOMI"
+        title="꼬미"
+        description="꼬미를 만나기까지의 기록을 모읍니다."
+        items={kkomiMenus}
+        href={href}
+      />
+    );
+  else if (path === "/baby/pregnancy")
+    content = (
+      <PregnancyLog
+        demo={demo}
+        userId={data.user.id}
+        initialQuery={initialQuery}
+      />
+    );
   else if (path === "/assets") content = <AssetHub href={href} />;
   else if (path === "/assets/status")
     content = (
@@ -1605,9 +1644,6 @@ export function AppShell({
             >
               <n.icon size={19} />
               {n.label}
-              {n.href === "/coffee" && (
-                <span>{data.beans.filter((b) => !b.archived).length}</span>
-              )}
             </Link>
           ))}
         </nav>

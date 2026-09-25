@@ -6,6 +6,7 @@ import {
   Sparkles,
   Activity,
   Wallet,
+  Baby,
 } from "lucide-react";
 import type { Snapshot } from "@/lib/types";
 import { dateLabel } from "@/lib/format";
@@ -40,6 +41,14 @@ export function WorkspaceHome({
       description: "가계부의 수입·지출과 구성원별 자산 현황을 함께 봅니다.",
       icon: Wallet,
       value: "가계부 · 자산현황",
+    },
+    {
+      path: "/baby",
+      label: "꼬미",
+      eyebrow: "KKOMI",
+      description: "배뭉침·통증의 주기와 출혈을 기록합니다.",
+      icon: Baby,
+      value: "임신 중 통증 기록",
     },
   ];
   return (

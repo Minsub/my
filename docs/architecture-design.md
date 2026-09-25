@@ -50,6 +50,7 @@ flowchart LR
 | `src/server/wine-photos.ts` | 사진 검증·압축·권한·버전·중복 방지·저장 |
 | `src/lib/wine-cellar.ts` | 웹·MCP가 공유하는 최근 구입가/평점 계산, 필터·정렬 |
 | `src/server/cash.ts`, `cash-parser.ts`, `src/lib/cash.ts` | 웹 전용 XLSX 원본 저장·검증·집계. 공통 snapshot과 분리 |
+| `src/lib/pregnancy.ts`, `src/server/pregnancy.ts`, `/api/baby/pregnancy` | 꼬미 임신 중 통증 기록. 웹 전용, 공통 snapshot·MCP와 분리. 계산 규칙은 lib가 단일 기준 |
 | `src/lib/assets.ts` | 자산 그룹 카탈로그·분류 룰·집계 순수 함수. 웹·서버·MCP가 공유하는 단일 기준 |
 | `src/server/assets.ts`, `/api/assets` | 자산 스냅샷 저장·조회. 공통 snapshot과 분리하고 쓰기는 execute 경유 |
 | `db/migrations/*.sql` | 적용 순서가 있는 실제 도메인 스키마 |
@@ -87,6 +88,10 @@ UI 숨김은 보안 검사가 아니다. 쿠키 기반 변경은 sameOrigin, 모
 ## 자산 스냅샷
 
 `/assets/status`는 전용 `/api/assets`로 조회하고 쓰기는 공통 `POST /api/commands`를 쓴다. 자산 시계열을 공통 `snapshot`에 넣지 않은 이유는 `snapshot`이 도메인 전체를 매번 읽고 모든 MCP 조회 도구가 그것을 호출하기 때문이다. `asset_snapshots`는 `(household_id, owner_id, as_of)`가 유일하며 같은 날 재등록은 `asset_snapshot_items` 전체 교체다. 그룹 합계는 항목에서 유도하고 별도 합계 테이블을 두지 않는다. 금액은 `bigint`이고 `pg`가 int8을 문자열로 반환하므로 조회에서 `::float8`로 캐스팅한다. 자산 그룹은 코드 상수이며 `group_key`에 SQL CHECK를 걸지 않는다. 자세한 규칙은 [자산관리 문서](assert-management/README.md)에 있다.
+
+## 꼬미 기록
+
+`/baby/pregnancy`는 전용 `/api/baby/pregnancy`(조회·create/update/delete/settings)와 `/api/baby/pregnancy/photo/{id}`를 쓰며 008 migration이 필요하다. 공통 snapshot·OAuth scope·MCP에는 넣지 않았다. 진행 중 타이머는 서버가 아니라 입력 기기의 localStorage에 있고, 종료한 기록은 클라이언트가 만든 `request_key`로 재전송해도 한 건만 남는다. 출혈 사진은 `wine-photos.ts`의 `normalizePhoto`로 정규화한 bytea만 저장한다. 자세한 규칙은 [꼬미 문서](kkomi/README.md).
 
 ## 가계부 원본 파일
 

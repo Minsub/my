@@ -46,7 +46,11 @@ test("platform navigation, filters, details and preferences", async ({
   const nav = page.getByRole("navigation", {
     name: info.project.name === "mobile" ? "모바일 주 메뉴" : "PC 주 메뉴",
   });
-  await nav.getByRole("link", { name: /커피 원두/ }).click();
+  await nav.getByRole("link", { name: "취미", exact: true }).click();
+  await page
+    .getByRole("region", { name: "취미 하위 화면" })
+    .getByRole("link", { name: /커피 원두/ })
+    .click();
   await expect(page.getByRole("heading", { name: "커피." })).toBeVisible();
   expect(
     await page.evaluate(

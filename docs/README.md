@@ -8,7 +8,7 @@ MONO는 필요한 페이지와 도구를 계속 추가하는 개인 워크스페
 2. [페이지 개발 가이드](development.md): 어떤 파일을 고치고 어떻게 검증하는가.
 3. [현재 아키텍처](architecture-design.md): 실제 코드 경계·인증·트랜잭션.
 4. [화면과 도메인](service-design.md): 현재 페이지, 데이터의 의미, 디자인 기준.
-5. 담당 도메인: [커피 기능](home-cafe/coffee-features.md), [커피 원본 요구사항](home-cafe/DESIGN.md), [와인 동작 지침](wine-celler/skill.md), [와인 기능](wine-celler/cellar-features.md), [가계부 기능](cash-money/README.md), [자산관리](assert-management/README.md).
+5. 담당 도메인: [커피 기능](home-cafe/coffee-features.md), [커피 원본 요구사항](home-cafe/DESIGN.md), [와인 동작 지침](wine-celler/skill.md), [와인 기능](wine-celler/cellar-features.md), [가계부 기능](cash-money/README.md), [자산관리](assert-management/README.md), [꼬미 · 임신 중 통증 기록](kkomi/README.md).
 
 [단일 HTML 페이지 추가](single-html-pages.md): 독립 HTML을 앱 안에서 재사용하는 두 번째 페이지 작성 방식. 등록 목록은 `src/html` 원본과 `src/lib/html-pages.ts`의 제목·설명 정보로 관리한다.
 
