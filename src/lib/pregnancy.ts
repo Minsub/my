@@ -148,3 +148,51 @@ export function pregnancyWeek(dueDate: string | null, now: number) {
   if (days < 0 || days > 44 * 7) return null;
   return { weeks: Math.floor(days / 7), days: days % 7 };
 }
+
+// 배뭉침·통증을 하나의 증상으로 볼 때의 단위. 시간이 겹치는 기록(배뭉침 중에 통증 시작 등)은
+// 한 번의 증상으로 묶는다. 간격은 증상 시작 → 다음 증상 시작이며 SESSION_GAP_MIN보다 길면 새 구간이다.
+export type SymptomEpisode = {
+  events: PregnancyEvent[];
+  start: number;
+  end: number;
+  interval: number | null;
+  breakBefore: boolean;
+};
+export function symptomEpisodes(events: PregnancyEvent[]): SymptomEpisode[] {
+  const list = events
+    .filter((e) => e.kind !== "bleeding" && e.ended_at)
+    .sort((a, b) => t(a.started_at) - t(b.started_at));
+  const episodes: SymptomEpisode[] = [];
+  for (const e of list) {
+    const s = t(e.started_at),
+      end = t(e.ended_at!);
+    const last = episodes[episodes.length - 1];
+    if (last && s <= last.end) {
+      last.events.push(e);
+      last.end = Math.max(last.end, end);
+      continue;
+    }
+    const gap = last ? s - last.start : null;
+    const interval = gap !== null && gap <= SESSION_GAP_MIN * MIN ? gap : null;
+    episodes.push({
+      events: [e],
+      start: s,
+      end,
+      interval: interval === null ? null : interval / 1000,
+      breakBefore: !!last && interval === null,
+    });
+  }
+  return episodes;
+}
+export function symptomStats(events: PregnancyEvent[], from: number) {
+  const all = symptomEpisodes(events);
+  const list = all.filter((e) => e.start >= from);
+  return {
+    list,
+    count: list.length,
+    avgDuration: avg(list.map((e) => (e.end - e.start) / 1000)),
+    avgInterval: avg(
+      list.map((e) => e.interval).filter((v): v is number => v !== null),
+    ),
+  };
+}

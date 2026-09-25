@@ -55,6 +55,7 @@ export function demoPregnancy(now: number): PregnancyData {
       ev("tightening", 96, 36),
       ev("pain", 90, 62, { intensity: 2, memo: "허리 쪽 묵직함" }),
       ev("tightening", 52, 44, { intensity: 2 }),
+      ev("pain", 51.8, 35, { intensity: 1, memo: "배뭉침 중 아랫배 콕콕" }),
       ev("pain", 45, 70, { intensity: 3 }),
       ev("tightening", 38, 47, { intensity: 2 }),
       ev("tightening", 27, 52, { intensity: 2 }),

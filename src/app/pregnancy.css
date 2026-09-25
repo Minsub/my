@@ -1009,46 +1009,22 @@
   background: var(--ink);
   color: #fff !important;
 }
-.pg-sum-all {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--white);
-}
-.pg-sum-all > div {
-  display: grid;
-  gap: 2px;
-  align-content: start;
-  padding: 10px 12px;
-}
-.pg-sum-all > div + div {
-  border-left: 1px solid var(--line);
-}
-.pg-sum-all small {
-  display: flex;
+.pg-sum-sub {
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  color: var(--muted);
-  font-size: 11.5px;
-}
-.pg-sum-all b {
-  font-size: 20px;
-  font-weight: 650;
-}
-.pg-sum-all span {
+  justify-content: center;
+  gap: 4px;
   color: var(--muted);
   font-size: 11px;
-  line-height: 1.45;
 }
-.pg-day-counts {
-  display: inline-flex;
-  gap: 10px;
+.pg-sum-sub .pg-dot:not(:first-child) {
+  margin-left: 6px;
 }
-.pg-day-counts span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.pg-tl-row.follow .pg-tl-c span {
+  opacity: 0.45;
+}
+.pg-tl-row.follow .pg-tl-r {
+  color: var(--pg-faint);
 }
 .pg-tl-kind {
   display: block;
@@ -1066,8 +1042,5 @@
   .pg-seg button {
     font-size: 12px;
     gap: 4px;
-  }
-  .pg-sum-all > div {
-    padding: 10px 8px;
   }
 }

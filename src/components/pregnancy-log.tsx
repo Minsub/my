@@ -29,6 +29,8 @@ import {
   pregnancyLevel,
   pregnancyWeek,
   SESSION_GAP_MIN,
+  symptomEpisodes,
+  symptomStats,
   TERM_WEEKS,
   timedKinds,
   WATCH_PER_HOUR,
@@ -1196,7 +1198,8 @@ function TypeView({
   );
 }
 
-// 배뭉침·통증을 시간순 한 줄로 합친다. 번호와 간격은 같은 타입끼리 센다.
+// 배뭉침·통증을 하나의 증상으로 합쳐 본다. 번호·간격·요약은 두 타입을 구분하지 않고
+// 증상 단위(symptomEpisodes)로 센다. 시간이 겹친 기록은 한 번의 증상으로 묶어 같은 번호를 쓴다.
 // 출혈은 성격이 달라 출혈 탭에서만 본다.
 function CombinedView({
   events,
@@ -1209,64 +1212,51 @@ function CombinedView({
   now: number;
   onEdit: (e: PregnancyEvent) => void;
 }) {
-  const stats = {
-    tightening: kindStats(events, "tightening", from),
-    pain: kindStats(events, "pain", from),
-  };
-  const meta = new Map<string, { n: number; interval: number | null }>();
-  for (const k of timedKinds)
-    stats[k].list.forEach((e, i) =>
-      meta.set(e.id, { n: i + 1, interval: e.interval }),
-    );
-  const rows = [...stats.tightening.list, ...stats.pain.list].sort((a, b) =>
-    b.started_at.localeCompare(a.started_at),
-  );
-  const perDay = new Map<string, Record<TimedKind, number>>();
-  for (const e of rows) {
-    const c = perDay.get(dayKey(e.started_at)) ?? { tightening: 0, pain: 0 };
-    c[e.kind as TimedKind]++;
-    perDay.set(dayKey(e.started_at), c);
+  const stats = symptomStats(events, from);
+  const byKind = { tightening: 0, pain: 0 };
+  for (const ep of stats.list)
+    for (const e of ep.events) byKind[e.kind as TimedKind]++;
+  const episodes = stats.list.map((ep, i) => ({ ...ep, n: i + 1 })).reverse();
+  const perDay = new Map<string, number>();
+  for (const ep of episodes) {
+    const key = dayKey(new Date(ep.start).toISOString());
+    perDay.set(key, (perDay.get(key) ?? 0) + 1);
   }
   const items: React.ReactNode[] = [];
-  rows.forEach((e, i) => {
-    const day = dayKey(e.started_at);
-    if (i === 0 || dayKey(rows[i - 1].started_at) !== day) {
-      const c = perDay.get(day)!;
+  episodes.forEach((ep, i) => {
+    const iso = new Date(ep.start).toISOString();
+    const day = dayKey(iso);
+    if (
+      i === 0 ||
+      dayKey(new Date(episodes[i - 1].start).toISOString()) !== day
+    )
       items.push(
         <div className="pg-day" key={`d-${day}`}>
-          <span>{dayLabel(e.started_at)}</span>
-          <span className="pg-day-counts">
-            {timedKinds
-              .filter((k) => c[k])
-              .map((k) => (
-                <span key={k}>
-                  <i className={`pg-dot ${k}`} />
-                  {c[k]}
-                </span>
-              ))}
-          </span>
+          <span>{dayLabel(iso)}</span>
+          <span>{perDay.get(day)}회</span>
         </div>,
       );
-    }
-    items.push(
-      <TimedRow
-        key={e.id}
-        e={e}
-        n={meta.get(e.id)?.n ?? 0}
-        interval={meta.get(e.id)?.interval ?? null}
-        label
-        onEdit={onEdit}
-      />,
-    );
-    const next = rows[i + 1];
-    if (next && dayKey(next.started_at) === day) {
-      const quiet =
-        (new Date(e.started_at).getTime() -
-          new Date(next.ended_at ?? next.started_at).getTime()) /
-        1000;
+    const rows = ep.events.slice().reverse();
+    rows.forEach((e, j) => {
+      const first = j === rows.length - 1;
+      items.push(
+        <SymptomRow
+          key={e.id}
+          e={e}
+          n={ep.n}
+          interval={first ? ep.interval : null}
+          together={!first || rows.length > 1}
+          lead={first}
+          onEdit={onEdit}
+        />,
+      );
+    });
+    const next = episodes[i + 1];
+    if (next && dayKey(new Date(next.start).toISOString()) === day) {
+      const quiet = (ep.start - next.end) / 1000;
       if (quiet > SESSION_GAP_MIN * 60)
         items.push(
-          <div className="pg-gap" key={`g-${e.id}`}>
+          <div className="pg-gap" key={`g-${ep.start}`}>
             {quietText(quiet)} 동안 기록 없음
           </div>,
         );
@@ -1274,34 +1264,31 @@ function CombinedView({
   });
   return (
     <>
-      <div className="pg-sum-all">
-        {timedKinds.map((k) => (
-          <div key={k}>
-            <small>
-              <i className={`pg-dot ${k}`} />
-              {kindLabel[k]}
-            </small>
-            <b>{stats[k].count}회</b>
-            <span>
-              간격 {stats[k].avgInterval ? gap(stats[k].avgInterval!) : "—"} ·
-              지속 {stats[k].avgDuration ? clock(stats[k].avgDuration!) : "—"}
-            </span>
-          </div>
-        ))}
+      <div className="pg-sum3">
+        <div>
+          <small>증상 횟수</small>
+          <b>{stats.count}회</b>
+          <span className="pg-sum-sub">
+            <i className="pg-dot tightening" />
+            {byKind.tightening} <i className="pg-dot pain" />
+            {byKind.pain}
+          </span>
+        </div>
+        <div>
+          <small>평균 간격</small>
+          <b>{stats.avgInterval ? gap(stats.avgInterval) : "—"}</b>
+        </div>
+        <div>
+          <small>평균 지속</small>
+          <b>{stats.avgDuration ? clock(stats.avgDuration) : "—"}</b>
+        </div>
       </div>
       <section className="pg-card">
         <div className="pg-sec-title">
-          오늘 시간대별 횟수<small>점선은 1시간 {WATCH_PER_HOUR}회 기준</small>
+          오늘 시간대별 증상 횟수
+          <small>점선은 1시간 {WATCH_PER_HOUR}회</small>
         </div>
-        <PairHistogram events={events} now={now} />
-        <div className="pg-legend">
-          {timedKinds.map((k) => (
-            <span key={k}>
-              <i className={`pg-dot ${k}`} />
-              {kindLabel[k]}
-            </span>
-          ))}
-        </div>
+        <SymptomHistogram events={events} now={now} />
       </section>
       <section className="pg-card pg-tl">
         {items.length ? (
@@ -1314,17 +1301,64 @@ function CombinedView({
   );
 }
 
-function TimedRow({
+// 합친 보기의 한 줄. 증상의 첫 기록만 간격을 보이고, 함께 묶인 기록은 같은 번호를 흐리게 쓴다.
+function SymptomRow({
   e,
   n,
   interval,
-  label = false,
+  together,
+  lead,
   onEdit,
 }: {
   e: PregnancyEvent;
   n: number;
   interval: number | null;
-  label?: boolean;
+  together: boolean;
+  lead: boolean;
+  onEdit: (e: PregnancyEvent) => void;
+}) {
+  const d = durationSec(e);
+  return (
+    <button
+      type="button"
+      className={`pg-tl-row ${e.kind}${lead ? "" : " follow"}`}
+      onClick={() => onEdit(e)}
+    >
+      <span className="pg-tl-l">
+        <b>{hm(e.started_at)}</b>
+        <small>
+          {d !== null ? `${clock(d)} 지속` : ""} <Bolts n={e.intensity} />
+        </small>
+      </span>
+      <span className="pg-tl-c">
+        <span>{n}</span>
+      </span>
+      <span className="pg-tl-r">
+        <em className={`pg-tl-kind ${e.kind}`}>
+          {kindLabel[e.kind]}
+          {together && " · 함께"}
+        </em>
+        {!lead ? (
+          "같은 증상"
+        ) : interval ? (
+          <b className={interval < 600 ? "short" : ""}>{gap(interval)} 간격</b>
+        ) : (
+          "새 구간"
+        )}
+      </span>
+    </button>
+  );
+}
+
+function TimedRow({
+  e,
+  n,
+  interval,
+  onEdit,
+}: {
+  e: PregnancyEvent;
+  n: number;
+  interval: number | null;
   onEdit: (e: PregnancyEvent) => void;
 }) {
   const d = durationSec(e);
@@ -1344,19 +1378,7 @@ function TimedRow({
         <span>{n}</span>
       </span>
       <span className="pg-tl-r">
-        {label ? (
-          // 전체 보기는 타입 이름이 한 줄을 쓰므로 간격을 한 줄로 줄인다.
-          <>
-            <em className={`pg-tl-kind ${e.kind}`}>{kindLabel[e.kind]}</em>
-            {interval ? (
-              <b className={interval < 600 ? "short" : ""}>
-                {gap(interval)} 간격
-              </b>
-            ) : (
-              "새 구간"
-            )}
-          </>
-        ) : interval ? (
+        {interval ? (
           <>
             <b className={interval < 600 ? "short" : ""}>{gap(interval)}</b>
             이전 시작부터
@@ -1371,8 +1393,8 @@ function TimedRow({
   );
 }
 
-// 배뭉침·통증을 시간마다 나란히 막대로 그린다. 기준선은 타입별 1시간 횟수에 그대로 맞는다.
-function PairHistogram({
+// 합친 보기의 시간대별 증상 횟수. 증상이 시작한 시각으로 센다.
+function SymptomHistogram({
   events,
   now,
 }: {
@@ -1381,32 +1403,21 @@ function PairHistogram({
 }) {
   const d0 = new Date(now);
   d0.setHours(0, 0, 0, 0);
-  const counts = {
-    tightening: Array<number>(24).fill(0),
-    pain: Array<number>(24).fill(0),
-  };
-  for (const e of events) {
-    const s = new Date(e.started_at);
-    if (e.kind !== "bleeding" && s.getTime() >= d0.getTime())
-      counts[e.kind][s.getHours()]++;
-  }
-  const max = Math.max(
-      WATCH_PER_HOUR + 1,
-      ...counts.tightening,
-      ...counts.pain,
-    ),
+  const counts = Array<number>(24).fill(0);
+  for (const ep of symptomEpisodes(events))
+    if (ep.start >= d0.getTime()) counts[new Date(ep.start).getHours()]++;
+  const max = Math.max(WATCH_PER_HOUR + 1, ...counts),
     W = 340,
     H = 80,
     L = 20,
-    bw = (W - L) / 24,
-    half = (bw - 3) / 2;
+    bw = (W - L) / 24;
   const y = (v: number) => H - (v / max) * (H - 12);
   return (
     <svg
       className="pg-hist"
       viewBox={`0 0 ${W} ${H + 18}`}
       role="img"
-      aria-label="오늘 시간대별 배뭉침·통증 횟수"
+      aria-label="오늘 시간대별 증상(배뭉침·통증) 횟수"
     >
       <line x1={L} y1={H} x2={W} y2={H} stroke="var(--line)" />
       <line
@@ -1426,34 +1437,30 @@ function PairHistogram({
       >
         {WATCH_PER_HOUR}
       </text>
-      {Array.from({ length: 24 }, (_, h) => (
+      {counts.map((c, h) => (
         <g key={h}>
-          {timedKinds.map((k, j) => {
-            const c = counts[k][h];
-            if (!c) return null;
-            const x = L + h * bw + 1.5 + j * half;
-            return (
-              <g key={k}>
-                <rect
-                  x={x}
-                  y={y(c)}
-                  width={half - 0.5}
-                  height={H - y(c)}
-                  rx={1.5}
-                  fill={kindColor(k)}
-                />
-                <text
-                  x={x + half / 2}
-                  y={y(c) - 3}
-                  fontSize={8}
-                  fill="var(--muted)"
-                  textAnchor="middle"
-                >
-                  {c}
-                </text>
-              </g>
-            );
-          })}
+          {c > 0 && (
+            <>
+              <rect
+                x={L + h * bw + 1.5}
+                y={y(c)}
+                width={bw - 3}
+                height={H - y(c)}
+                rx={2}
+                fill="var(--ink)"
+                opacity={0.78}
+              />
+              <text
+                x={L + h * bw + bw / 2}
+                y={y(c) - 3}
+                fontSize={9}
+                fill="var(--muted)"
+                textAnchor="middle"
+              >
+                {c}
+              </text>
+            </>
+          )}
           {h % 6 === 0 && (
             <text
               x={L + h * bw}
