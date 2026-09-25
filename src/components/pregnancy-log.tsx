@@ -55,6 +55,8 @@ type Pending = {
   memo: string;
 };
 type Range = "hour" | "today" | "all";
+// 타입별 보기의 선택. "all"은 세 타입을 한 타임라인에 모아 본다.
+type ViewKind = PregnancyKind | "all";
 type Sheet =
   | {
       type: "stop";
@@ -108,6 +110,12 @@ const gap = (sec: number) => {
   const m = Math.floor(sec / 60),
     r = Math.round(sec % 60);
   return m ? (r ? `${m}분 ${r}초` : `${m}분`) : `${r}초`;
+};
+// 기록 사이 빈 시간. 한 시간이 넘으면 시간·분으로 쓴다.
+const quietText = (sec: number) => {
+  const m = Math.round(sec / 60),
+    h = Math.floor(m / 60);
+  return h ? (m % 60 ? `${h}시간 ${m % 60}분` : `${h}시간`) : `${m}분`;
 };
 const dayKey = (iso: string) => new Date(iso).toDateString();
 const dayLabel = (iso: string) => {
@@ -205,10 +213,10 @@ export function PregnancyLog({
   const [tab, setTab] = useState<"now" | "type">(
     initialQuery.tab === "type" ? "type" : "now",
   );
-  const [kind, setKind] = useState<PregnancyKind>(
+  const [kind, setKind] = useState<ViewKind>(
     pregnancyKinds.includes(initialQuery.kind as PregnancyKind)
       ? (initialQuery.kind as PregnancyKind)
-      : "tightening",
+      : "all",
   );
   const [range, setRange] = useState<Range>(
     initialQuery.range === "hour" || initialQuery.range === "all"
@@ -596,7 +604,7 @@ export function PregnancyLog({
           demo={demo}
           onKind={(k) => {
             setKind(k);
-            setQuery("kind", k, "tightening");
+            setQuery("kind", k, "all");
           }}
           onRange={(r) => {
             setRange(r);
@@ -1105,11 +1113,11 @@ function TypeView({
 }: {
   events: PregnancyEvent[];
   now: number;
-  kind: PregnancyKind;
+  kind: ViewKind;
   range: Range;
   revealed: Record<string, boolean>;
   demo: boolean;
-  onKind: (k: PregnancyKind) => void;
+  onKind: (k: ViewKind) => void;
   onRange: (r: Range) => void;
   onReveal: (id: string, ids: string[]) => void;
   onEdit: (e: PregnancyEvent) => void;
@@ -1121,6 +1129,15 @@ function TypeView({
   return (
     <div className="pg-type">
       <div className="pg-seg" role="tablist" aria-label="기록 타입">
+        <button
+          type="button"
+          role="tab"
+          className="all"
+          aria-selected={kind === "all"}
+          onClick={() => onKind("all")}
+        >
+          전체
+        </button>
         {pregnancyKinds.map((k) => (
           <button
             key={k}
@@ -1153,7 +1170,20 @@ function TypeView({
           </button>
         ))}
       </div>
-      {kind === "bleeding" ? (
+      {kind === "all" ? (
+        <AllView
+          events={events.filter(
+            (e) => new Date(e.started_at).getTime() >= from,
+          )}
+          allEvents={events}
+          from={from}
+          now={now}
+          revealed={revealed}
+          demo={demo}
+          onReveal={onReveal}
+          onEdit={onEdit}
+        />
+      ) : kind === "bleeding" ? (
         <BleedingList
           events={events.filter(
             (e) =>
@@ -1174,6 +1204,387 @@ function TypeView({
         />
       )}
     </div>
+  );
+}
+
+// 세 타입을 시간순 한 줄로 합친다. 배뭉침·통증은 같은 타입끼리의 번호와 간격을,
+// 출혈은 양·색·사진을 같은 자리에 보여준다.
+function AllView({
+  events,
+  allEvents,
+  from,
+  now,
+  revealed,
+  demo,
+  onReveal,
+  onEdit,
+}: {
+  events: PregnancyEvent[];
+  allEvents: PregnancyEvent[];
+  from: number;
+  now: number;
+  revealed: Record<string, boolean>;
+  demo: boolean;
+  onReveal: (id: string, ids: string[]) => void;
+  onEdit: (e: PregnancyEvent) => void;
+}) {
+  const stats = {
+    tightening: kindStats(allEvents, "tightening", from),
+    pain: kindStats(allEvents, "pain", from),
+  };
+  const meta = new Map<string, { n: number; interval: number | null }>();
+  for (const k of timedKinds)
+    stats[k].list.forEach((e, i) =>
+      meta.set(e.id, { n: i + 1, interval: e.interval }),
+    );
+  const bleeds = events.filter((e) => e.kind === "bleeding");
+  const bled = bleeds.filter((e) => e.bleeding !== "none").length;
+  const rows = events
+    .slice()
+    .sort((a, b) => b.started_at.localeCompare(a.started_at));
+  const perDay = new Map<string, Record<PregnancyKind, number>>();
+  for (const e of rows) {
+    const c = perDay.get(dayKey(e.started_at)) ?? {
+      tightening: 0,
+      pain: 0,
+      bleeding: 0,
+    };
+    c[e.kind]++;
+    perDay.set(dayKey(e.started_at), c);
+  }
+  const items: React.ReactNode[] = [];
+  rows.forEach((e, i) => {
+    const day = dayKey(e.started_at);
+    if (i === 0 || dayKey(rows[i - 1].started_at) !== day) {
+      const c = perDay.get(day)!;
+      items.push(
+        <div className="pg-day" key={`d-${day}`}>
+          <span>{dayLabel(e.started_at)}</span>
+          <span className="pg-day-counts">
+            {pregnancyKinds
+              .filter((k) => c[k])
+              .map((k) => (
+                <span key={k}>
+                  <i className={`pg-dot ${k}`} />
+                  {c[k]}
+                </span>
+              ))}
+          </span>
+        </div>,
+      );
+    }
+    items.push(
+      e.kind === "bleeding" ? (
+        <BleedingRow
+          key={e.id}
+          e={e}
+          open={!!revealed[e.id]}
+          demo={demo}
+          onReveal={onReveal}
+          onEdit={onEdit}
+        />
+      ) : (
+        <TimedRow
+          key={e.id}
+          e={e}
+          n={meta.get(e.id)?.n ?? 0}
+          interval={meta.get(e.id)?.interval ?? null}
+          label
+          onEdit={onEdit}
+        />
+      ),
+    );
+    const next = rows[i + 1];
+    if (next && dayKey(next.started_at) === day) {
+      const quiet =
+        (new Date(e.started_at).getTime() -
+          new Date(next.ended_at ?? next.started_at).getTime()) /
+        1000;
+      if (quiet > SESSION_GAP_MIN * 60)
+        items.push(
+          <div className="pg-gap" key={`g-${e.id}`}>
+            {quietText(quiet)} 동안 기록 없음
+          </div>,
+        );
+    }
+  });
+  return (
+    <>
+      <div className="pg-sum-all">
+        {timedKinds.map((k) => (
+          <div key={k}>
+            <small>
+              <i className={`pg-dot ${k}`} />
+              {kindLabel[k]}
+            </small>
+            <b>{stats[k].count}회</b>
+            <span>
+              간격 {stats[k].avgInterval ? gap(stats[k].avgInterval!) : "—"}
+              <br />
+              지속 {stats[k].avgDuration ? clock(stats[k].avgDuration!) : "—"}
+            </span>
+          </div>
+        ))}
+        <div>
+          <small>
+            <i className="pg-dot bleeding" />
+            출혈
+          </small>
+          <b>{bleeds.length}건</b>
+          <span>
+            출혈 {bled} · 없음 {bleeds.length - bled}
+            <br />
+            사진 {bleeds.reduce((n, e) => n + e.photo_ids.length, 0)}장
+          </span>
+        </div>
+      </div>
+      <section className="pg-card">
+        <div className="pg-sec-title">
+          오늘 시간대별 기록<small>점선은 1시간 {WATCH_PER_HOUR}회 기준</small>
+        </div>
+        <AllHistogram events={allEvents} now={now} />
+        <div className="pg-legend">
+          {pregnancyKinds.map((k) => (
+            <span key={k}>
+              <i className={`pg-dot ${k}`} />
+              {kindLabel[k]}
+            </span>
+          ))}
+        </div>
+      </section>
+      <section className="pg-card pg-tl">
+        {items.length ? (
+          items
+        ) : (
+          <p className="pg-empty">이 기간에 기록이 없습니다.</p>
+        )}
+      </section>
+    </>
+  );
+}
+
+function TimedRow({
+  e,
+  n,
+  interval,
+  label = false,
+  onEdit,
+}: {
+  e: PregnancyEvent;
+  n: number;
+  interval: number | null;
+  label?: boolean;
+  onEdit: (e: PregnancyEvent) => void;
+}) {
+  const d = durationSec(e);
+  return (
+    <button
+      type="button"
+      className={`pg-tl-row ${e.kind}`}
+      onClick={() => onEdit(e)}
+    >
+      <span className="pg-tl-l">
+        <b>{hm(e.started_at)}</b>
+        <small>
+          {d !== null ? `${clock(d)} 지속` : ""} <Bolts n={e.intensity} />
+        </small>
+      </span>
+      <span className="pg-tl-c">
+        <span>{n}</span>
+      </span>
+      <span className="pg-tl-r">
+        {label ? (
+          // 전체 보기는 타입 이름이 한 줄을 쓰므로 간격을 한 줄로 줄인다.
+          <>
+            <em className={`pg-tl-kind ${e.kind}`}>{kindLabel[e.kind]}</em>
+            {interval ? (
+              <b className={interval < 600 ? "short" : ""}>
+                {gap(interval)} 간격
+              </b>
+            ) : (
+              "새 구간"
+            )}
+          </>
+        ) : interval ? (
+          <>
+            <b className={interval < 600 ? "short" : ""}>{gap(interval)}</b>
+            이전 시작부터
+          </>
+        ) : (
+          <>
+            <b>—</b>새 구간
+          </>
+        )}
+      </span>
+    </button>
+  );
+}
+
+function BleedingRow({
+  e,
+  open,
+  demo,
+  onReveal,
+  onEdit,
+}: {
+  e: PregnancyEvent;
+  open: boolean;
+  demo: boolean;
+  onReveal: (id: string, ids: string[]) => void;
+  onEdit: (e: PregnancyEvent) => void;
+}) {
+  const none = e.bleeding === "none";
+  const color = e.bleeding_color ? colorLabel[e.bleeding_color] : null;
+  return (
+    <div className={`pg-tl-row bleeding${none ? " none" : ""}`}>
+      <button type="button" className="pg-tl-l" onClick={() => onEdit(e)}>
+        <b>{hm(e.started_at)}</b>
+        <small>{e.memo || (none ? "확인" : "")}</small>
+      </button>
+      <span className="pg-tl-c">
+        <span>
+          <Droplet size={13} />
+        </span>
+      </span>
+      <span className="pg-tl-r pg-tl-bleed">
+        <button type="button" onClick={() => onEdit(e)}>
+          <em className="pg-tl-kind bleeding">{none ? "출혈 확인" : "출혈"}</em>
+          <b>
+            {e.bleeding ? bleedingLabel[e.bleeding] : ""}
+            {color && (
+              <i className="pg-swatch" style={{ background: color.hex }} />
+            )}
+          </b>
+        </button>
+        {e.photo_ids.length > 0 && (
+          <button
+            type="button"
+            className={`pg-thumb small${open ? " open" : ""}`}
+            onClick={() => onReveal(e.id, e.photo_ids)}
+            aria-label={open ? "사진 크게 보기" : "흐린 사진 보기"}
+          >
+            {!demo && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={photoSrc(e.photo_ids[0], demo)} alt="출혈 사진" />
+            )}
+            {e.photo_ids.length > 1 && <em>+{e.photo_ids.length - 1}</em>}
+          </button>
+        )}
+      </span>
+    </div>
+  );
+}
+
+// 배뭉침·통증은 시간마다 나란히 막대로, 출혈은 축 아래 점으로 그린다.
+function AllHistogram({
+  events,
+  now,
+}: {
+  events: PregnancyEvent[];
+  now: number;
+}) {
+  const d0 = new Date(now);
+  d0.setHours(0, 0, 0, 0);
+  const counts = {
+    tightening: Array<number>(24).fill(0),
+    pain: Array<number>(24).fill(0),
+  };
+  const bleeds: { h: number; none: boolean }[] = [];
+  for (const e of events) {
+    const s = new Date(e.started_at);
+    if (s.getTime() < d0.getTime()) continue;
+    if (e.kind === "bleeding")
+      bleeds.push({ h: s.getHours(), none: e.bleeding === "none" });
+    else counts[e.kind][s.getHours()]++;
+  }
+  const max = Math.max(
+      WATCH_PER_HOUR + 1,
+      ...counts.tightening,
+      ...counts.pain,
+    ),
+    W = 340,
+    H = 80,
+    L = 20,
+    bw = (W - L) / 24,
+    half = (bw - 3) / 2;
+  const y = (v: number) => H - (v / max) * (H - 12);
+  return (
+    <svg
+      className="pg-hist"
+      viewBox={`0 0 ${W} ${H + 32}`}
+      role="img"
+      aria-label="오늘 시간대별 배뭉침·통증 횟수와 출혈 기록"
+    >
+      <line x1={L} y1={H} x2={W} y2={H} stroke="var(--line)" />
+      <line
+        x1={L}
+        y1={y(WATCH_PER_HOUR)}
+        x2={W}
+        y2={y(WATCH_PER_HOUR)}
+        stroke="var(--pg-warn)"
+        strokeDasharray="3 3"
+      />
+      <text
+        x={L - 4}
+        y={y(WATCH_PER_HOUR) + 3}
+        fontSize={9.5}
+        fill="var(--pg-warn)"
+        textAnchor="end"
+      >
+        {WATCH_PER_HOUR}
+      </text>
+      {Array.from({ length: 24 }, (_, h) => (
+        <g key={h}>
+          {timedKinds.map((k, j) => {
+            const c = counts[k][h];
+            if (!c) return null;
+            const x = L + h * bw + 1.5 + j * half;
+            return (
+              <g key={k}>
+                <rect
+                  x={x}
+                  y={y(c)}
+                  width={half - 0.5}
+                  height={H - y(c)}
+                  rx={1.5}
+                  fill={kindColor(k)}
+                />
+                <text
+                  x={x + half / 2}
+                  y={y(c) - 3}
+                  fontSize={8}
+                  fill="var(--muted)"
+                  textAnchor="middle"
+                >
+                  {c}
+                </text>
+              </g>
+            );
+          })}
+          {h % 6 === 0 && (
+            <text
+              x={L + h * bw}
+              y={H + 27}
+              fontSize={9.5}
+              fill="var(--pg-faint)"
+            >
+              {h}시
+            </text>
+          )}
+        </g>
+      ))}
+      {bleeds.map((b, i) => (
+        <circle
+          key={i}
+          cx={L + b.h * bw + bw / 2}
+          cy={H + 9}
+          r={3.5}
+          fill={b.none ? "var(--white)" : "var(--pg-blood)"}
+          stroke="var(--pg-blood)"
+          strokeWidth={1.3}
+        />
+      ))}
+    </svg>
   );
 }
 
@@ -1209,38 +1620,14 @@ function Timeline({
           <span>{perDay.get(day)}회</span>
         </div>,
       );
-    const d = durationSec(e);
     items.push(
-      <button
-        type="button"
-        className={`pg-tl-row ${kind}`}
+      <TimedRow
         key={e.id}
-        onClick={() => onEdit(e)}
-      >
-        <span className="pg-tl-l">
-          <b>{hm(e.started_at)}</b>
-          <small>
-            {d !== null ? `${clock(d)} 지속` : ""} <Bolts n={e.intensity} />
-          </small>
-        </span>
-        <span className="pg-tl-c">
-          <span>{numbered.get(e.id)}</span>
-        </span>
-        <span className="pg-tl-r">
-          {e.interval ? (
-            <>
-              <b className={e.interval < 600 ? "short" : ""}>
-                {gap(e.interval)}
-              </b>
-              이전 시작부터
-            </>
-          ) : (
-            <>
-              <b>—</b>새 구간
-            </>
-          )}
-        </span>
-      </button>,
+        e={e}
+        n={numbered.get(e.id) ?? 0}
+        interval={e.interval}
+        onEdit={onEdit}
+      />,
     );
     const next = rows[i + 1];
     if (e.breakBefore && next && dayKey(next.started_at) === day)
