@@ -33,6 +33,8 @@ const descriptions: Partial<Record<Operation, string>> = {
   coffee_log_brew_setting:
     "내 머신의 분쇄도·용량 설정 숫자를 기록합니다. g 단위로 추정하지 마세요.",
   wine_receive_stock: "구매일·가격을 보존하고 와인 재고를 입고합니다.",
+  wine_update_price:
+    "이미 입고한 와인의 병당 구입가를 고칩니다. 재고는 바꾸지 않습니다. wine_get의 purchases[].id를 purchase_id로, 와인 version을 expected_version으로 보냅니다. 구매 내역이 없는 이관 와인은 purchase_id 없이 보내면 참고 가격을 고칩니다.",
   wine_consume:
     "와인 재고를 소비합니다. 부족하면 거부합니다. 시음도 함께 기록할 수 있습니다.",
   coffee_save_preference: "인증된 사용자 본인의 원두 취향을 저장합니다.",

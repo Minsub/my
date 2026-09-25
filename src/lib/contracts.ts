@@ -109,6 +109,18 @@ export const commandSchemas = {
       store: text.default(""),
     })
     .strict(),
+  // 입고한 병의 가격만 고친다. 수량·구매일은 재고 이벤트와 묶여 있어 바꾸지 않는다.
+  // purchase_id가 없으면 구매 내역이 없는 이관 와인의 참고 가격(reference_price)을 고친다.
+  // expected_version은 와인 version이며, 수정하면 와인 version이 올라간다.
+  wine_update_price: z
+    .object({
+      ...key,
+      wine_id: id,
+      expected_version: version,
+      purchase_id: id.optional(),
+      unit_price: amount,
+    })
+    .strict(),
   wine_consume: z
     .object({
       ...key,
@@ -250,6 +262,7 @@ export const commandScopes: Record<Operation, Scope | null> = {
   wine_create: "wine:write",
   wine_update: "wine:write",
   wine_receive_stock: "wine:write",
+  wine_update_price: "wine:write",
   wine_consume: "wine:write",
   wine_log_tasting: "wine:write",
   wine_reverse_event: "wine:write",

@@ -390,6 +390,55 @@ export async function execute(
         label = wine.name;
         break;
       }
+      case "wine_update_price": {
+        const d = command.input;
+        const wine = await record(client, actor, "wine", d.wine_id);
+        let purchase = null;
+        if (d.purchase_id) {
+          const [event] = await query(
+            "SELECT * FROM wine_stock_events WHERE household_id=$1 AND wine_id=$2 AND purchase_id=$3 AND kind='receive'",
+            [actor.householdId, d.wine_id, d.purchase_id],
+            client,
+          );
+          if (!event)
+            throw new AppError(
+              "NOT_FOUND",
+              "구매 내역을 찾을 수 없습니다.",
+              404,
+            );
+          // 입고한 사람 또는 관리자가 고친다. 동시 수정은 와인 version으로 막는다.
+          canEdit(
+            actor,
+            { created_by: event.created_by, version: wine.version },
+            d.expected_version,
+          );
+          const [reversed] = await query(
+            "SELECT 1 FROM wine_stock_events WHERE household_id=$1 AND reverses_id=$2",
+            [actor.householdId, event.id],
+            client,
+          );
+          if (reversed)
+            throw new AppError(
+              "INVALID_INPUT",
+              "취소된 입고는 가격을 바꿀 수 없습니다.",
+            );
+          [purchase] = await query(
+            "UPDATE wine_purchases SET unit_price=$4 WHERE household_id=$1 AND wine_id=$2 AND id=$3 RETURNING *",
+            [actor.householdId, d.wine_id, d.purchase_id, d.unit_price],
+            client,
+          );
+        } else canEdit(actor, wine, d.expected_version);
+        const [updated] = await query(
+          `UPDATE wines SET ${d.purchase_id ? "" : "reference_price=$3,"}version=version+1 WHERE household_id=$1 AND id=$2 RETURNING *`,
+          d.purchase_id
+            ? [actor.householdId, d.wine_id]
+            : [actor.householdId, d.wine_id, d.unit_price],
+          client,
+        );
+        result = { wine: updated, purchase };
+        label = wine.name;
+        break;
+      }
       case "wine_consume": {
         const d = command.input;
         const wine = await record(client, actor, "wine", d.wine_id);

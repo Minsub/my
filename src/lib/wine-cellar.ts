@@ -47,6 +47,8 @@ export function wineFacts(
   return {
     ...w,
     price: latest ? latest.unit_price : (w.reference_price ?? null),
+    // 표시 가격을 고칠 때의 대상. null이면 이관 참고 가격이다.
+    purchase_id: latest ? latest.id : null,
     purchased_on: latest
       ? latest.purchased_on
       : (w.reference_purchased_on ?? null),

@@ -1434,8 +1434,18 @@ input[type="checkbox"] {
   color: #9ca68e;
   padding: 7px 0;
 }
+.purchase-history > div {
+  align-items: center;
+}
 .purchase-history strong {
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.purchase-history .icon-button {
+  width: 26px;
+  height: 26px;
 }
 .glass-card {
   text-align: center;

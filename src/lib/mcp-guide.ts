@@ -89,6 +89,15 @@ export const commandGuide = {
     result: "입고 이벤트. 재고가 증가하고 구매 내역이 생성됩니다.",
     example: "이 와인 2병을 9월 8일에 병당 35,000원으로 샀어.",
   },
+  wine_update_price: {
+    title: "와인 구입가 수정",
+    description:
+      "입고한 병의 병당 구입가를 고칩니다. 수량·구매일·재고는 바꾸지 않으며, 수량이 틀렸으면 입고를 취소하고 다시 입고합니다.",
+    input:
+      "wine_id, expected_version(와인 version), unit_price(병당 원/null). 선택: purchase_id(wine_get의 purchases[].id). 생략하면 구매 내역이 없는 이관 와인의 참고 가격을 고칩니다.",
+    result: "와인과 새 version, 수정한 구매 내역.",
+    example: "이 와인 9월 8일 입고분 가격을 38,000원으로 고쳐줘.",
+  },
   wine_consume: {
     title: "와인 소비",
     description:

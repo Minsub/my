@@ -44,7 +44,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { findHtmlPage } from "@/lib/html-pages";
-import type { Bean, Snapshot, Wine } from "@/lib/types";
+import type { Bean, Purchase, Snapshot, Wine } from "@/lib/types";
 import { wineTypes, glassTypes } from "@/lib/types";
 import { money, kgPrice, today, dateLabel, vintageLabel } from "@/lib/format";
 import type { Operation } from "@/lib/contracts";
@@ -426,6 +426,26 @@ export function AppShell({
           value: today(),
         },
         txt("store", "구매처"),
+      ],
+    });
+  }
+  function priceForm(wine: Wine, purchase?: Purchase) {
+    const current = purchase
+      ? purchase.unit_price
+      : (wine.reference_price ?? null);
+    open({
+      title: "구입가 수정",
+      description: purchase
+        ? `${wine.name} · ${dateLabel(purchase.purchased_on)} 입고 ${purchase.quantity}병`
+        : `${wine.name} · 이관 기록의 참고 가격`,
+      operation: "wine_update_price",
+      extra: {
+        wine_id: wine.id,
+        expected_version: wine.version,
+        ...(purchase ? { purchase_id: purchase.id } : {}),
+      },
+      fields: [
+        { ...number("unit_price", "병당 구매가 (원)", current), min: 0 },
       ],
     });
   }
@@ -1111,6 +1131,21 @@ export function AppShell({
   }
   function renderWineDetail(wine: Wine) {
     const events = data.events.filter((e) => e.wine_id === wine.id);
+    const facts = wineFacts(wine, data);
+    const receiveOf = (p: Purchase) =>
+      events.find((e) => e.purchase_id === p.id && e.kind === "receive");
+    const reversedIds = new Set(events.map((e) => e.reverses_id));
+    const purchaseEditable = (p: Purchase) => {
+      const e = receiveOf(p);
+      return !!e && editAllowed(e) && !reversedIds.has(e.id);
+    };
+    // 목록에 보이는 가격(최근 유효 입고가, 없으면 이관 참고 가격)을 고친다.
+    const pricePurchase = data.purchases.find(
+      (p) => p.id === facts.purchase_id,
+    );
+    const priceEditable = pricePurchase
+      ? purchaseEditable(pricePurchase)
+      : editAllowed(wine);
     return (
       <>
         <Link className="back-link" href={href("/wine")}>
@@ -1142,15 +1177,11 @@ export function AppShell({
             <dl className="detail-facts">
               <div>
                 <dt>병당 구입가</dt>
-                <dd>
-                  {wineFacts(wine, data).price === null
-                    ? "미입력"
-                    : money(wineFacts(wine, data).price)}
-                </dd>
+                <dd>{facts.price === null ? "미입력" : money(facts.price)}</dd>
               </div>
               <div>
                 <dt>최근 구입일</dt>
-                <dd>{wineFacts(wine, data).purchased_on || "미입력"}</dd>
+                <dd>{facts.purchased_on || "미입력"}</dd>
               </div>
               <div>
                 <dt>현재 보유</dt>
@@ -1192,6 +1223,12 @@ export function AppShell({
               </button>
             </div>
             <div className="text-actions">
+              {priceEditable && (
+                <button onClick={() => priceForm(wine, pricePurchase)}>
+                  <Pencil size={13} />
+                  가격 수정
+                </button>
+              )}
               {editAllowed(wine) && (
                 <>
                   <button onClick={() => wineForm(wine)}>
@@ -1290,8 +1327,22 @@ export function AppShell({
                     <div key={p.id}>
                       <span>
                         {dateLabel(p.purchased_on)} · {p.quantity}병
+                        {receiveOf(p) &&
+                          reversedIds.has(receiveOf(p)!.id) &&
+                          " · 취소됨"}
                       </span>
-                      <strong>{money(p.unit_price)} / 병</strong>
+                      <strong>
+                        {money(p.unit_price)} / 병
+                        {purchaseEditable(p) && (
+                          <button
+                            className="icon-button"
+                            aria-label="이 입고의 가격 수정"
+                            onClick={() => priceForm(wine, p)}
+                          >
+                            <Pencil size={12} />
+                          </button>
+                        )}
+                      </strong>
                     </div>
                   ))}
               </div>
