@@ -30,10 +30,14 @@ export async function GET(
       [id, a.householdId],
     );
     if (!row) throw new AppError("NOT_FOUND", "사진이 없습니다.", 404);
+    // 화면은 ?v=와인 version으로 요청하고 사진을 바꾸면 version이 오른다. 그 주소의 내용은 바뀌지 않는다.
+    const versioned = new URL(request.url).searchParams.has("v");
     return new Response(new Uint8Array(row.content), {
       headers: {
         "Content-Type": "image/webp",
-        "Cache-Control": "private, no-store",
+        "Cache-Control": versioned
+          ? "private, max-age=31536000, immutable"
+          : "private, no-store",
         "X-Content-Type-Options": "nosniff",
       },
     });

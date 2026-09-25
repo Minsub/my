@@ -69,7 +69,7 @@
 - 웹 전용. `actor.channel !== "web"`이면 거부하고 MCP 도구·scope를 추가하지 않았다(2026-09 결정).
 - 모든 조회·수정은 인증된 Actor의 `household_id` 조건을 쓴다. 공간의 활성 구성원만 읽는다.
 - 수정·삭제는 기록한 사람 또는 관리자만 가능하고 `expected_version`이 맞아야 한다(409 `VERSION_CONFLICT`).
-- 사진은 `/api/baby/pregnancy/photo/{id}`로만 내보내며 `private, no-store`다.
+- 사진은 `/api/baby/pregnancy/photo/{id}`로만 내보낸다. 사진 id의 내용은 바뀌지 않으므로 `private, max-age=31536000, immutable`로 브라우저에만 캐시한다. 저장 방식 전환 기준은 [사진 저장 방식](../image-storage.md).
 - 데모(`/demo?view=/baby/pregnancy`)는 `src/lib/demo-pregnancy.ts`의 예시 기록을 보여주고 시작·저장을 막는다. 사진은 표시하지 않는다.
 
 ## API

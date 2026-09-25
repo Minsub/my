@@ -10,6 +10,8 @@ MONO는 필요한 페이지와 도구를 계속 추가하는 개인 워크스페
 4. [화면과 도메인](service-design.md): 현재 페이지, 데이터의 의미, 디자인 기준.
 5. 담당 도메인: [커피 기능](home-cafe/coffee-features.md), [커피 원본 요구사항](home-cafe/DESIGN.md), [와인 동작 지침](wine-celler/skill.md), [와인 기능](wine-celler/cellar-features.md), [가계부 기능](cash-money/README.md), [자산관리](assert-management/README.md), [꼬미 · 임신 중 통증 기록](kkomi/README.md).
 
+[사진 저장 방식](image-storage.md): 사진은 Neon bytea에 저장한다. 새 페이지에 사진 업로드를 넣을 때 따를 규칙과 Vercel Blob·R2로 옮길 기준.
+
 [단일 HTML 페이지 추가](single-html-pages.md): 독립 HTML을 앱 안에서 재사용하는 두 번째 페이지 작성 방식. 등록 목록은 `src/html` 원본과 `src/lib/html-pages.ts`의 제목·설명 정보로 관리한다.
 
 ## 운영자가 직접 설정할 때

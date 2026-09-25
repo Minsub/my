@@ -15,7 +15,8 @@ export async function GET(
     return new Response(new Uint8Array(content), {
       headers: {
         "Content-Type": "image/webp",
-        "Cache-Control": "private, no-store",
+        // 사진은 id마다 내용이 바뀌지 않는다(수정하면 새 id). 같은 기기에서 다시 볼 때 DB를 읽지 않는다.
+        "Cache-Control": "private, max-age=31536000, immutable",
         "X-Content-Type-Options": "nosniff",
       },
     });
