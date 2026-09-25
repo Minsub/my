@@ -996,18 +996,22 @@
   }
 }
 
-/* 타입별 보기 · 전체 */
+/* 타입별 보기 · 배뭉침·통증 함께 보기 */
 .pg-seg {
   grid-template-columns: repeat(4, 1fr);
 }
-.pg-seg button.all[aria-selected="true"] {
+.pg-seg button.both {
+  line-height: 1.2;
+  text-align: center;
+}
+.pg-seg button.both[aria-selected="true"] {
   border-color: var(--ink);
   background: var(--ink);
   color: #fff !important;
 }
 .pg-sum-all {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--white);
@@ -1057,50 +1061,6 @@
 }
 .pg-tl-kind.pain {
   color: var(--pg-pain);
-}
-.pg-tl-kind.bleeding {
-  color: var(--pg-blood);
-}
-.pg-tl-row.bleeding .pg-tl-c span {
-  background: var(--pg-blood);
-}
-.pg-tl-row.bleeding.none .pg-tl-c span {
-  background: var(--green-pale);
-  color: var(--green);
-}
-.pg-tl-row.bleeding.none .pg-tl-kind {
-  color: var(--green);
-}
-.pg-tl-row button {
-  padding: 0;
-  border: 0;
-  background: none;
-  text-align: left;
-}
-.pg-tl-row button.pg-tl-l {
-  text-align: right;
-}
-.pg-tl-bleed {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.pg-tl-bleed b {
-  display: inline-flex !important;
-  align-items: center;
-  gap: 5px;
-}
-.pg-thumb.small {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 9px;
-}
-.pg-thumb.small em {
-  right: 2px;
-  bottom: 2px;
-  font-size: 9.5px;
 }
 @media (max-width: 380px) {
   .pg-seg button {
