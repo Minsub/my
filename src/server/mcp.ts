@@ -31,7 +31,7 @@ const descriptions: Partial<Record<Operation, string>> = {
   coffee_create_bean:
     "원두 상품을 등록합니다. 확인하지 못한 가격·배전은 null로 남깁니다.",
   coffee_log_brew_setting:
-    "내 머신의 분쇄도·용량 설정 숫자를 기록합니다. g 단위로 추정하지 마세요.",
+    "원두에 대한 내 머신의 분쇄도·용량 설정 숫자를 기록합니다. 머신은 공간에 하나라 고르지 않습니다. g 단위로 추정하지 마세요.",
   wine_receive_stock: "구매일·가격을 보존하고 와인 재고를 입고합니다.",
   wine_update_price:
     "이미 입고한 와인의 병당 구입가를 고칩니다. 재고는 바꾸지 않습니다. wine_get의 purchases[].id를 purchase_id로, 와인 version을 expected_version으로 보냅니다. 구매 내역이 없는 이관 와인은 purchase_id 없이 보내면 참고 가격을 고칩니다.",
@@ -163,7 +163,6 @@ export function mcpHandler(actor: Actor) {
       const collections = {
         coffee_list_brands: "brands",
         coffee_list_beans: "beans",
-        coffee_list_machines: "machines",
         wine_list: "wines",
         wine_list_glasses: "glasses",
       } as const;

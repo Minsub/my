@@ -44,7 +44,6 @@ export function demoSnapshot(): Snapshot {
           ]
         : [],
     ),
-    machines: [{ id: "machine-0", name: "우리 집 커피 머신" }],
     brews: seedBeans.flatMap((b, i) =>
       b.grind !== null
         ? [

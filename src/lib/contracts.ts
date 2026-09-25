@@ -84,12 +84,10 @@ export const commandSchemas = {
       note: text.default(""),
     })
     .strict(),
-  coffee_create_machine: z.object({ ...key, name }).strict(),
   coffee_log_brew_setting: z
     .object({
       ...key,
       bean_id: id,
-      machine_id: id,
       grind: z.number().min(0).max(1000),
       dose: z.number().min(0).max(1000),
       note: text.default(""),
@@ -257,7 +255,6 @@ export const commandScopes: Record<Operation, Scope | null> = {
   coffee_create_bean: "coffee:write",
   coffee_update_bean: "coffee:write",
   coffee_save_preference: "coffee:write",
-  coffee_create_machine: "coffee:write",
   coffee_log_brew_setting: "coffee:write",
   wine_create: "wine:write",
   wine_update: "wine:write",

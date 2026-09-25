@@ -45,7 +45,6 @@ export type Preference = {
   note: string;
   version: number;
 };
-export type Machine = { id: string; name: string };
 export type Brew = {
   id: string;
   bean_id: string;
@@ -137,7 +136,6 @@ export type Snapshot = {
   brands: Brand[];
   beans: Bean[];
   preferences: Preference[];
-  machines: Machine[];
   brews: Brew[];
   wines: Wine[];
   events: StockEvent[];

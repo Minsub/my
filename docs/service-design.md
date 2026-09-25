@@ -27,7 +27,7 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | `/cash/old` | 원본 단일 HTML 분석 + 엑셀 API 자동 연결 | cash-old.tsx, single-html-page.tsx |
 | `/etc/html` | 등록된 단일 HTML 도구의 제목·설명·원본 파일 목록 | html-pages.tsx, lib/html-pages.ts |
 | `/etc/html/{등록키}` | 등록된 단일 HTML을 보호된 sandbox iframe으로 실행 | html-pages.tsx, server/html-pages.ts |
-| `/settings` | 구성원·머신·AI 연결·도구별 MCP 안내 | app-shell.tsx, connections.tsx, mcp-guide.tsx |
+| `/settings` | 구성원·AI 연결·도구별 MCP 안내 | app-shell.tsx, connections.tsx, mcp-guide.tsx |
 | `/login`, `/consent`, `/privacy`, `/setup` | 인증·동의·개인정보·미설정 안내 | src/app 하위 경로 |
 | `/demo?view=/wine` 등 | 읽기 전용 샘플 둘러보기. 실제 DB를 읽지 않음 | demo/page.tsx, lib/demo.ts |
 
@@ -43,7 +43,7 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 
 ## 커피 데이터 의미
 
-`coffee_brands`, `coffee_beans`, `coffee_preferences`, `coffee_machines`, `coffee_brew_settings`를 사용한다. 실제 컬럼/제약은 migrations와 types.ts를 확인한다. 상품과 본인의 평가를 분리하며 세팅은 누적 기록이다.
+`coffee_brands`, `coffee_beans`, `coffee_preferences`, `coffee_machines`, `coffee_brew_settings`를 사용한다. 실제 컬럼/제약은 migrations와 types.ts를 확인한다. 상품과 본인의 평가를 분리하며 세팅은 누적 기록이다. 커피 머신은 공간마다 하나로 운용한다. 등록 화면·MCP 도구가 없고 첫 세팅 기록 때 서버가 `커피 머신`을 만들어 `machine_id`를 채운다.
 
 가격은 포장 가격(원)과 중량(g)으로 저장한다. kg 환산은 price×1000/weight_g, 중량 미입력이면 계산하지 않는다. `grind`, `dose`는 기기 설정 숫자이며 실제 g으로 추정하지 않는다. 현재 가격 확인일·가격 이력·원두 재고·자동 상품 수집 기능은 없다. 원두 목록과 상세는 이미지 없이 표시한다. 판매 가격은 중량과 무관하게 표시하며 기존 image_url 값은 보존한다. 세부 동작은 [커피 기능](home-cafe/coffee-features.md)을 따른다.
 

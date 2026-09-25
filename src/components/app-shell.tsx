@@ -344,14 +344,6 @@ export function AppShell({
       extra: { bean_id: bean.id },
       fields: [
         {
-          name: "machine_id",
-          label: "머신",
-          type: "select",
-          required: true,
-          value: b?.machine_id,
-          options: data.machines.map((m) => ({ value: m.id, label: m.name })),
-        },
-        {
           ...number("grind", "분쇄도 설정", b?.grind),
           required: true,
           step: "any",
@@ -536,7 +528,6 @@ export function AppShell({
     const preferences = ownPrefs.filter((p) => p.bean_id === bean.id);
     const recommended = recommenders(bean.id);
     const brew = myBrew(bean);
-    const machine = data.machines.find((m) => m.id === brew?.machine_id);
     const unitPrice = kgPrice(bean.price, bean.weight_g);
     return (
       <article className="coffee-row" key={bean.id}>
@@ -619,12 +610,9 @@ export function AppShell({
         <div className="coffee-brew">
           <span className="coffee-column-label">내 최근 머신 세팅</span>
           {brew && (
-            <>
-              <span>{machine?.name || "머신"}</span>
-              <small>
-                분쇄 {brew.grind ?? "—"} · 용량 {brew.dose ?? "—"}
-              </small>
-            </>
+            <small>
+              분쇄 {brew.grind ?? "—"} · 용량 {brew.dose ?? "—"}
+            </small>
           )}
           <button
             className="setting-pill"
@@ -1082,9 +1070,6 @@ export function AppShell({
                 <div className="brew-row" key={x.id}>
                   <div>
                     <strong>{memberName(x.user_id)}</strong>
-                    <p>
-                      {data.machines.find((m) => m.id === x.machine_id)?.name}
-                    </p>
                     <small>{x.note}</small>
                   </div>
                   <div className="brew-values">
@@ -1545,37 +1530,6 @@ export function AppShell({
                   </button>
                 </div>
               ))}
-          </section>
-          <section className="panel">
-            <div className="section-heading compact">
-              <h2>
-                <Coffee size={19} /> 커피 머신
-              </h2>
-              <button
-                className="text-button"
-                onClick={() =>
-                  open({
-                    title: "머신 등록",
-                    description:
-                      "분쇄도·용량은 이 머신의 설정 숫자로 기록합니다.",
-                    operation: "coffee_create_machine",
-                    fields: [txt("name", "머신 이름", "", true)],
-                  })
-                }
-              >
-                <Plus size={15} />
-                추가
-              </button>
-            </div>
-            {data.machines.map((m) => (
-              <div className="machine-row" key={m.id}>
-                <SlidersHorizontal size={20} />
-                <strong>{m.name}</strong>
-              </div>
-            ))}
-            {!data.machines.length && (
-              <p className="muted">세팅을 기록할 머신을 등록해주세요.</p>
-            )}
           </section>
         </div>
         <ConnectionSettings demo={demo} />

@@ -48,18 +48,11 @@ export const commandGuide = {
     result: "본인의 취향 기록과 버전.",
     example: "이 원두는 먹어봤고 추천해. 산미가 좋았다고 기록해줘.",
   },
-  coffee_create_machine: {
-    title: "커피 머신 등록",
-    description: "추출 설정에 사용할 가족의 머신을 추가합니다.",
-    input: "name(머신 이름).",
-    result: "등록된 머신 ID.",
-    example: "우리 집 머신을 등록해줘.",
-  },
   coffee_log_brew_setting: {
     title: "추출 설정 기록",
     description:
-      "원두와 머신에 대한 본인의 분쇄도·용량 설정 숫자를 기록합니다. 용량 설정을 임의로 g으로 해석하지 않습니다.",
-    input: "bean_id, machine_id, grind(분쇄도), dose(용량 설정). 선택: note.",
+      "원두에 대한 본인의 머신 분쇄도·용량 설정 숫자를 기록합니다. 용량 설정을 임의로 g으로 해석하지 않습니다.",
+    input: "bean_id, grind(분쇄도), dose(용량 설정). 선택: note.",
     result: "추출 설정 기록.",
     example: "이 원두를 우리 머신에서 분쇄도 4, 용량 설정 6으로 기록해줘.",
   },
@@ -179,13 +172,6 @@ export const readGuide: Record<string, Entry> = {
     input: "선택: query(원두 이름), cursor, limit.",
     result: "원두 목록·가격·상세 화면 링크와 다음 페이지 위치.",
     example: "우리 집 원두 목록을 보여줘.",
-  },
-  coffee_list_machines: {
-    title: "머신 목록",
-    description: "추출 기록에 사용할 등록된 머신을 찾습니다.",
-    input: "선택: query, cursor, limit.",
-    result: "머신 목록과 ID.",
-    example: "등록된 커피 머신이 뭐가 있어?",
   },
   coffee_get_bean: {
     title: "원두 상세·가족 취향",

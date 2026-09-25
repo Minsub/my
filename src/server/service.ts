@@ -18,7 +18,6 @@ import type { Actor, Snapshot } from "@/lib/types";
 const tables = {
   brand: "coffee_brands",
   bean: "coffee_beans",
-  machine: "coffee_machines",
   wine: "wines",
   glass: "wine_glasses",
 } as const;
@@ -35,6 +34,26 @@ async function record(
   );
   if (!row) throw new AppError("NOT_FOUND", "항목을 찾을 수 없습니다.", 404);
   return row;
+}
+// 커피 머신은 공간마다 하나만 쓴다. 스키마의 machine_id는 유지하고 사용자가 고르지 않게 한다.
+// 이름 UNIQUE에 기대어 동시에 첫 기록이 들어와도 머신이 하나만 생긴다.
+async function coffeeMachine(client: PoolClient, actor: Actor) {
+  const find = () =>
+    query<{ id: string }>(
+      "SELECT id FROM coffee_machines WHERE household_id=$1 ORDER BY name LIMIT 1",
+      [actor.householdId],
+      client,
+    );
+  let [machine] = await find();
+  if (!machine) {
+    await query(
+      "INSERT INTO coffee_machines(household_id,name) VALUES($1,'커피 머신') ON CONFLICT(household_id,name) DO NOTHING",
+      [actor.householdId],
+      client,
+    );
+    [machine] = await find();
+  }
+  return machine.id;
 }
 function canEdit(
   actor: Actor,
@@ -272,27 +291,17 @@ export async function execute(
         label = bean.name;
         break;
       }
-      case "coffee_create_machine": {
-        const d = command.input;
-        [result] = await query(
-          "INSERT INTO coffee_machines(household_id,name) VALUES($1,$2) RETURNING *",
-          [actor.householdId, d.name],
-          client,
-        );
-        label = d.name;
-        break;
-      }
       case "coffee_log_brew_setting": {
         const d = command.input;
         const bean = await record(client, actor, "bean", d.bean_id);
-        await record(client, actor, "machine", d.machine_id);
+        const machineId = await coffeeMachine(client, actor);
         [result] = await query(
           "INSERT INTO coffee_brew_settings(household_id,bean_id,user_id,machine_id,grind,dose,note) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *",
           [
             actor.householdId,
             d.bean_id,
             actor.userId,
-            d.machine_id,
+            machineId,
             d.grind,
             d.dose,
             d.note,
@@ -701,7 +710,6 @@ export async function snapshot(actor: Actor): Promise<Snapshot> {
       brands: coffee ? await read("coffee_brands", "name") : [],
       beans: coffee ? await read("coffee_beans", "created_at DESC,id") : [],
       preferences: coffee ? await read("coffee_preferences") : [],
-      machines: coffee ? await read("coffee_machines", "name") : [],
       brews: coffee
         ? await read("coffee_brew_settings", "created_at DESC,id")
         : [],
