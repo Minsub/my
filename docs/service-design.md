@@ -19,7 +19,7 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | `/wine/{uuid}` | 정보·입고·소비·취소·시음·사진 | app-shell.tsx, wine-photo-upload.tsx |
 | `/wine/glasses` | 와인잔 등록·수정 | app-shell.tsx |
 | `/assets` | 자산관리 하위 화면 목록. 항목은 lib/assets.ts의 assetSubMenus에서 관리 | asset-hub.tsx |
-| `/assets/status` | 구성원·기간 범위 필터, 총자산(구성원별 내역 포함)·CAGR·통화비율, 자산 추이(누적 막대·기간별 합계 표시)와 구성(도넛·가운데 총자산), 위험·안전 구성, 주식/해외 주식 TOP 5, 기간별 금액·증감 표, CSV 업로드, 묶음 클릭 시 오른쪽 상세 | asset-status.tsx, asset-chart.tsx, asset-detail.tsx |
+| `/assets/status` | 구성원·기간 범위 필터, 총자산(추이 선·구성원별 내역 포함, 왼쪽 큰 카드)·CAGR·통화비율, 자산 추이(누적 막대·기간별 합계 표시)와 구성(도넛·가운데 총자산), 위험·안전 구성, 주식/해외 주식 TOP 5(전체 종목·비중 팝업), 기간별 금액·증감 표, CSV 업로드, 묶음 클릭 시 오른쪽 상세 | asset-status.tsx, asset-chart.tsx, asset-detail.tsx |
 | `/assets/records` | 등록 이력, 원본 항목 목록, 항목 한 줄의 자산그룹·금액 수정, 전체 CSV 내보내기 | asset-records.tsx |
 | `/baby` | 꼬미(아이 태명) 하위 화면 목록. 항목은 menu-hub.tsx의 kkomiMenus | menu-hub.tsx |
 | `/baby/pregnancy` | 임신 중 통증 기록: 배뭉침·통증 시작·종료 타이머, 최근 1시간 상태, 출혈(출혈 없음 포함)·사진, 타입별 타임라인 | pregnancy-log.tsx |

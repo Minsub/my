@@ -74,85 +74,180 @@
   padding: 6px 10px;
   color: var(--ink);
 }
+/* 총자산이 왼쪽에서 두 줄을 차지하고, 증가율·통화 비율이 오른쪽에 쌓인다. */
 .asset-kpis {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
   gap: 12px;
   margin-bottom: 20px;
 }
-.asset-kpis > div {
-  padding: 16px;
+.asset-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 20px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: #fff;
   min-width: 0;
 }
-.asset-kpis span {
-  display: block;
-  font-size: 11px;
-  color: var(--muted);
-  letter-spacing: 0.04em;
+.asset-kpi-total {
+  grid-row: span 2;
 }
-.asset-kpis strong {
+.asset-kpi-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.asset-kpi-value {
   display: block;
-  margin: 6px 0 4px;
-  font-size: 19px;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
-/* KPI 큰 숫자 옆에 붙는 보조 수치. 비율 옆의 증감액처럼 단위가 다른 값을 나란히 둔다. */
-.asset-kpis strong i {
-  font-style: normal;
-  font-size: 12.5px;
-  font-weight: 600;
-  margin-left: 8px;
+.asset-kpi-total > .asset-kpi-value {
+  font-size: 36px;
+}
+.asset-kpi-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+/* 카드가 옆 칸 높이에 맞춰 늘어나면 마지막 설명 줄이 바닥에 붙어 빈 곳이 가운데로 흩어진다. */
+.asset-kpi > .asset-kpi-sub:last-child {
+  margin-top: auto;
+}
+.asset-kpi-sub b {
+  font-weight: 700;
+}
+.asset-kpi-sub b.flat {
   color: var(--ink);
 }
-.asset-kpis strong i.flat {
+/* 큰 비율 옆에 그 구간의 실제 증감액과 시작→끝 금액을 둔다. */
+.asset-kpi-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+}
+.asset-kpi-fact {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.asset-kpi-fact b {
+  font-size: 18px;
+}
+.asset-kpi-fact span {
+  font-size: 13px;
   color: var(--muted);
-  font-weight: 400;
 }
-.asset-kpis strong i.up {
-  color: #c4362f;
+.asset-kpi-mix {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
-.asset-kpis strong i.down {
-  color: #2f5fc4;
+.asset-kpi-mix > div {
+  display: grid;
+  gap: 2px;
 }
-.asset-kpis small {
+.asset-kpi-mix span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink);
+}
+.asset-kpi-mix span i {
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+}
+.asset-kpi-mix small {
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+/* 총자산 카드의 남는 높이를 채운다. 늘어나는 쪽은 이 선이다. */
+.asset-sparkline {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 56px;
+  margin-top: 6px;
+}
+/* 높이 0에서 시작해 남는 자리만큼만 자란다. 비율대로 높이를 잡으면 카드가 늘어난다. */
+.asset-sparkline svg {
+  flex: 1 1 0;
+  width: 100%;
+  height: 0;
+  min-height: 48px;
+}
+.asset-sparkline polygon {
+  fill: var(--green-pale);
+}
+.asset-sparkline polyline {
+  fill: none;
+  stroke: var(--green);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+.asset-sparkline span {
+  display: flex;
+  justify-content: space-between;
   font-size: 11px;
   color: var(--muted);
-  overflow-wrap: anywhere;
 }
 /* 구성원별 내역은 총자산 카드 안에서 본다. 총액을 보는 자리와 누가 얼마인지 보는 자리를 나누지 않는다. */
 .asset-kpi-owners {
   list-style: none;
-  margin: 10px 0 0;
-  padding: 10px 0 0;
+  margin: 4px 0 0;
+  padding: 12px 0 0;
   border-top: 1px solid var(--line);
   display: grid;
-  gap: 6px;
+  gap: 10px;
 }
 .asset-kpi-owners li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0 8px;
+  gap: 1px 8px;
   align-items: baseline;
   font-variant-numeric: tabular-nums;
 }
 .asset-kpi-owners span {
-  font-size: 12px;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--ink);
-  letter-spacing: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.asset-kpi-owners span i {
+  font-style: normal;
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 6px;
+}
 .asset-kpi-owners b {
-  font-size: 13px;
+  font-size: 16px;
   text-align: right;
+}
+.asset-kpi-owners small {
+  font-size: 12px;
+  color: var(--muted);
 }
 .asset-kpi-owners em {
   font-style: normal;
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 600;
   text-align: right;
   white-space: nowrap;
@@ -160,12 +255,6 @@
 .asset-kpi-owners em.flat {
   color: #9aa392;
   font-weight: 400;
-}
-.asset-kpi-owners em.up {
-  color: #c4362f;
-}
-.asset-kpi-owners em.down {
-  color: #2f5fc4;
 }
 /* 국내 시세 표기 관행을 따른다. 증가는 빨강, 하락은 파랑이다. */
 .asset-page .up {
@@ -304,9 +393,6 @@
 @media (max-width: 900px) {
   .asset-chart-grid {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .asset-kpis {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 620px) {
@@ -542,14 +628,34 @@
   .asset-records-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* 좁아지면 총자산이 한 줄을 다 쓰고 나머지 둘이 그 아래 나란히 선다. */
   .asset-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .asset-kpis > div:last-child {
+  .asset-kpi-total {
+    grid-row: auto;
     grid-column: 1 / -1;
   }
 }
 @media (max-width: 620px) {
+  .asset-kpis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .asset-kpi {
+    padding: 16px;
+  }
+  .asset-kpi-value {
+    font-size: 24px;
+  }
+  .asset-kpi-total > .asset-kpi-value {
+    font-size: 30px;
+  }
+  .asset-stock-dialog > header {
+    padding: 18px 16px 12px;
+  }
+  .asset-stock-dialog-list {
+    padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+  }
   .asset-drawer {
     width: 100%;
     padding: 16px;
@@ -1009,16 +1115,76 @@
   font-size: 14px;
   color: var(--ink);
 }
-.asset-stock-card header button:hover {
+.asset-stock-card header button:hover:not(:disabled) {
   color: var(--green);
 }
+.asset-stock-card header button:disabled {
+  cursor: default;
+}
 .asset-stock-card header strong {
-  font-size: 16px;
+  font-size: 18px;
 }
 .asset-stock-meta {
-  margin: 3px 0 10px;
-  font-size: 11px;
+  margin: 4px 0 10px;
+  font-size: 13px;
   color: var(--muted);
+}
+.asset-stock-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  margin-top: 8px;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--green);
+}
+.asset-stock-more:hover {
+  background: var(--green-pale);
+}
+/* 전체 종목 팝업. 머리말은 고정하고 목록만 스크롤한다. */
+.asset-stock-dialog {
+  width: min(640px, 100%);
+}
+.asset-stock-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.asset-stock-dialog > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 24px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.asset-stock-dialog h2 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: 5px 0 0;
+  font-size: 20px;
+}
+.asset-stock-dialog h2 strong {
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.asset-stock-dialog .asset-stock-meta {
+  margin-bottom: 0;
+}
+.asset-stock-dialog-list {
+  overflow-y: auto;
+  padding: 0 24px 20px;
+}
+.asset-stock-dialog-list .asset-stock-list li:first-child {
+  border-top: 0;
 }
 .asset-stock-list {
   list-style: none;
@@ -1030,11 +1196,11 @@
   grid-template-columns: 18px minmax(0, 1fr) auto;
   align-items: center;
   gap: 2px 8px;
-  padding: 5px 0;
+  padding: 7px 0;
   border-top: 1px solid #f1f2ec;
 }
 .asset-rank {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   color: #aab29f;
 }
@@ -1043,7 +1209,7 @@
 }
 .asset-stock-name strong {
   display: block;
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1051,7 +1217,7 @@
 }
 .asset-stock-name small,
 .asset-stock-figure small {
-  font-size: 10px;
+  font-size: 11.5px;
   color: var(--muted);
 }
 .asset-stock-figure {
@@ -1061,7 +1227,7 @@
 }
 .asset-stock-figure strong {
   display: block;
-  font-size: 12.5px;
+  font-size: 13.5px;
 }
 .asset-stock-list .asset-bar {
   grid-column: 2 / -1;

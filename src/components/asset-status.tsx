@@ -5,6 +5,7 @@ import {
   RefreshCw,
   TriangleAlert,
   ArrowUpRight,
+  ChevronRight,
   LineChart,
   Upload,
   X,
@@ -68,6 +69,7 @@ export function AssetStatus({
   const [toast, setToast] = useState("");
   const [detail, setDetail] = useState<AssetDetailTarget | null>(null);
   const [trend, setTrend] = useState<string | null>(null);
+  const [stockKey, setStockKey] = useState<string | null>(null);
   const [upload, setUpload] = useState(false);
   const params = new URLSearchParams(query);
   const owner = params.get("owner") || "all";
@@ -290,6 +292,7 @@ export function AssetStatus({
   const points = timeline.map((p) => p.period);
   const mix = data.currencyMix;
   const mixTotal = mix.KRW + mix.USD + mix.NONE;
+  const ownerSum = data.ownerTotals.reduce((n, o) => n + o.total, 0);
   const drill = (at: string, bucket: string) => {
     const label =
       timeline
@@ -297,10 +300,13 @@ export function AssetStatus({
         ?.buckets.find((b) => b.key === bucket)?.name ?? bucket;
     setDetail({ at, axis, bucket, label });
   };
-  // 위험·안전 박스와 주식 카드는 화면의 분류 기준과 무관하게 항상 자산 그룹으로 연다.
+  // 위험·안전 박스는 화면의 분류 기준과 무관하게 항상 자산 그룹으로 연다.
   const drillGroup = (bucket: string, label: string) =>
     groupSummary &&
     setDetail({ at: groupSummary.period, axis: "group", bucket, label });
+  const stockBoard = (key: string | null) =>
+    data.stocks.find((b) => b.key === key && b.count > 0);
+  const openStock = stockBoard(stockKey);
   const trendSeries =
     trend === TOTAL_KEY
       ? { key: TOTAL_KEY, name: "합계", values: timeline.map((p) => p.total) }
@@ -348,26 +354,51 @@ export function AssetStatus({
                   </span>
                 </div>
               )}
+              {/* 총자산을 왼쪽 큰 카드로 두고 나머지 둘을 오른쪽에 쌓는다. 세 칸을 같은 폭으로 두면
+                  구성원 내역이 있는 총자산만 길어지고 옆 두 칸이 비어 보인다. */}
               <section className="asset-kpis" aria-label="자산 요약">
-                <div>
-                  <span>총자산</span>
-                  <strong>{assetMoney(groupSummary.total)}</strong>
-                  <small>
-                    {periodLabel(groupSummary.period)} 기준 ·{" "}
-                    {groupSummary.change === null
-                      ? "직전 비교 없음"
-                      : `직전 ${assetSignedMoney(groupSummary.change)} (${assetSignedPct(groupSummary.change_rate)})`}
-                  </small>
+                <div className="asset-kpi asset-kpi-total">
+                  <span className="asset-kpi-label">
+                    총자산 · {periodLabel(groupSummary.period)} 기준
+                  </span>
+                  <strong className="asset-kpi-value">
+                    {assetMoney(groupSummary.total)}
+                  </strong>
+                  <p className="asset-kpi-sub">
+                    {groupSummary.change === null ? (
+                      "직전 비교 없음"
+                    ) : (
+                      <>
+                        직전 대비{" "}
+                        <b className={changeTone(groupSummary.change)}>
+                          {assetSignedMoney(groupSummary.change)} (
+                          {assetSignedPct(groupSummary.change_rate)})
+                        </b>
+                      </>
+                    )}
+                  </p>
+                  {/* 남는 높이는 추이 선이 채운다. 구성원 한 명일 때도 카드가 비지 않는다. */}
+                  <AssetSparkline
+                    periods={withData.map((p) => p.period)}
+                    values={withData.map((p) => p.total)}
+                  />
                   {/* 구성원이 한 명이면 총자산과 같은 값이라 적지 않는다. */}
                   {data.ownerTotals.length > 1 && (
                     <ul className="asset-kpi-owners">
                       {data.ownerTotals.map((o) => (
                         <li key={o.owner_id}>
-                          <span>{o.name}</span>
+                          <span>
+                            {o.name}
+                            <i>
+                              {assetPct(
+                                ownerSum > 0 ? o.total / ownerSum : null,
+                              )}
+                            </i>
+                          </span>
                           <b>{assetCompact(o.total)}</b>
                           <small>
                             {o.as_of
-                              ? o.as_of.replaceAll("-", ".")
+                              ? `${o.as_of.replaceAll("-", ".")} 기록`
                               : "기록 없음"}
                           </small>
                           <em className={changeTone(o.change)}>
@@ -380,58 +411,76 @@ export function AssetStatus({
                     </ul>
                   )}
                 </div>
-                <div>
-                  <span>연평균 자산 증가율</span>
-                  <strong
-                    className={
-                      data.cagr === null ? "" : data.cagr >= 0 ? "up" : "down"
-                    }
-                  >
-                    {assetSignedPct(data.cagr)}
+                <div className="asset-kpi">
+                  <span className="asset-kpi-label">연평균 자산 증가율</span>
+                  <div className="asset-kpi-row">
+                    <strong
+                      className={`asset-kpi-value ${data.cagr === null ? "" : data.cagr >= 0 ? "up" : "down"}`}
+                    >
+                      {assetSignedPct(data.cagr)}
+                    </strong>
                     {/* 비율만 있으면 "그래서 얼마 늘었나"를 못 읽는다. 창 안의 실제 증감액을 같이 적는다. */}
                     {spanChange !== null && (
-                      <i className={changeTone(spanChange)}>
-                        {assetSignedMoney(spanChange)}
-                      </i>
+                      <div className="asset-kpi-fact">
+                        <b className={changeTone(spanChange)}>
+                          {assetSignedMoney(spanChange)}
+                        </b>
+                        <span>
+                          {assetCompact(withData[0].total)} →{" "}
+                          {assetCompact(withData.at(-1)!.total)}
+                        </span>
+                      </div>
                     )}
-                  </strong>
-                  <small>
+                  </div>
+                  <p className="asset-kpi-sub">
                     {assetRanges.find((r) => r.key === data.range)?.label} ·{" "}
                     {withData.length}개 기간 기준 CAGR
                     {spanChange !== null &&
                       ` · ${periodLabel(withData[0].period)}부터`}
-                  </small>
+                  </p>
                 </div>
-                <div>
-                  <span>원화 / 달러 비율</span>
-                  <strong>
-                    {assetPct(mixTotal > 0 ? mix.KRW / mixTotal : null)} /{" "}
-                    {assetPct(mixTotal > 0 ? mix.USD / mixTotal : null)}
-                  </strong>
-                  <div className="asset-mix-bar">
-                    <i
-                      style={{
-                        width: `${mixTotal > 0 ? (mix.KRW / mixTotal) * 100 : 0}%`,
-                        background: assetColor("KRW"),
-                      }}
-                    />
-                    <i
-                      style={{
-                        width: `${mixTotal > 0 ? (mix.USD / mixTotal) * 100 : 0}%`,
-                        background: assetColor("USD"),
-                      }}
-                    />
-                    <i
-                      style={{
-                        width: `${mixTotal > 0 ? (mix.NONE / mixTotal) * 100 : 0}%`,
-                        background: assetColor("NONE"),
-                      }}
-                    />
+                <div className="asset-kpi">
+                  <span className="asset-kpi-label">원화 / 달러 비율</span>
+                  <div className="asset-kpi-mix">
+                    {(
+                      [
+                        ["KRW", "원화"],
+                        ["USD", "달러"],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <div key={key}>
+                        <span>
+                          <i style={{ background: assetColor(key) }} />
+                          {label}
+                        </span>
+                        <strong className="asset-kpi-value">
+                          {assetPct(mixTotal > 0 ? mix[key] / mixTotal : null)}
+                        </strong>
+                        <small>{assetCompact(mix[key])}</small>
+                      </div>
+                    ))}
                   </div>
-                  <small>
-                    원화 {assetCompact(mix.KRW)} · 달러 {assetCompact(mix.USD)}
-                    {mix.NONE > 0 && ` · 기타 ${assetCompact(mix.NONE)}`}
-                  </small>
+                  <div className="asset-mix-bar">
+                    {(["KRW", "USD", "NONE"] as const).map((key) => (
+                      <i
+                        key={key}
+                        style={{
+                          width: `${mixTotal > 0 ? (mix[key] / mixTotal) * 100 : 0}%`,
+                          background: assetColor(key),
+                        }}
+                      />
+                    ))}
+                  </div>
+                  {mix.NONE > 0 && (
+                    <p className="asset-kpi-sub">
+                      <i
+                        className="asset-dot"
+                        style={{ background: assetColor("NONE") }}
+                      />
+                      기타 {assetCompact(mix.NONE)} ·{" "}
+                      {assetPct(mix.NONE / mixTotal)}
+                    </p>
+                  )}
                 </div>
               </section>
               <div className="asset-view-controls">
@@ -482,7 +531,12 @@ export function AssetStatus({
                   <AssetPie
                     rows={summary?.rows ?? []}
                     total={summary?.total ?? 0}
-                    onSlice={(key) => summary && drill(summary.period, key)}
+                    onSlice={(key) => {
+                      // 주식 두 그룹은 카드의 전체 보기와 같은 종목 팝업을 연다. 원본 항목 서랍은
+                      // 계좌·구성원별로 쪼개져 있어 종목 규모와 비중을 읽기 어렵다.
+                      if (axis === "group" && stockBoard(key)) setStockKey(key);
+                      else if (summary) drill(summary.period, key);
+                    }}
                   />
                 </div>
               </section>
@@ -513,7 +567,7 @@ export function AssetStatus({
                     <AssetStockCard
                       key={board.key}
                       board={board}
-                      onOpen={() => drillGroup(board.key, board.name)}
+                      onOpen={() => setStockKey(board.key)}
                     />
                   ))}
                 </div>
@@ -536,6 +590,13 @@ export function AssetStatus({
             </>
           )}
         </>
+      )}
+      {openStock && groupSummary && (
+        <AssetStockDialog
+          board={openStock}
+          period={periodLabel(groupSummary.period)}
+          onClose={() => setStockKey(null)}
+        />
       )}
       {trendSeries && (
         <AssetTrendDialog
@@ -830,6 +891,7 @@ function AssetRiskBoard({
 // 종목은 사람이 아니라 종목 단위로 본다. 같은 종목을 둘이 나눠 들고 있어도 규모는 하나다.
 const shares = (n: number | null) =>
   n === null ? "" : `${Math.round(n).toLocaleString("ko-KR")}주`;
+const STOCK_TOP = 5;
 function AssetStockCard({
   board,
   onOpen,
@@ -837,11 +899,15 @@ function AssetStockCard({
   board: AssetStockBoard;
   onOpen: () => void;
 }) {
-  const max = board.top[0]?.amount ?? 0;
+  const top = board.holdings.slice(0, STOCK_TOP);
   return (
     <article className="asset-stock-card">
       <header>
-        <button onClick={onOpen} title={`${board.name} 전체 종목 보기`}>
+        <button
+          onClick={onOpen}
+          disabled={!board.count}
+          title={`${board.name} 전체 종목 보기`}
+        >
           <i
             className="asset-dot"
             style={{ background: assetColor(board.key) }}
@@ -854,39 +920,138 @@ function AssetStockCard({
         {board.count}종목
         {board.quantity !== null && ` · 보유 ${shares(board.quantity)}`}
       </p>
-      {board.top.length ? (
-        <ol className="asset-stock-list">
-          {board.top.map((holding, i) => (
-            <li key={holding.name}>
-              <span className="asset-rank">{i + 1}</span>
-              <div className="asset-stock-name">
-                <strong>{holding.name}</strong>
-                {holding.detail && <small>{holding.detail}</small>}
-              </div>
-              <div className="asset-stock-figure">
-                <strong>{assetCompact(holding.amount)}</strong>
-                <small>
-                  {assetPct(
-                    board.total > 0 ? holding.amount / board.total : null,
-                  )}
-                  {holding.quantity !== null &&
-                    ` · ${shares(holding.quantity)}`}
-                </small>
-              </div>
-              <i className="asset-bar">
-                <b
-                  style={{
-                    width: `${max > 0 ? (holding.amount / max) * 100 : 0}%`,
-                    background: assetColor(board.key),
-                  }}
-                />
-              </i>
-            </li>
-          ))}
-        </ol>
+      {top.length ? (
+        <>
+          <AssetHoldingList board={board} holdings={top} />
+          <button className="asset-stock-more" onClick={onOpen}>
+            전체 {board.count}종목 · 비중 보기 <ChevronRight size={15} />
+          </button>
+        </>
       ) : (
         <p className="muted small">기록된 종목이 없습니다.</p>
       )}
     </article>
+  );
+}
+// 카드와 팝업이 같은 줄 모양을 쓴다. 막대는 그 그룹의 1위 종목을 가득 찬 길이로 그린다.
+function AssetHoldingList({
+  board,
+  holdings,
+}: {
+  board: AssetStockBoard;
+  holdings: AssetStockBoard["holdings"];
+}) {
+  const max = board.holdings[0]?.amount ?? 0;
+  return (
+    <ol className="asset-stock-list">
+      {holdings.map((holding, i) => (
+        <li key={holding.name}>
+          <span className="asset-rank">{i + 1}</span>
+          <div className="asset-stock-name">
+            <strong>{holding.name}</strong>
+            {holding.detail && <small>{holding.detail}</small>}
+          </div>
+          <div className="asset-stock-figure">
+            <strong>{assetCompact(holding.amount)}</strong>
+            <small>
+              {assetPct(board.total > 0 ? holding.amount / board.total : null)}
+              {holding.quantity !== null && ` · ${shares(holding.quantity)}`}
+            </small>
+          </div>
+          <i className="asset-bar">
+            <b
+              style={{
+                width: `${max > 0 ? (holding.amount / max) * 100 : 0}%`,
+                background: assetColor(board.key),
+              }}
+            />
+          </i>
+        </li>
+      ))}
+    </ol>
+  );
+}
+// 카드의 전체 보기와 도넛의 주식 조각이 여는 팝업. 금액순 전체 종목과 그룹 내 비중을 본다.
+function AssetStockDialog({
+  board,
+  period,
+  onClose,
+}: {
+  board: AssetStockBoard;
+  period: string;
+  onClose: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (!dialog.current?.open) dialog.current?.showModal();
+  }, []);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <dialog
+      ref={dialog}
+      className="record-dialog asset-stock-dialog"
+      onCancel={onClose}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      aria-label={`${board.name} 전체 종목`}
+    >
+      <header>
+        <div>
+          <span className="eyebrow">{period} 최신 기록</span>
+          <h2>
+            <i
+              className="asset-dot"
+              style={{ background: assetColor(board.key) }}
+            />
+            {board.name}
+            <strong>{assetMoney(board.total)}</strong>
+          </h2>
+          <p className="asset-stock-meta">
+            {board.count}종목
+            {board.quantity !== null && ` · 보유 ${shares(board.quantity)}`} ·
+            비중은 그룹 합계 대비
+          </p>
+        </div>
+        <button className="icon-button" aria-label="닫기" onClick={onClose}>
+          <X size={18} />
+        </button>
+      </header>
+      <div className="asset-stock-dialog-list">
+        <AssetHoldingList board={board} holdings={board.holdings} />
+      </div>
+    </dialog>
+  );
+}
+// 총자산 카드의 남는 높이를 채우는 추이 선. 축·눈금 없이 모양만 보고, 자세한 값은 아래 차트가 맡는다.
+function AssetSparkline({
+  periods,
+  values,
+}: {
+  periods: string[];
+  values: number[];
+}) {
+  if (values.length < 2) return <div className="asset-sparkline" />;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const xy = values.map(
+    (v, i) =>
+      [(i / (values.length - 1)) * 100, 36 - ((v - min) / span) * 32] as const,
+  );
+  const line = xy.map(([x, y]) => `${x},${y}`).join(" ");
+  return (
+    <div className="asset-sparkline">
+      <svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden>
+        <polygon points={`0,40 ${line} 100,40`} />
+        <polyline points={line} />
+      </svg>
+      <span>
+        <small>{periodLabel(periods[0])}</small>
+        <small>{periodLabel(periods.at(-1)!)}</small>
+      </span>
+    </div>
   );
 }

@@ -671,6 +671,7 @@ export function assetTimelineSeries(timeline: AssetTimelinePoint[]) {
 }
 // 주식 요약 카드가 쓰는 집계. 최신 기간에 유효한 스냅샷의 원본 항목만 받는다.
 // 같은 종목을 여러 구성원이 들고 있으면 한 줄로 합친다. TOP 5는 사람별이 아니라 종목별 규모를 본다.
+// 카드는 앞 5줄만 그리고, 전체 보기 팝업이 같은 목록 전체를 쓴다.
 export const assetStockBoardGroups = ["kr_stock", "foreign_equity"] as const;
 export type AssetHoldingRow = {
   group_key: string;
@@ -693,7 +694,8 @@ export type AssetStockBoard = {
   count: number;
   // 수량이 하나도 기록되지 않은 그룹은 0이 아니라 "모름"이므로 null로 둔다.
   quantity: number | null;
-  top: AssetHolding[];
+  // 금액 내림차순 전체 종목.
+  holdings: AssetHolding[];
 };
 export function buildAssetStockBoards(
   rows: AssetHoldingRow[],
@@ -737,7 +739,7 @@ export function buildAssetStockBoards(
       quantity: quantities.length
         ? quantities.reduce((n, q) => n + q, 0)
         : null,
-      top: holdings.slice(0, 5).map((h) => ({
+      holdings: holdings.map((h) => ({
         name: h.name,
         detail: [...h.brokers, ...h.owners].join(" · "),
         amount: h.amount,
