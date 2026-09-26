@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { X } from "lucide-react";
 import Link from "next/link";
 import { ProductArt } from "./product-art";
 import {
@@ -11,6 +12,52 @@ import {
 } from "@/lib/wine-cellar";
 import { wineTypes, type Snapshot, type Wine } from "@/lib/types";
 import { money, vintageLabel, today } from "@/lib/format";
+// 목록 썸네일과 같은 주소라 이미 받은 사진은 브라우저 캐시에서 연다.
+const photoUrl = (w: Wine) => `/api/wine/${w.id}/photo?v=${w.version}`;
+function WinePhotoViewer({
+  wine,
+  onClose,
+}: {
+  wine: Wine;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = ref.current;
+    const previous = document.activeElement as HTMLElement | null;
+    dialog?.showModal();
+    return () => {
+      dialog?.close();
+      previous?.focus({ preventScroll: true });
+    };
+  }, []);
+  return (
+    <dialog
+      ref={ref}
+      className="cellar-viewer"
+      aria-label={`${wine.name} 사진`}
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <button
+        type="button"
+        autoFocus
+        className="cellar-viewer-close"
+        aria-label="닫기"
+        onClick={onClose}
+      >
+        <X size={22} />
+      </button>
+      {/* eslint-disable-next-line @next/next/no-img-element -- 인증 라우트의 사진을 그대로 표시한다. */}
+      <img src={photoUrl(wine)} alt={`${wine.name} 사진`} />
+    </dialog>
+  );
+}
 export function WineCellar({
   data,
   initialQuery,
@@ -25,6 +72,7 @@ export function WineCellar({
   consume: (w: Wine) => void;
 }) {
   const [filters, setFilters] = useState<WineFilters>(initialQuery);
+  const [photo, setPhoto] = useState<Wine | null>(null);
   function change(key: keyof WineFilters, value: string) {
     const next = {
       ...filters,
@@ -347,15 +395,26 @@ export function WineCellar({
       <div className="cellar-list">
         {rows.map((w) => (
           <article key={w.id} className="cellar-row">
-            <Link href={href(`/wine/${w.id}`)} className="cellar-product">
-              <ProductArt
-                kind="wine"
-                name={w.name}
-                imageUrl={
-                  w.has_photo ? `/api/wine/${w.id}/photo?v=${w.version}` : null
-                }
-              />
-              <div>
+            <div className="cellar-product">
+              {w.has_photo ? (
+                <button
+                  type="button"
+                  className="cellar-photo"
+                  aria-label={`${w.name} 사진 크게 보기`}
+                  onClick={() => setPhoto(w)}
+                >
+                  <ProductArt
+                    kind="wine"
+                    name={w.name}
+                    imageUrl={photoUrl(w)}
+                  />
+                </button>
+              ) : (
+                <Link href={href(`/wine/${w.id}`)} tabIndex={-1} aria-hidden>
+                  <ProductArt kind="wine" name={w.name} />
+                </Link>
+              )}
+              <Link href={href(`/wine/${w.id}`)} className="cellar-info">
                 <small>
                   NO. {w.display_id} · {w.type} · {vintageLabel(w)}
                 </small>
@@ -366,8 +425,8 @@ export function WineCellar({
                     "원산지 미입력"}
                 </p>
                 <span>{w.grapes}</span>
-              </div>
-            </Link>
+              </Link>
+            </div>
             <div className="cellar-price">
               <strong>
                 {w.price === null ? "가격 미입력" : money(w.price)}
@@ -401,6 +460,7 @@ export function WineCellar({
           </article>
         ))}
       </div>
+      {photo && <WinePhotoViewer wine={photo} onClose={() => setPhoto(null)} />}
       {!rows.length && (
         <div className="panel empty-state">
           <h2>조건에 맞는 와인이 없어요</h2>

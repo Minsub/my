@@ -32,6 +32,9 @@ export function ProductArt({
           alt={`${name} 상품 이미지`}
           onError={() => setFailedUrl(imageUrl)}
           referrerPolicy="no-referrer"
+          // 목록 썸네일은 화면에 가까워질 때 받는다. 상세의 큰 이미지는 바로 받는다.
+          loading={large ? "eager" : "lazy"}
+          decoding="async"
         />
       ) : kind === "coffee" ? (
         <svg viewBox="0 0 240 190" aria-label="원두 패키지 일러스트" role="img">

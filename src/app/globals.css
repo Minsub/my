@@ -3248,9 +3248,53 @@ input[type="checkbox"] {
   font-size: 11px;
   color: #8b7b72;
 }
-.cellar-product > div:last-child {
+.cellar-info {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.cellar-product > :first-child {
+  display: block;
+  flex-shrink: 0;
+}
+.cellar-photo {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+.cellar-viewer {
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 56px 12px calc(24px + env(safe-area-inset-bottom));
+  border: 0;
+  background: transparent;
+}
+.cellar-viewer[open] {
+  display: grid;
+  place-items: center;
+}
+.cellar-viewer::backdrop {
+  background: rgba(10, 12, 11, 0.94);
+}
+.cellar-viewer img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+  object-fit: contain;
+}
+.cellar-viewer-close {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff !important;
 }
 .cellar-price {
   display: grid;
