@@ -22,7 +22,7 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | `/assets/status` | 구성원·기간 범위 필터, 총자산(추이 선·구성원별 내역 포함, 왼쪽 큰 카드)·CAGR·통화비율, 자산 추이(누적 막대·기간별 합계 표시)와 구성(도넛·가운데 총자산), 위험·안전 구성, 주식/해외 주식 TOP 5(전체 종목·비중 팝업), 기간별 금액·증감 표, CSV 업로드, 묶음 클릭 시 오른쪽 상세 | asset-status.tsx, asset-chart.tsx, asset-detail.tsx |
 | `/assets/records` | 등록 이력, 원본 항목 목록, 항목 한 줄의 자산그룹·금액 수정, 전체 CSV 내보내기 | asset-records.tsx |
 | `/baby` | 꼬미(아이 태명) 하위 화면 목록. 항목은 menu-hub.tsx의 kkomiMenus | menu-hub.tsx |
-| `/baby/pregnancy` | 임신 중 통증 기록: 배뭉침·통증 시작·종료 타이머, 최근 1시간 상태, 출혈(출혈 없음 포함)·사진, 타입별 타임라인 | pregnancy-log.tsx |
+| `/baby/pregnancy` | 임신 중 통증 기록: 배뭉침·통증 시작·종료 타이머, 최근 1시간 상태, 출혈(출혈 없음 포함)·사진, 진료·검사(경부길이·양수량·심박수·사진·메모, 상세 복사), 타입별 타임라인 | pregnancy-log.tsx |
 | `/cash` | 연·월별 흐름·항목별 평균/비중·거래 조회·파일 관리 | cash-dashboard.tsx, cash-analysis.tsx, cash-files.tsx |
 | `/cash/old` | 원본 단일 HTML 분석 + 엑셀 API 자동 연결 | cash-old.tsx, single-html-page.tsx |
 | `/etc/html` | 등록된 단일 HTML 도구의 제목·설명·원본 파일 목록 | html-pages.tsx, lib/html-pages.ts |
@@ -82,4 +82,4 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 
 ## 꼬미 데이터 의미
 
-꼬미는 아이 태명이다. 임신 중 통증 기록은 `pregnancy_events`에 배뭉침·통증(시작·종료가 있는 완성 기록)과 출혈(한 시점, 출혈 없음 포함)을 저장한다. 진행 중 타이머는 입력 기기의 localStorage에만 있고 종료할 때 저장한다. 간격은 같은 타입의 시작→시작이며 60분 넘게 쉬면 새 구간이다. 상태 기준(1시간 4회, 20분 4회·1시간 8회)은 고정 상수이고 진단이 아니다. 웹 전용이며 MCP에 노출하지 않는다. 상세는 [꼬미 문서](kkomi/README.md)를 따른다.
+꼬미는 아이 태명이다. 임신 중 통증 기록은 `pregnancy_events`에 배뭉침·통증(시작·종료가 있는 완성 기록), 출혈(한 시점, 출혈 없음 포함), 진료·검사(한 시점의 병원 기록, 선택 값과 메모)를 저장한다. 진행 중 타이머는 입력 기기의 localStorage에만 있고 종료할 때 저장한다. 간격은 같은 타입의 시작→시작이며 60분 넘게 쉬면 새 구간이다. 상태 기준(1시간 4회, 20분 4회·1시간 8회)은 고정 상수이고 진단이 아니다. 웹 전용이며 MCP에 노출하지 않는다. 상세는 [꼬미 문서](kkomi/README.md)를 따른다.

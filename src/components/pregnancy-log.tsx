@@ -2,29 +2,39 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Camera,
+  Check,
   ChevronLeft,
   ChevronRight,
   CircleDot,
+  Copy,
   Droplet,
   Pencil,
   RefreshCw,
   SlidersHorizontal,
+  Stethoscope,
   X,
   Zap,
 } from "lucide-react";
 import {
+  amnioticLabel,
+  amnioticLevels,
   bleedingAmounts,
   bleedingColors,
   bleedingLabel,
   CALL_PER_20_MIN,
   CALL_PER_HOUR,
+  CERVIX_MAX_CM,
+  checkupFacts,
   colorLabel,
   durationSec,
+  FETAL_HR_MAX,
+  FETAL_HR_MIN,
   intensityLabel,
   kindLabel,
   kindStats,
   MAX_DURATION_MIN,
-  MAX_PHOTOS,
+  memoLimit,
+  photoLimit,
   pregnancyKinds,
   pregnancyLevel,
   pregnancyWeek,
@@ -33,8 +43,10 @@ import {
   symptomStats,
   TERM_WEEKS,
   timedKinds,
+  isTimed,
   WATCH_PER_HOUR,
   withIntervals,
+  type AmnioticFluid,
   type BleedingAmount,
   type BleedingColor,
   type PregnancyData,
@@ -77,8 +89,11 @@ type Sheet =
       note?: string;
     }
   | { type: "bleeding"; event?: PregnancyEvent }
+  | { type: "checkup"; event?: PregnancyEvent }
+  | { type: "checkupDetail"; event: PregnancyEvent }
   | { type: "settings" }
-  | { type: "photos"; ids: string[]; index: number };
+  // back: 사진을 닫으면 돌아갈 시트(진료 상세에서 연 경우).
+  | { type: "photos"; ids: string[]; index: number; back?: Sheet };
 
 // 진행 중 타이머와 저장 대기 기록은 입력하는 기기의 브라우저에 둔다.
 // 페이지를 새로고침하거나 브라우저가 탭을 다시 불러와도 시작 시각이 남는다.
@@ -141,16 +156,20 @@ const fromLocalInput = (value: string) => {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 };
 const kindColor = (k: PregnancyKind) =>
-  k === "tightening"
-    ? "var(--pg-tight)"
-    : k === "pain"
-      ? "var(--pg-pain)"
-      : "var(--pg-blood)";
+  ({
+    tightening: "var(--pg-tight)",
+    pain: "var(--pg-pain)",
+    bleeding: "var(--pg-blood)",
+    checkup: "var(--pg-visit)",
+  })[k];
 
+// 서버가 1000px로 줄이므로 같은 크기로 보낸다. 사진 10장이 요청 한도(4MB)에 들어가도록
+// 장당 base64 34만 자를 넘으면 품질을 낮춰 다시 만든다.
+const PHOTO_BASE64_MAX = 340000;
 async function photoBase64(file: File) {
   if (file.size > 20000000) throw Error("20MB 이하의 사진을 선택해주세요.");
   const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, 1200 / Math.max(bitmap.width, bitmap.height));
+  const scale = Math.min(1, 1000 / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
@@ -160,8 +179,38 @@ async function photoBase64(file: File) {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
-  return canvas.toDataURL("image/jpeg", 0.82).split(",")[1];
+  for (const quality of [0.85, 0.72, 0.6, 0.48]) {
+    const data = canvas.toDataURL("image/jpeg", quality).split(",")[1];
+    if (data.length <= PHOTO_BASE64_MAX) return data;
+  }
+  throw Error("사진 용량이 큽니다. 다른 사진을 선택해주세요.");
 }
+
+// 클립보드 API가 막힌 환경(비보안 연결 등)에서는 선택 복사로 대신한다.
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return;
+  } catch {
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    area.remove();
+    if (!ok) throw Error("복사하지 못했습니다.");
+  }
+}
+// 진료·검사 상세의 복사 문구. 날짜 한 줄, 입력한 값, 빈 줄, 메모 순서.
+const checkupCopyText = (e: PregnancyEvent) =>
+  [
+    `[${kindLabel.checkup}] ${dayLabel(e.started_at)} ${hm(e.started_at)}`,
+    ...checkupFacts(e).map((f) => `${f.label}: ${f.value}`),
+    ...(e.memo ? ["", e.memo] : []),
+  ].join("\n");
 
 class RequestError extends Error {
   constructor(
@@ -585,6 +634,7 @@ export function PregnancyLog({
           onToggle={toggle}
           onRetry={() => flush()}
           onBleeding={() => setSheet({ type: "bleeding" })}
+          onCheckup={() => setSheet({ type: "checkup" })}
           onManual={() => {
             const end = Date.now() - 5 * MIN;
             setSheet({
@@ -617,6 +667,7 @@ export function PregnancyLog({
               ? setSheet({ type: "photos", ids, index: 0 })
               : setRevealed((v) => ({ ...v, [id]: true }))
           }
+          onPhotos={(ids) => setSheet({ type: "photos", ids, index: 0 })}
           onEdit={(e) => openEdit(e)}
         />
       )}
@@ -662,6 +713,49 @@ export function PregnancyLog({
           onClose={() => setSheet(null)}
         />
       )}
+      {sheet?.type === "checkup" && (
+        <CheckupSheet
+          key={sheet.event?.id ?? "new"}
+          event={sheet.event}
+          demo={demo}
+          onSaved={(e) => {
+            upsert(e);
+            setSheet({ type: "checkupDetail", event: e });
+            inform(
+              `${kindLabel.checkup} ${hm(e.started_at)} 저장${e.photo_ids.length ? ` · 사진 ${e.photo_ids.length}장` : ""}`,
+            );
+          }}
+          onDelete={sheet.event ? () => removeEvent(sheet.event!) : undefined}
+          onClose={() =>
+            setSheet(
+              sheet.event
+                ? { type: "checkupDetail", event: sheet.event }
+                : null,
+            )
+          }
+        />
+      )}
+      {sheet?.type === "checkupDetail" && (
+        <CheckupDetail
+          key={sheet.event.id}
+          event={sheet.event}
+          demo={demo}
+          onEdit={
+            sheet.event.can_edit
+              ? () => setSheet({ type: "checkup", event: sheet.event })
+              : undefined
+          }
+          onPhoto={(index) =>
+            setSheet({
+              type: "photos",
+              ids: sheet.event.photo_ids,
+              index,
+              back: sheet,
+            })
+          }
+          onClose={() => setSheet(null)}
+        />
+      )}
       {sheet?.type === "settings" && (
         <SettingsSheet
           data={data}
@@ -681,7 +775,7 @@ export function PregnancyLog({
           index={sheet.index}
           demo={demo}
           onIndex={(index) => setSheet({ ...sheet, index })}
-          onClose={() => setSheet(null)}
+          onClose={() => setSheet(sheet.back ?? null)}
         />
       )}
       {toast && (
@@ -704,6 +798,11 @@ export function PregnancyLog({
   );
 
   function openEdit(e: PregnancyEvent) {
+    // 진료·검사는 상세를 먼저 연다. 구성원 누구나 보고 복사할 수 있고 수정은 상세에서 한다.
+    if (e.kind === "checkup") {
+      setSheet({ type: "checkupDetail", event: e });
+      return;
+    }
     if (!e.can_edit) {
       inform(
         demo
@@ -713,7 +812,7 @@ export function PregnancyLog({
       return;
     }
     if (e.kind === "bleeding") setSheet({ type: "bleeding", event: e });
-    else
+    else if (isTimed(e.kind))
       setSheet({
         type: "timed",
         event: e,
@@ -776,6 +875,7 @@ function NowView({
   onToggle,
   onRetry,
   onBleeding,
+  onCheckup,
   onManual,
   onEdit,
 }: {
@@ -787,6 +887,7 @@ function NowView({
   onToggle: (k: TimedKind) => void;
   onRetry: () => void;
   onBleeding: () => void;
+  onCheckup: () => void;
   onManual: () => void;
   onEdit: (e: PregnancyEvent) => void;
 }) {
@@ -896,6 +997,10 @@ function NowView({
             <Droplet size={18} />
             출혈 기록
           </button>
+          <button type="button" className="pg-quick-visit" onClick={onCheckup}>
+            <Stethoscope size={18} />
+            {kindLabel.checkup}
+          </button>
           <button type="button" onClick={onManual}>
             <Pencil size={17} />
             직접 입력
@@ -967,7 +1072,8 @@ function EventRow({
   onClick: () => void;
 }) {
   const d = durationSec(e);
-  const sub = [e.created_by_name, e.memo].filter(Boolean).join(" · ");
+  const facts = e.kind === "checkup" ? checkupFacts(e).map((f) => f.value) : [];
+  const sub = [e.created_by_name, ...facts, e.memo].filter(Boolean).join(" · ");
   return (
     <button type="button" className="pg-row" onClick={onClick}>
       <span className="pg-row-time">{hm(e.started_at)}</span>
@@ -982,7 +1088,12 @@ function EventRow({
         {sub && <em>{sub}</em>}
       </span>
       <span className="pg-row-meta">
-        {e.kind === "bleeding" ? (
+        {e.kind === "checkup" ? (
+          <>
+            <b>상세</b>
+            {e.photo_ids.length > 0 && <span>사진 {e.photo_ids.length}장</span>}
+          </>
+        ) : e.kind === "bleeding" ? (
           <>
             <b>{e.bleeding ? bleedingLabel[e.bleeding] : ""}</b>
             {e.photo_ids.length > 0 && <span>사진 {e.photo_ids.length}장</span>}
@@ -1008,18 +1119,18 @@ function Strip({
   running: RunningMap;
 }) {
   const W = 340,
-    L = 44,
+    L = 52,
     R = 8,
     span = 180 * MIN;
   const x = (v: number) => L + ((v - (now - span)) / span) * (W - L - R);
-  const lane = { tightening: 22, pain: 48, bleeding: 72 };
+  const lane = { tightening: 20, pain: 44, bleeding: 68, checkup: 92 };
   const bars = events.filter(
     (e) => new Date(e.started_at).getTime() >= now - span,
   );
   return (
     <svg
       className="pg-strip"
-      viewBox={`0 0 ${W} 104`}
+      viewBox={`0 0 ${W} 124`}
       role="img"
       aria-label="최근 3시간 동안의 기록 막대"
     >
@@ -1027,10 +1138,10 @@ function Strip({
         const xt = x(now - span + h * 60 * MIN);
         return (
           <g key={h}>
-            <line x1={xt} y1={8} x2={xt} y2={84} stroke="var(--line)" />
+            <line x1={xt} y1={8} x2={xt} y2={104} stroke="var(--line)" />
             <text
               x={xt}
-              y={98}
+              y={118}
               fontSize={10}
               fill="var(--pg-faint)"
               textAnchor={h === 0 ? "start" : h === 3 ? "end" : "middle"}
@@ -1047,6 +1158,18 @@ function Strip({
       ))}
       {bars.map((e) => {
         const s = new Date(e.started_at).getTime();
+        if (e.kind === "checkup")
+          return (
+            <rect
+              key={e.id}
+              x={x(s) - 4.5}
+              y={lane.checkup - 4.5}
+              width={9}
+              height={9}
+              rx={2}
+              fill="var(--pg-visit)"
+            />
+          );
         if (e.kind === "bleeding")
           return e.bleeding === "none" ? (
             <circle
@@ -1111,6 +1234,7 @@ function TypeView({
   onKind,
   onRange,
   onReveal,
+  onPhotos,
   onEdit,
 }: {
   events: PregnancyEvent[];
@@ -1122,6 +1246,7 @@ function TypeView({
   onKind: (k: ViewKind) => void;
   onRange: (r: Range) => void;
   onReveal: (id: string, ids: string[]) => void;
+  onPhotos: (ids: string[]) => void;
   onEdit: (e: PregnancyEvent) => void;
 }) {
   const today = new Date(now);
@@ -1184,6 +1309,16 @@ function TypeView({
           demo={demo}
           onReveal={onReveal}
           onEdit={onEdit}
+        />
+      ) : kind === "checkup" ? (
+        <CheckupList
+          events={events.filter(
+            (e) =>
+              e.kind === "checkup" && new Date(e.started_at).getTime() >= from,
+          )}
+          demo={demo}
+          onPhotos={onPhotos}
+          onOpen={onEdit}
         />
       ) : (
         <Timeline
@@ -1753,6 +1888,95 @@ function BleedingList({
   );
 }
 
+// 진료·검사 목록. 사진은 흐리게 가리지 않는다. 행을 누르면 상세(복사·수정)를 연다.
+function CheckupList({
+  events,
+  demo,
+  onPhotos,
+  onOpen,
+}: {
+  events: PregnancyEvent[];
+  demo: boolean;
+  onPhotos: (ids: string[]) => void;
+  onOpen: (e: PregnancyEvent) => void;
+}) {
+  const photos = events.reduce((n, e) => n + e.photo_ids.length, 0);
+  const cervix = events.find((e) => e.cervix_length_cm !== null);
+  return (
+    <>
+      <div className="pg-sum3">
+        <div>
+          <small>기록</small>
+          <b>{events.length}건</b>
+        </div>
+        <div>
+          <small>최근 경부길이</small>
+          <b>{cervix ? `${cervix.cervix_length_cm}cm` : "—"}</b>
+          {cervix && (
+            <span className="pg-sum-sub">
+              {dayLabel(cervix.started_at).replace(/ \(.\)$/, "")}
+            </span>
+          )}
+        </div>
+        <div>
+          <small>사진</small>
+          <b>{photos}장</b>
+        </div>
+      </div>
+      <section className="pg-card">
+        {events.length ? (
+          events.map((e) => (
+            <div className="pg-bl" key={e.id}>
+              {e.photo_ids.length ? (
+                <button
+                  type="button"
+                  className="pg-thumb open visit"
+                  onClick={() => onPhotos(e.photo_ids)}
+                  aria-label="사진 크게 보기"
+                >
+                  {!demo && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photoSrc(e.photo_ids[0], demo)} alt="진료 사진" />
+                  )}
+                  {e.photo_ids.length > 1 && <em>+{e.photo_ids.length - 1}</em>}
+                </button>
+              ) : (
+                <span className="pg-thumb empty visit">
+                  <Stethoscope size={20} />
+                </span>
+              )}
+              <button
+                type="button"
+                className="pg-bl-info"
+                onClick={() => onOpen(e)}
+              >
+                <b>
+                  {dayLabel(e.started_at)} {hm(e.started_at)}
+                </b>
+                <span className="pg-chips">
+                  {checkupFacts(e).map((f) => (
+                    <span className="pg-chip" key={f.label}>
+                      {f.label} {f.value}
+                    </span>
+                  ))}
+                  {e.created_by_name && (
+                    <span className="pg-chip">{e.created_by_name}</span>
+                  )}
+                </span>
+                {e.memo && <span className="pg-bl-memo clamp">{e.memo}</span>}
+              </button>
+            </div>
+          ))
+        ) : (
+          <p className="pg-empty">
+            이 기간에 {kindLabel.checkup} 기록이 없습니다.
+          </p>
+        )}
+      </section>
+    </>
+  );
+}
+
 function SheetFrame({
   title,
   sub,
@@ -2073,33 +2297,17 @@ function BleedingSheet({
     event?.bleeding_color ?? null,
   );
   const [memo, setMemo] = useState(event?.memo ?? "");
-  const [keep, setKeep] = useState<string[]>(event?.photo_ids ?? []);
-  const [added, setAdded] = useState<{ url: string; data: string }[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [requestKey] = useState(() => crypto.randomUUID());
-  const room = MAX_PHOTOS - keep.length - added.length;
-  useEffect(
-    () => () => added.forEach((p) => URL.revokeObjectURL(p.url)),
-    // 시트를 닫을 때만 미리보기 주소를 정리한다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+  const photos = usePhotoDraft(
+    event?.photo_ids ?? [],
+    photoLimit.bleeding,
+    setError,
   );
-  async function addFiles(files: FileList | null) {
-    if (!files) return;
-    setError("");
-    try {
-      const list = [...files].slice(0, room);
-      const next: { url: string; data: string }[] = [];
-      for (const f of list)
-        next.push({ url: URL.createObjectURL(f), data: await photoBase64(f) });
-      setAdded((a) => [...a, ...next]);
-    } catch (e) {
-      setError((e as Error).message || "사진을 읽지 못했습니다.");
-    }
-  }
   async function submit() {
     if (demo) return setError("둘러보기에서는 저장하지 않습니다.");
+    if (photos.reading) return setError("사진을 준비하는 중입니다.");
     if (!amount) return setError("출혈 여부를 골라주세요.");
     const startedAt = fromLocalInput(at);
     if (!startedAt) return setError("시각을 입력해주세요.");
@@ -2112,7 +2320,7 @@ function BleedingSheet({
       bleeding: amount,
       bleeding_color: amount === "none" ? null : color,
       memo: memo.trim(),
-      photos: added.map((p) => p.data),
+      photos: photos.added.map((p) => p.data),
     };
     try {
       const r = event
@@ -2120,7 +2328,7 @@ function BleedingSheet({
             action: "update",
             id: event.id,
             expected_version: event.version,
-            keep_photo_ids: keep,
+            keep_photo_ids: photos.keep,
             ...fields,
           })
         : await post({ action: "create", request_key: requestKey, ...fields });
@@ -2173,55 +2381,7 @@ function BleedingSheet({
           )}
         />
       )}
-      <div className="pg-field">
-        <span className="pg-label">사진 (최대 {MAX_PHOTOS}장)</span>
-        <div className="pg-photos">
-          {keep.map((id) => (
-            <button
-              key={id}
-              type="button"
-              className="pg-photo"
-              aria-label="이 사진 빼기"
-              onClick={() => setKeep((k) => k.filter((x) => x !== id))}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={photoSrc(id, demo)} alt="" />
-              <X size={14} />
-            </button>
-          ))}
-          {added.map((p, i) => (
-            <button
-              key={p.url}
-              type="button"
-              className="pg-photo"
-              aria-label="이 사진 빼기"
-              onClick={() => {
-                URL.revokeObjectURL(p.url);
-                setAdded((a) => a.filter((_, j) => j !== i));
-              }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.url} alt="" />
-              <X size={14} />
-            </button>
-          ))}
-          {room > 0 && (
-            <label className="pg-photo add">
-              <Camera size={20} />
-              <span>추가</span>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                multiple
-                onChange={(e) => {
-                  addFiles(e.target.files);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-          )}
-        </div>
-      </div>
+      <PhotoField draft={photos} demo={demo} />
       <div className="pg-field">
         <label htmlFor="pg-bleed-memo">메모</label>
         <textarea
@@ -2259,6 +2419,393 @@ function BleedingSheet({
         </button>
       </div>
     </SheetFrame>
+  );
+}
+
+// 입력 칸의 숫자. 비우면 null, 잘못된 값이면 NaN.
+const parseNumber = (v: string) => {
+  const t = v.trim().replace(",", ".");
+  return t ? Number(t) : null;
+};
+
+// 진료·NST 같은 병원 기록. 따로 둘 값은 모두 선택이고 나머지는 메모에 쓴다.
+function CheckupSheet({
+  event,
+  demo,
+  onSaved,
+  onDelete,
+  onClose,
+}: {
+  event?: PregnancyEvent;
+  demo: boolean;
+  onSaved: (e: PregnancyEvent) => void;
+  onDelete?: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const [at, setAt] = useState(
+    toLocalInput(event?.started_at ?? new Date().toISOString(), false),
+  );
+  const [cervix, setCervix] = useState(
+    event?.cervix_length_cm != null ? String(event.cervix_length_cm) : "",
+  );
+  const [fluid, setFluid] = useState<AmnioticFluid | null>(
+    event?.amniotic_fluid ?? null,
+  );
+  const [heart, setHeart] = useState(
+    event?.fetal_heart_rate != null ? String(event.fetal_heart_rate) : "",
+  );
+  const [memo, setMemo] = useState(event?.memo ?? "");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [requestKey] = useState(() => crypto.randomUUID());
+  const photos = usePhotoDraft(
+    event?.photo_ids ?? [],
+    photoLimit.checkup,
+    setError,
+  );
+  async function submit() {
+    if (demo) return setError("둘러보기에서는 저장하지 않습니다.");
+    if (photos.reading) return setError("사진을 준비하는 중입니다.");
+    const startedAt = fromLocalInput(at);
+    if (!startedAt) return setError("시각을 입력해주세요.");
+    const cervixCm = parseNumber(cervix);
+    if (
+      cervixCm !== null &&
+      !(Number.isFinite(cervixCm) && cervixCm > 0 && cervixCm <= CERVIX_MAX_CM)
+    )
+      return setError(
+        `자궁경부길이는 cm로 0보다 크고 ${CERVIX_MAX_CM} 이하로 입력해주세요.`,
+      );
+    const bpm = parseNumber(heart);
+    if (
+      bpm !== null &&
+      !(Number.isInteger(bpm) && bpm >= FETAL_HR_MIN && bpm <= FETAL_HR_MAX)
+    )
+      return setError(
+        `아기 심박수는 ${FETAL_HR_MIN}~${FETAL_HR_MAX} 사이 정수로 입력해주세요.`,
+      );
+    setBusy(true);
+    setError("");
+    const fields = {
+      kind: "checkup",
+      started_at: startedAt,
+      ended_at: null,
+      cervix_length_cm: cervixCm,
+      amniotic_fluid: fluid,
+      fetal_heart_rate: bpm,
+      memo: memo.trim(),
+      photos: photos.added.map((p) => p.data),
+    };
+    try {
+      const r = event
+        ? await post({
+            action: "update",
+            id: event.id,
+            expected_version: event.version,
+            keep_photo_ids: photos.keep,
+            ...fields,
+          })
+        : await post({ action: "create", request_key: requestKey, ...fields });
+      onSaved(r.event);
+    } catch (e) {
+      setError((e as Error).message);
+      setBusy(false);
+    }
+  }
+  return (
+    <SheetFrame
+      title={event ? `${kindLabel.checkup} 수정` : `${kindLabel.checkup} 기록`}
+      sub="진료나 NST 수축검사 같은 병원 기록입니다. 아래 값은 모두 선택이고 나머지는 메모에 적어주세요."
+    >
+      <div className="pg-field">
+        <label htmlFor="pg-visit-at">시각</label>
+        <input
+          id="pg-visit-at"
+          type="datetime-local"
+          value={at}
+          onChange={(e) => setAt(e.target.value)}
+        />
+      </div>
+      <div className="pg-field-row">
+        <div className="pg-field">
+          <label htmlFor="pg-cervix">자궁경부길이 (cm)</label>
+          <input
+            id="pg-cervix"
+            type="text"
+            inputMode="decimal"
+            placeholder="예: 3.2"
+            value={cervix}
+            onChange={(e) => setCervix(e.target.value)}
+          />
+        </div>
+        <div className="pg-field">
+          <label htmlFor="pg-fhr">아기 심박수 (bpm)</label>
+          <input
+            id="pg-fhr"
+            type="text"
+            inputMode="numeric"
+            placeholder="예: 145"
+            value={heart}
+            onChange={(e) => setHeart(e.target.value)}
+          />
+        </div>
+      </div>
+      <Options
+        label="양수량"
+        values={amnioticLevels}
+        value={fluid}
+        onChange={setFluid}
+        render={(v) => amnioticLabel[v]}
+      />
+      <PhotoField draft={photos} demo={demo} />
+      <div className="pg-field">
+        <label htmlFor="pg-visit-memo">메모</label>
+        <textarea
+          id="pg-visit-memo"
+          className="tall"
+          maxLength={memoLimit("checkup")}
+          value={memo}
+          placeholder={
+            "예: 정기 진료. NST 40분 · 규칙적인 수축 없음\n다음 진료 10월 4일"
+          }
+          onChange={(e) => setMemo(e.target.value)}
+        />
+      </div>
+      {error && (
+        <p className="pg-error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="pg-actions">
+        {onDelete ? (
+          <DeleteButton onDelete={onDelete} onError={setError} />
+        ) : (
+          <button
+            type="button"
+            className="pg-btn ghost muted"
+            onClick={onClose}
+          >
+            닫기
+          </button>
+        )}
+        <button
+          type="button"
+          className="pg-btn primary"
+          disabled={busy}
+          onClick={submit}
+        >
+          {busy ? "저장 중…" : "저장"}
+        </button>
+      </div>
+    </SheetFrame>
+  );
+}
+
+// 진료·검사 상세. 입력한 값과 메모를 보여주고 텍스트로 복사한다.
+function CheckupDetail({
+  event,
+  demo,
+  onEdit,
+  onPhoto,
+  onClose,
+}: {
+  event: PregnancyEvent;
+  demo: boolean;
+  onEdit?: () => void;
+  onPhoto: (index: number) => void;
+  onClose: () => void;
+}) {
+  const [copied, setCopied] = useState<"" | "done" | "failed">("");
+  const facts = checkupFacts(event);
+  async function copy() {
+    try {
+      await copyText(checkupCopyText(event));
+      setCopied("done");
+    } catch {
+      setCopied("failed");
+    }
+  }
+  return (
+    <SheetFrame
+      title={`${kindLabel.checkup} · ${dayLabel(event.started_at)} ${hm(event.started_at)}`}
+      sub={`기록한 사람: ${event.created_by_name || "구성원"}`}
+    >
+      {facts.length > 0 && (
+        <dl className="pg-facts">
+          {facts.map((f) => (
+            <div key={f.label}>
+              <dt>{f.label}</dt>
+              <dd>{f.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {event.memo ? (
+        <p className="pg-visit-memo">{event.memo}</p>
+      ) : (
+        facts.length === 0 && (
+          <p className="pg-empty">입력한 내용이 없습니다.</p>
+        )
+      )}
+      {event.photo_ids.length > 0 && (
+        <div className="pg-photos">
+          {event.photo_ids.map((id, i) => (
+            <button
+              key={id}
+              type="button"
+              className="pg-photo view"
+              aria-label={`사진 ${i + 1} 크게 보기`}
+              onClick={() => onPhoto(i)}
+            >
+              {!demo && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={photoSrc(id, demo)} alt="" />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+      {copied === "failed" && (
+        <p className="pg-error" role="alert">
+          복사하지 못했습니다. 브라우저의 클립보드 권한을 확인해주세요.
+        </p>
+      )}
+      <div className="pg-actions">
+        {onEdit ? (
+          <button type="button" className="pg-btn ghost" onClick={onEdit}>
+            수정
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="pg-btn ghost muted"
+            onClick={onClose}
+          >
+            닫기
+          </button>
+        )}
+        <button type="button" className="pg-btn primary" onClick={copy}>
+          {copied === "done" ? (
+            <>
+              <Check size={16} /> 복사됨
+            </>
+          ) : (
+            <>
+              <Copy size={16} /> 복사하기
+            </>
+          )}
+        </button>
+      </div>
+    </SheetFrame>
+  );
+}
+
+type PhotoDraft = ReturnType<typeof usePhotoDraft>;
+// 출혈·진료 시트의 사진 입력. 남길 기존 사진 id와 새로 고른 사진을 따로 들고 있다.
+function usePhotoDraft(
+  initial: string[],
+  limit: number,
+  onError: (message: string) => void,
+) {
+  const [keep, setKeep] = useState<string[]>(initial);
+  const [added, setAdded] = useState<{ url: string; data: string }[]>([]);
+  const [reading, setReading] = useState(false);
+  const urls = useRef<string[]>([]);
+  useEffect(() => {
+    const list = urls.current;
+    // 시트를 닫을 때 미리보기 주소를 정리한다.
+    return () => list.forEach((u) => URL.revokeObjectURL(u));
+  }, []);
+  const room = limit - keep.length - added.length;
+  async function addFiles(files: FileList | null) {
+    if (!files?.length) return;
+    onError("");
+    setReading(true);
+    try {
+      for (const f of [...files].slice(0, room)) {
+        const data = await photoBase64(f);
+        const url = URL.createObjectURL(f);
+        urls.current.push(url);
+        setAdded((a) => [...a, { url, data }]);
+      }
+    } catch (e) {
+      onError((e as Error).message || "사진을 읽지 못했습니다.");
+    } finally {
+      setReading(false);
+    }
+  }
+  return {
+    keep,
+    added,
+    room,
+    limit,
+    reading,
+    addFiles,
+    removeKept: (id: string) => setKeep((k) => k.filter((x) => x !== id)),
+    removeAdded: (url: string) =>
+      setAdded((a) => a.filter((p) => p.url !== url)),
+  };
+}
+
+function PhotoField({ draft, demo }: { draft: PhotoDraft; demo: boolean }) {
+  return (
+    <div className="pg-field">
+      <span className="pg-label">
+        사진 (선택 · 최대 {draft.limit}장
+        {draft.keep.length + draft.added.length
+          ? ` · ${draft.keep.length + draft.added.length}장`
+          : ""}
+        )
+      </span>
+      <div className="pg-photos">
+        {draft.keep.map((id) => (
+          <button
+            key={id}
+            type="button"
+            className="pg-photo"
+            aria-label="이 사진 빼기"
+            onClick={() => draft.removeKept(id)}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={photoSrc(id, demo)} alt="" />
+            <X size={14} />
+          </button>
+        ))}
+        {draft.added.map((p) => (
+          <button
+            key={p.url}
+            type="button"
+            className="pg-photo"
+            aria-label="이 사진 빼기"
+            onClick={() => draft.removeAdded(p.url)}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={p.url} alt="" />
+            <X size={14} />
+          </button>
+        ))}
+        {draft.reading && (
+          <span className="pg-photo add" aria-live="polite">
+            <span>준비 중</span>
+          </span>
+        )}
+        {draft.room > 0 && !draft.reading && (
+          <label className="pg-photo add">
+            <Camera size={20} />
+            <span>추가</span>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              onChange={(e) => {
+                draft.addFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+          </label>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -2354,7 +2901,7 @@ function PhotoViewer({
       className="pg-viewer"
       role="dialog"
       aria-modal="true"
-      aria-label="출혈 사진"
+      aria-label="사진"
     >
       <button
         type="button"
@@ -2366,7 +2913,7 @@ function PhotoViewer({
       </button>
       {!demo && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={photoSrc(ids[index], demo)} alt={`출혈 사진 ${index + 1}`} />
+        <img src={photoSrc(ids[index], demo)} alt={`사진 ${index + 1}`} />
       )}
       {ids.length > 1 && (
         <div className="pg-viewer-nav">

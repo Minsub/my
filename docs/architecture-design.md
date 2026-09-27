@@ -91,7 +91,7 @@ UI 숨김은 보안 검사가 아니다. 쿠키 기반 변경은 sameOrigin, 모
 
 ## 꼬미 기록
 
-`/baby/pregnancy`는 전용 `/api/baby/pregnancy`(조회·create/update/delete/settings)와 `/api/baby/pregnancy/photo/{id}`를 쓰며 008 migration이 필요하다. 공통 snapshot·OAuth scope·MCP에는 넣지 않았다. 진행 중 타이머는 서버가 아니라 입력 기기의 localStorage에 있고, 종료한 기록은 클라이언트가 만든 `request_key`로 재전송해도 한 건만 남는다. 출혈 사진은 `wine-photos.ts`의 `normalizePhoto`로 정규화한 bytea만 저장한다. 자세한 규칙은 [꼬미 문서](kkomi/README.md).
+`/baby/pregnancy`는 전용 `/api/baby/pregnancy`(조회·create/update/delete/settings)와 `/api/baby/pregnancy/photo/{id}`를 쓰며 008·009 migration이 필요하다. 공통 snapshot·OAuth scope·MCP에는 넣지 않았다. 진행 중 타이머는 서버가 아니라 입력 기기의 localStorage에 있고, 종료한 기록은 클라이언트가 만든 `request_key`로 재전송해도 한 건만 남는다. 출혈·진료 사진은 `wine-photos.ts`의 `normalizePhoto`로 정규화한 bytea만 저장한다. 자세한 규칙은 [꼬미 문서](kkomi/README.md).
 
 ## 가계부 원본 파일
 

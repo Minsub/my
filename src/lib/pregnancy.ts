@@ -1,8 +1,15 @@
 // 꼬미 / 임신 중 통증 기록의 공통 규칙. 화면과 서버가 같은 정의를 쓴다.
-export const pregnancyKinds = ["tightening", "pain", "bleeding"] as const;
+export const pregnancyKinds = [
+  "tightening",
+  "pain",
+  "bleeding",
+  "checkup",
+] as const;
 export type PregnancyKind = (typeof pregnancyKinds)[number];
 export const timedKinds = ["tightening", "pain"] as const;
 export type TimedKind = (typeof timedKinds)[number];
+export const isTimed = (k: PregnancyKind): k is TimedKind =>
+  k === "tightening" || k === "pain";
 export const bleedingAmounts = [
   "none",
   "spotting",
@@ -13,11 +20,15 @@ export const bleedingAmounts = [
 export type BleedingAmount = (typeof bleedingAmounts)[number];
 export const bleedingColors = ["brown", "pink", "red", "dark"] as const;
 export type BleedingColor = (typeof bleedingColors)[number];
+export const amnioticLevels = ["enough", "low"] as const;
+export type AmnioticFluid = (typeof amnioticLevels)[number];
 
 export const kindLabel: Record<PregnancyKind, string> = {
   tightening: "배뭉침",
   pain: "통증",
   bleeding: "출혈",
+  // 진료·NST처럼 형식이 없는 병원 기록. 이름은 이 한 곳에서 바꾼다.
+  checkup: "진료·검사",
 };
 export const bleedingLabel: Record<BleedingAmount, string> = {
   none: "출혈 없음",
@@ -34,6 +45,10 @@ export const colorLabel: Record<BleedingColor, { label: string; hex: string }> =
     dark: { label: "검붉은", hex: "#6e1420" },
   };
 export const intensityLabel = ["약", "중", "강"] as const;
+export const amnioticLabel: Record<AmnioticFluid, string> = {
+  enough: "충분",
+  low: "부족",
+};
 
 // 기준값. 사용자가 바꾸지 않는 고정값이다(2026-09 결정).
 // 잦아지는 중: 최근 1시간 4회. 국내 병원 안내(1시간 3회 이상 상담)와 ACOG 경고(10분마다)의 사이.
@@ -45,7 +60,17 @@ export const CALL_PER_HOUR = 8;
 export const SESSION_GAP_MIN = 60;
 // DB CHECK와 같은 값. 이보다 긴 배뭉침·통증은 종료를 잊은 기록으로 본다.
 export const MAX_DURATION_MIN = 60;
-export const MAX_PHOTOS = 4;
+// 사진을 붙일 수 있는 타입과 기록당 장수. 진료·검사의 10장은 DB position(0~9)의 한도다.
+export const photoLimit = { bleeding: 4, checkup: 10 } as const;
+export type PhotoKind = keyof typeof photoLimit;
+export const MAX_PHOTOS = Math.max(...Object.values(photoLimit));
+export const hasPhotos = (k: PregnancyKind): k is PhotoKind => k in photoLimit;
+// 메모 길이. 진료 메모만 길게 둔다(DB CHECK와 같은 값).
+export const memoLimit = (k: PregnancyKind) => (k === "checkup" ? 2000 : 500);
+// 진료·검사 입력 범위(DB CHECK와 같은 값).
+export const CERVIX_MAX_CM = 8;
+export const FETAL_HR_MIN = 50;
+export const FETAL_HR_MAX = 250;
 export const TERM_WEEKS = 37;
 
 export type PregnancyEvent = {
@@ -56,6 +81,9 @@ export type PregnancyEvent = {
   intensity: 1 | 2 | 3 | null;
   bleeding: BleedingAmount | null;
   bleeding_color: BleedingColor | null;
+  cervix_length_cm: number | null;
+  amniotic_fluid: AmnioticFluid | null;
+  fetal_heart_rate: number | null;
   memo: string;
   version: number;
   created_by: string;
@@ -160,7 +188,7 @@ export type SymptomEpisode = {
 };
 export function symptomEpisodes(events: PregnancyEvent[]): SymptomEpisode[] {
   const list = events
-    .filter((e) => e.kind !== "bleeding" && e.ended_at)
+    .filter((e) => isTimed(e.kind) && e.ended_at)
     .sort((a, b) => t(a.started_at) - t(b.started_at));
   const episodes: SymptomEpisode[] = [];
   for (const e of list) {
@@ -195,4 +223,16 @@ export function symptomStats(events: PregnancyEvent[], from: number) {
       list.map((e) => e.interval).filter((v): v is number => v !== null),
     ),
   };
+}
+
+// 진료·검사의 따로 입력한 값. 목록·상세·복사 문구가 같은 표기를 쓴다.
+export function checkupFacts(e: PregnancyEvent) {
+  const facts: { label: string; value: string }[] = [];
+  if (e.cervix_length_cm !== null)
+    facts.push({ label: "자궁경부길이", value: `${e.cervix_length_cm}cm` });
+  if (e.amniotic_fluid)
+    facts.push({ label: "양수량", value: amnioticLabel[e.amniotic_fluid] });
+  if (e.fetal_heart_rate !== null)
+    facts.push({ label: "아기 심박수", value: `${e.fetal_heart_rate}bpm` });
+  return facts;
 }

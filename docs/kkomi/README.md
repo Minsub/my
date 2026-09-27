@@ -1,6 +1,6 @@
 # 꼬미 — 임신 중 통증 기록
 
-꼬미는 아이 태명이며 메뉴 이름이다(URL은 `/baby`). 첫 하위 화면은 `/baby/pregnancy`의 임신 중 통증 기록이다. 자궁수축으로 오는 배뭉침과 통증을 시작·종료 탭으로 기록하고 주기를 보며, 출혈은 시각과 사진으로 남긴다. 모바일이 주 사용 환경이다. 2026-09-25 코드 기준.
+꼬미는 아이 태명이며 메뉴 이름이다(URL은 `/baby`). 첫 하위 화면은 `/baby/pregnancy`의 임신 중 통증 기록이다. 자궁수축으로 오는 배뭉침과 통증을 시작·종료 탭으로 기록하고 주기를 보며, 출혈은 시각과 사진으로 남긴다. 진료·NST 수축검사 같은 병원 기록은 "진료·검사"로 남긴다. 모바일이 주 사용 환경이다. 2026-09-27 코드 기준.
 
 ## 화면
 
@@ -11,11 +11,18 @@
 | 지금 기록 · 타일 | 배뭉침·통증 타일을 누르면 시작, 다시 누르면 종료. 두 타입은 따로 돌아 동시에 켤 수 있다 |
 | 종료 직후 시트 | 이미 저장된 기록에 강도(약·중·강)와 메모를 선택으로 붙인다. 삭제 가능 |
 | 출혈 기록 | 시각, 출혈 여부(출혈 없음·묻어남·소량·중간·많음, 필수), 색(출혈일 때만, 선택), 사진 최대 4장, 메모 |
+| 진료·검사 기록 | 진료·NST처럼 형식이 없는 병원 기록. 시각만 필수. 자궁경부길이(cm, 0 초과 8 이하)·양수량(충분·부족)·아기 심박수(bpm, 50~250 정수)·사진 최대 10장은 선택, 나머지는 메모(2000자) |
+| 진료·검사 상세 | 목록 행을 누르면 먼저 상세가 열린다. 구성원 누구나 보고 "복사하기"로 텍스트를 복사한다. 수정은 기록한 사람·관리자만 상세의 "수정"에서 한다. 사진을 누르면 전체 화면, 닫으면 상세로 돌아온다 |
 | 직접 입력 | 누르지 못한 배뭉침·통증을 시작·종료 시각(초 단위)으로 추가. 목록 행을 누르면 같은 시트로 수정·삭제 |
-| 최근 3시간 흐름 | 타입별 막대. 출혈은 점, 출혈 없음은 빈 점 |
-| 타입별 보기 | 한 페이지 안에서 배뭉침·통증(함께 보기, 기본)·배뭉침·통증·출혈 전환. 기간(최근 1시간·오늘·전체), 요약, 오늘 시간대별 횟수(1시간 4회 점선), 날짜별 세로 타임라인(시작·지속·번호·간격) |
+| 최근 3시간 흐름 | 타입별 막대. 출혈은 점, 출혈 없음은 빈 점, 진료·검사는 네모 점 |
+| 타입별 보기 | 한 페이지 안에서 배뭉침·통증(함께 보기, 기본)·배뭉침·통증·출혈·진료·검사 전환. 기간(최근 1시간·오늘·전체), 요약, 오늘 시간대별 횟수(1시간 4회 점선), 날짜별 세로 타임라인(시작·지속·번호·간격) |
 | 타입별 보기 · 배뭉침·통증 | 두 타입을 **하나의 증상**으로 합쳐 본다. 번호·간격·요약(증상 횟수, 평균 간격, 평균 지속)·시간대별 횟수를 타입 구분 없이 증상 단위로 센다. 시간이 겹친 기록은 한 증상으로 묶어 같은 번호를 쓰고 뒤 기록에 "같은 증상"을 표시한다. 행의 색과 이름으로 타입은 구분한다. 출혈은 넣지 않고 출혈 탭에서만 본다. 증상 사이가 60분을 넘으면 "2시간 29분 동안 기록 없음" |
 | 출혈 목록 | 확인·출혈·사진 수 요약. 사진은 흐리게 보이고 한 번 누르면 선명, 다시 누르면 전체 화면 |
+| 진료·검사 목록 | 기록 수·기간 안 가장 최근 자궁경부길이·사진 수 요약. 입력한 값은 칩, 메모는 두 줄. 사진은 흐리게 하지 않고 누르면 바로 전체 화면 |
+
+진료·검사 복사 문구는 날짜 한 줄, 입력한 값(`자궁경부길이: 3.2cm`, `양수량: 충분`, `아기 심박수: 145bpm`), 빈 줄, 메모 순서다. 입력하지 않은 값은 빠진다. 클립보드 API가 막히면 선택 복사로 대신한다.
+
+타입 이름 "진료·검사"는 가칭이며 `src/lib/pregnancy.ts`의 `kindLabel.checkup` 한 곳에서 바꾼다. 내부 값은 `checkup`이다.
 
 보기 상태는 URL에 남긴다: `?tab=type&kind=pain&range=all`. 배뭉침·통증 함께 보기는 `kind`를 생략한다.
 
@@ -49,28 +56,29 @@
 - 종료하면 완성된 기록을 먼저 `mono:kkomi:pending:v1:{userId}`에 넣고 서버로 보낸다. 성공하면 대기 목록에서 지운다. 연결이 끊기면 대기 목록에 남아 "저장 대기 N건"으로 보이고, 페이지를 열 때·`online` 이벤트·"지금 저장"에서 다시 보낸다. 4xx 오류(429 제외)는 다시 보내도 같으므로 대기에서 지우고 알린다.
 - 재전송은 클라이언트가 만든 `request_key`로 한 건만 남긴다(`UNIQUE(household_id, request_key)`).
 - 기록 중에는 Screen Wake Lock을 요청한다. 지원하지 않는 브라우저에서는 조용히 넘어간다.
-- 출혈 사진은 localStorage에 넣지 않는다. 출혈 저장이 실패하면 시트에 오류를 보이고 입력을 유지한다.
+- 출혈·진료 사진은 localStorage에 넣지 않는다. 저장이 실패하면 시트에 오류를 보이고 입력을 유지한다. 진료·검사도 타이머가 없으므로 저장 대기 목록을 쓰지 않는다.
 
 ## 데이터
 
-`db/migrations/008_pregnancy.sql`.
+`db/migrations/008_pregnancy.sql`, `009_pregnancy_checkup.sql`(진료·검사 타입·필드, 메모 한도).
 
 | 테이블 | 내용 |
 |---|---|
 | `pregnancy_settings` | 공간당 1행. `due_date`, `version` |
-| `pregnancy_events` | `kind`(`tightening`·`pain`·`bleeding`), `started_at`, `ended_at`, `intensity`(1~3), `bleeding`(`none`·`spotting`·`light`·`moderate`·`heavy`), `bleeding_color`(`brown`·`pink`·`red`·`dark`), `memo`(500자), `request_key`, `version`, 작성·수정자 |
-| `pregnancy_photos` | 출혈 사진. 와인 사진과 같은 `normalizePhoto`(회전 보정·1000px·WebP·300KB 이하)를 거친 결과만 저장. 원본은 저장하지 않는다 |
+| `pregnancy_events` | `kind`(`tightening`·`pain`·`bleeding`·`checkup`), `started_at`, `ended_at`, `intensity`(1~3), `bleeding`(`none`·`spotting`·`light`·`moderate`·`heavy`), `bleeding_color`(`brown`·`pink`·`red`·`dark`), `cervix_length_cm`(numeric(4,2)), `amniotic_fluid`(`enough`·`low`), `fetal_heart_rate`(smallint), `memo`(진료 2000자, 그 외 500자), `request_key`, `version`, 작성·수정자 |
+| `pregnancy_photos` | 출혈·진료 사진. 와인 사진과 같은 `normalizePhoto`(회전 보정·1000px·WebP·300KB 이하)를 거친 결과만 저장. 원본은 저장하지 않는다 |
 
-- 배뭉침·통증은 종료가 있어야 하고 출혈 필드를 갖지 않는다. 출혈은 종료·강도가 없고 출혈 여부가 필수이며 `none`이면 색이 없다(CHECK).
-- 기록의 타입은 배뭉침↔통증끼리만 바꿀 수 있다. 출혈과 서로 바꾸지 않는다.
-- 사진은 기록당 최대 4장. 수정할 때 남길 사진 id와 새 사진을 함께 보내며 순서를 다시 매긴다.
-- 브라우저는 사진을 1200px JPEG로 줄여 보낸다. 요청 본문은 4MB 이하다(Vercel 한도 4.5MB).
+- 배뭉침·통증은 종료가 있어야 하고 출혈 필드를 갖지 않는다. 출혈은 종료·강도가 없고 출혈 여부가 필수이며 `none`이면 색이 없다. 진료·검사는 종료·강도·출혈 필드가 없다. 진료 필드(`cervix_length_cm`·`amniotic_fluid`·`fetal_heart_rate`)는 진료·검사에만 있다(CHECK). 서버는 다른 타입에 온 진료 필드를 버린다.
+- 기록의 타입은 배뭉침↔통증끼리만 바꿀 수 있다. 출혈·진료·검사는 다른 타입과 바꾸지 않는다.
+- 사진 장수는 `photoLimit`: 출혈 4장, 진료·검사 10장(`pregnancy_photos.position` 0~9가 상한). 수정할 때 남길 사진 id와 새 사진을 함께 보내며 순서를 다시 매긴다.
+- 브라우저는 사진을 서버와 같은 1000px JPEG로 줄이고, 장당 base64 34만 자를 넘으면 품질을 낮춰 다시 만든다. 10장이어도 요청 본문 4MB 안에 든다(Vercel 한도 4.5MB).
 
 ## 권한과 경계
 
 - 웹 전용. `actor.channel !== "web"`이면 거부하고 MCP 도구·scope를 추가하지 않았다(2026-09 결정).
 - 모든 조회·수정은 인증된 Actor의 `household_id` 조건을 쓴다. 공간의 활성 구성원만 읽는다.
 - 수정·삭제는 기록한 사람 또는 관리자만 가능하고 `expected_version`이 맞아야 한다(409 `VERSION_CONFLICT`).
+- 진료·검사 상세·복사는 공간 구성원 모두 가능하다. 수정·삭제 권한은 다른 타입과 같다.
 - 사진은 `/api/baby/pregnancy/photo/{id}`로만 내보낸다. 사진 id의 내용은 바뀌지 않으므로 `private, max-age=31536000, immutable`로 브라우저에만 캐시한다. 저장 방식 전환 기준은 [사진 저장 방식](../image-storage.md).
 - 데모(`/demo?view=/baby/pregnancy`)는 `src/lib/demo-pregnancy.ts`의 예시 기록을 보여주고 시작·저장을 막는다. 사진은 표시하지 않는다.
 
@@ -79,7 +87,7 @@
 | 요청 | 내용 |
 |---|---|
 | `GET /api/baby/pregnancy` | `{ settings, events }`. 최근 5000건 |
-| `POST /api/baby/pregnancy` | `action`: `create`(request_key), `update`(id, expected_version, keep_photo_ids), `delete`(id, expected_version), `settings`(due_date, expected_version; 처음은 0) |
+| `POST /api/baby/pregnancy` | `action`: `create`(request_key), `update`(id, expected_version, keep_photo_ids), `delete`(id, expected_version), `settings`(due_date, expected_version; 처음은 0). 진료·검사는 `kind: "checkup"`과 `cervix_length_cm`·`amniotic_fluid`·`fetal_heart_rate`(모두 nullable) |
 | `GET /api/baby/pregnancy/photo/{id}` | WebP 사진 |
 
 ## 현재 없는 것

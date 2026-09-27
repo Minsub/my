@@ -6,6 +6,8 @@
   --pg-pain-pale: #efe7f4;
   --pg-blood: #a3303c;
   --pg-blood-pale: #f7e2e3;
+  --pg-visit: #3d6f8e;
+  --pg-visit-pale: #e3edf3;
   --pg-warn: #9a6412;
   --pg-warn-pale: #fbefd9;
   --pg-danger: #b3261e;
@@ -114,6 +116,10 @@
 }
 .pg-dot.bleeding {
   background: var(--pg-blood);
+}
+.pg-dot.checkup {
+  border-radius: 2px;
+  background: var(--pg-visit);
 }
 
 /* 상태 요약 */
@@ -320,8 +326,8 @@
 }
 .pg-quick {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 .pg-quick button {
   display: flex;
@@ -337,6 +343,9 @@
 }
 .pg-quick .pg-quick-blood {
   color: var(--pg-blood) !important;
+}
+.pg-quick .pg-quick-visit {
+  color: var(--pg-visit) !important;
 }
 
 /* 차트 */
@@ -457,6 +466,11 @@
   border-color: var(--pg-blood);
   background: var(--pg-blood-pale);
   color: var(--pg-blood) !important;
+}
+.pg-seg button.checkup[aria-selected="true"] {
+  border-color: var(--pg-visit);
+  background: var(--pg-visit-pale);
+  color: var(--pg-visit) !important;
 }
 .pg-range {
   display: flex;
@@ -670,6 +684,17 @@
   color: var(--muted);
   font-size: 12px;
 }
+.pg-bl-memo.clamp {
+  display: -webkit-box;
+  overflow: hidden;
+  white-space: pre-line;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.pg-thumb.visit {
+  background: var(--pg-visit-pale);
+  color: var(--pg-visit);
+}
 .pg-chips {
   display: flex;
   flex-wrap: wrap;
@@ -786,6 +811,52 @@
   height: 72px;
   padding: 10px 12px;
   resize: none;
+}
+.pg-field textarea.tall {
+  height: 132px;
+  resize: vertical;
+}
+/* 진료·검사 상세 */
+.pg-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 14px;
+}
+.pg-facts div {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--pg-visit-pale);
+}
+.pg-facts dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+.pg-facts dd {
+  margin: 2px 0 0;
+  color: var(--pg-visit);
+  font-size: 17px;
+  font-weight: 650;
+}
+.pg-visit-memo {
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  font-size: 14px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.pg-sheet > .pg-photos {
+  margin-bottom: 14px;
+}
+.pg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 .pg-opts {
   display: flex;
@@ -998,7 +1069,20 @@
 
 /* 타입별 보기 · 배뭉침·통증 함께 보기 */
 .pg-seg {
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
+}
+/* 좁은 화면은 위 3칸(함께·배뭉침·통증), 아래 2칸(출혈·진료)으로 나눈다. */
+@media (max-width: 560px) {
+  .pg-seg {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  .pg-seg button {
+    grid-column: span 2;
+  }
+  .pg-seg button.bleeding,
+  .pg-seg button.checkup {
+    grid-column: span 3;
+  }
 }
 .pg-seg button.both {
   line-height: 1.2;

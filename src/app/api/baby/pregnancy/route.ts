@@ -8,7 +8,8 @@ import {
 import { readPregnancy, runPregnancyCommand } from "@/server/pregnancy";
 export const runtime = "nodejs";
 export const maxDuration = 30;
-// 출혈 사진 4장을 브라우저에서 줄여 보내도 여유가 있는 크기. Vercel 요청 한도(4.5MB)보다 작다.
+// 사진 10장(진료·검사)을 브라우저에서 장당 base64 34만 자 안으로 줄여 보내도 들어가는 크기.
+// Vercel 요청 한도(4.5MB)보다 작다.
 const MAX_BODY = 4000000;
 export async function GET(request: Request) {
   try {

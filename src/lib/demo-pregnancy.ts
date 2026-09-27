@@ -14,12 +14,15 @@ export function demoPregnancy(now: number): PregnancyData {
       kind,
       started_at: new Date(start).toISOString(),
       ended_at:
-        kind === "bleeding"
+        kind === "bleeding" || kind === "checkup"
           ? null
           : new Date(start + seconds * 1000).toISOString(),
       intensity: null,
       bleeding: null,
       bleeding_color: null,
+      cervix_length_cm: null,
+      amniotic_fluid: null,
+      fetal_heart_rate: null,
       memo: "",
       version: 1,
       created_by: "demo",
@@ -36,6 +39,12 @@ export function demoPregnancy(now: number): PregnancyData {
       version: 1,
     },
     events: [
+      ev("checkup", 28 * 60, 0, {
+        cervix_length_cm: 3.1,
+        amniotic_fluid: "enough",
+        fetal_heart_rate: 146,
+        memo: "정기 진료. NST 40분 · 규칙적인 수축 없음\n배뭉침 잦으면 다시 오라고 함. 다음 진료 2주 뒤",
+      }),
       ev("tightening", 26 * 60 + 10, 22),
       ev("tightening", 25 * 60 + 40, 18),
       ev("pain", 25 * 60 + 20, 50, { intensity: 1 }),

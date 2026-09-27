@@ -6,13 +6,22 @@ import { AppError } from "./security";
 import { normalizePhoto } from "./wine-photos";
 import type { Actor } from "@/lib/types";
 import {
+  amnioticLevels,
   bleedingAmounts,
   bleedingColors,
+  CERVIX_MAX_CM,
+  FETAL_HR_MAX,
+  FETAL_HR_MIN,
+  hasPhotos,
+  isTimed,
   MAX_DURATION_MIN,
   MAX_PHOTOS,
+  memoLimit,
+  photoLimit,
   pregnancyKinds,
   type PregnancyData,
   type PregnancyEvent,
+  type PregnancyKind,
 } from "@/lib/pregnancy";
 
 // 꼬미 기록은 웹 전용이다. MCP에는 공개하지 않는다.
@@ -35,7 +44,7 @@ const canEdit = (role: string, actor: Actor, createdBy: string) =>
   role === "owner" || createdBy === actor.userId;
 
 const EVENT_COLUMNS = `e.id, e.kind, e.started_at, e.ended_at, e.intensity, e.bleeding, e.bleeding_color,
-  e.memo, e.version, e.created_by, coalesce(u.name,'') AS created_by_name,
+  e.cervix_length_cm::float8 AS cervix_length_cm, e.amniotic_fluid, e.fetal_heart_rate, e.memo, e.version, e.created_by, coalesce(u.name,'') AS created_by_name,
   coalesce((SELECT array_agg(p.id::text ORDER BY p.position, p.created_at) FROM pregnancy_photos p
     WHERE p.household_id=e.household_id AND p.event_id=e.id), '{}') AS photo_ids`;
 type EventRow = Omit<PregnancyEvent, "started_at" | "ended_at" | "can_edit"> & {
@@ -96,7 +105,16 @@ const fields = {
   intensity: z.number().int().min(1).max(3).nullable().optional(),
   bleeding: z.enum(bleedingAmounts).nullable().optional(),
   bleeding_color: z.enum(bleedingColors).nullable().optional(),
-  memo: z.string().max(500).optional(),
+  cervix_length_cm: z.number().gt(0).max(CERVIX_MAX_CM).nullable().optional(),
+  amniotic_fluid: z.enum(amnioticLevels).nullable().optional(),
+  fetal_heart_rate: z
+    .number()
+    .int()
+    .min(FETAL_HR_MIN)
+    .max(FETAL_HR_MAX)
+    .nullable()
+    .optional(),
+  memo: z.string().max(memoLimit("checkup")).optional(),
 };
 const createSchema = z
   .object({
@@ -147,6 +165,32 @@ function normalize(input: Pick<Fields, keyof typeof fields>) {
   if (start > Date.now() + 10 * 60000)
     throw new AppError("INVALID_TIME", "미래 시각으로는 기록할 수 없습니다.");
   const memo = (input.memo ?? "").normalize("NFC").trim();
+  if (memo.length > memoLimit(input.kind))
+    throw new AppError(
+      "INVALID_INPUT",
+      `메모는 ${memoLimit(input.kind)}자까지 쓸 수 있습니다.`,
+    );
+  const noCheckup = {
+    cervix_length_cm: null,
+    amniotic_fluid: null,
+    fetal_heart_rate: null,
+  };
+  if (input.kind === "checkup")
+    return {
+      kind: input.kind,
+      started_at: new Date(start),
+      ended_at: null,
+      intensity: null,
+      bleeding: null,
+      bleeding_color: null,
+      cervix_length_cm:
+        input.cervix_length_cm == null
+          ? null
+          : Math.round(input.cervix_length_cm * 100) / 100,
+      amniotic_fluid: input.amniotic_fluid ?? null,
+      fetal_heart_rate: input.fetal_heart_rate ?? null,
+      memo,
+    };
   if (input.kind === "bleeding") {
     if (!input.bleeding)
       throw new AppError("INVALID_INPUT", "출혈 여부를 골라주세요.");
@@ -158,6 +202,7 @@ function normalize(input: Pick<Fields, keyof typeof fields>) {
       bleeding: input.bleeding,
       bleeding_color:
         input.bleeding === "none" ? null : (input.bleeding_color ?? null),
+      ...noCheckup,
       memo,
     };
   }
@@ -180,9 +225,12 @@ function normalize(input: Pick<Fields, keyof typeof fields>) {
     intensity: input.intensity ?? null,
     bleeding: null,
     bleeding_color: null,
+    ...noCheckup,
     memo,
   };
 }
+// 타입은 같은 묶음 안에서만 바꾼다(배뭉침↔통증). 출혈·진료는 다른 타입과 바꾸지 않는다.
+const kindGroup = (k: PregnancyKind) => (isTimed(k) ? "timed" : k);
 async function insertPhotos(
   client: PoolClient,
   actor: Actor,
@@ -264,8 +312,9 @@ export async function runPregnancyCommand(actor: Actor, raw: unknown) {
     if (input.action === "create") {
       const v = normalize(input);
       const [created] = await query(
-        `INSERT INTO pregnancy_events(household_id,kind,started_at,ended_at,intensity,bleeding,bleeding_color,memo,request_key,created_by,updated_by)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10)
+        `INSERT INTO pregnancy_events(household_id,kind,started_at,ended_at,intensity,bleeding,bleeding_color,
+           cervix_length_cm,amniotic_fluid,fetal_heart_rate,memo,request_key,created_by,updated_by)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13)
          ON CONFLICT(household_id,request_key) DO NOTHING RETURNING id`,
         [
           actor.householdId,
@@ -275,6 +324,9 @@ export async function runPregnancyCommand(actor: Actor, raw: unknown) {
           v.intensity,
           v.bleeding,
           v.bleeding_color,
+          v.cervix_length_cm,
+          v.amniotic_fluid,
+          v.fetal_heart_rate,
           v.memo,
           input.request_key,
           actor.userId,
@@ -291,10 +343,15 @@ export async function runPregnancyCommand(actor: Actor, raw: unknown) {
         return { event: await eventById(actor, role, existing.id, client) };
       }
       if (input.photos?.length) {
-        if (v.kind !== "bleeding")
+        if (!hasPhotos(v.kind))
           throw new AppError(
             "INVALID_INPUT",
-            "사진은 출혈 기록에만 붙일 수 있습니다.",
+            "사진은 출혈·진료 기록에만 붙일 수 있습니다.",
+          );
+        if (input.photos.length > photoLimit[v.kind])
+          throw new AppError(
+            "INVALID_PHOTO",
+            `사진은 최대 ${photoLimit[v.kind]}장까지 붙일 수 있습니다.`,
           );
         await insertPhotos(client, actor, created.id, input.photos, 0);
       }
@@ -316,14 +373,15 @@ export async function runPregnancyCommand(actor: Actor, raw: unknown) {
       return { deleted: input.id };
     }
     const v = normalize(input);
-    if ((row.kind === "bleeding") !== (v.kind === "bleeding"))
+    if (kindGroup(row.kind) !== kindGroup(v.kind))
       throw new AppError(
         "INVALID_INPUT",
-        "출혈 기록과 통증 기록은 서로 바꿀 수 없습니다.",
+        "배뭉침·통증끼리만 타입을 바꿀 수 있습니다.",
       );
     await query(
       `UPDATE pregnancy_events SET kind=$3, started_at=$4, ended_at=$5, intensity=$6, bleeding=$7, bleeding_color=$8,
-       memo=$9, version=version+1, updated_by=$10, updated_at=now() WHERE household_id=$1 AND id=$2`,
+       cervix_length_cm=$9, amniotic_fluid=$10, fetal_heart_rate=$11,
+       memo=$12, version=version+1, updated_by=$13, updated_at=now() WHERE household_id=$1 AND id=$2`,
       [
         actor.householdId,
         input.id,
@@ -333,12 +391,15 @@ export async function runPregnancyCommand(actor: Actor, raw: unknown) {
         v.intensity,
         v.bleeding,
         v.bleeding_color,
+        v.cervix_length_cm,
+        v.amniotic_fluid,
+        v.fetal_heart_rate,
         v.memo,
         actor.userId,
       ],
       client,
     );
-    if (v.kind === "bleeding") {
+    if (hasPhotos(v.kind)) {
       const keep = input.keep_photo_ids ?? [];
       await query(
         "DELETE FROM pregnancy_photos WHERE household_id=$1 AND event_id=$2 AND NOT (id = ANY($3::uuid[]))",
@@ -355,10 +416,10 @@ export async function runPregnancyCommand(actor: Actor, raw: unknown) {
         client,
       );
       const photos = input.photos ?? [];
-      if (kept.length + photos.length > MAX_PHOTOS)
+      if (kept.length + photos.length > photoLimit[v.kind])
         throw new AppError(
           "INVALID_PHOTO",
-          `사진은 최대 ${MAX_PHOTOS}장까지 붙일 수 있습니다.`,
+          `사진은 최대 ${photoLimit[v.kind]}장까지 붙일 수 있습니다.`,
         );
       await insertPhotos(client, actor, input.id, photos, kept.length);
     }
