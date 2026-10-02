@@ -6,12 +6,15 @@ import {
   TriangleAlert,
   ArrowUpRight,
   ChevronRight,
+  History,
   LineChart,
   Upload,
+  UserPlus,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import {
+  ASSET_HIDDEN,
   assetAxes,
   assetChangeRate,
   assetCompact,
@@ -47,6 +50,19 @@ const chartAxes = assetAxes.filter(
 );
 // 표의 합계 행은 축의 묶음이 아니므로 그룹 key와 겹치지 않는 이름을 쓴다.
 const TOTAL_KEY = "__total__";
+// 금액 가리기는 화면을 남에게 보일 때 켠다. 새로고침이나 다음 방문에 금액이 다시 드러나지 않도록
+// 이 브라우저에 기억한다. 서버 렌더에서는 늘 꺼진 값이지만 그때는 불러오는 중 화면이라 결과가 같다.
+const HIDE_KEY = "mono.assets.hide-amounts";
+function readHideAmounts() {
+  try {
+    return (
+      typeof window !== "undefined" &&
+      window.localStorage.getItem(HIDE_KEY) === "1"
+    );
+  } catch {
+    return false;
+  }
+}
 
 export function AssetStatus({
   initialQuery,
@@ -71,6 +87,15 @@ export function AssetStatus({
   const [trend, setTrend] = useState<string | null>(null);
   const [stockKey, setStockKey] = useState<string | null>(null);
   const [upload, setUpload] = useState(false);
+  const [hide, setHide] = useState(readHideAmounts);
+  const toggleHide = (next: boolean) => {
+    setHide(next);
+    try {
+      window.localStorage.setItem(HIDE_KEY, next ? "1" : "0");
+    } catch {
+      // 저장소를 못 쓰는 창에서도 지금 화면의 가리기는 그대로 동작한다.
+    }
+  };
   const params = new URLSearchParams(query);
   const owner = params.get("owner") || "all";
   const period = (params.get("period") as AssetPeriod) || "month";
@@ -169,6 +194,7 @@ export function AssetStatus({
           period={period}
           demo={demo}
           demoItems={demoAssetItems}
+          hide={hide}
           onClose={() => setDetail(null)}
         />
       )}
@@ -203,18 +229,34 @@ export function AssetStatus({
         </h1>
         <p>구성원별 자산을 그룹으로 나눠 기간별로 비교합니다.</p>
       </div>
-      <div className="button-row">
-        <Link className="button secondary" href={href("/assets/records")}>
-          기록 이력 <ArrowUpRight size={15} />
+      {/* 좁은 화면에서는 세 버튼을 아이콘만 남겨 한 줄에 둔다. 이름은 aria-label·title로 남긴다. */}
+      <div className="button-row asset-heading-actions">
+        <Link
+          className="button secondary"
+          href={href("/assets/records")}
+          aria-label="기록 이력"
+          title="기록 이력"
+        >
+          <History size={16} className="asset-heading-icon" />
+          <span>기록 이력</span>
+          <ArrowUpRight size={15} className="asset-heading-go" />
         </Link>
-        <button className="button secondary" onClick={ownerForm}>
-          소유자 추가
+        <button
+          className="button secondary"
+          onClick={ownerForm}
+          aria-label="소유자 추가"
+          title="소유자 추가"
+        >
+          <UserPlus size={16} className="asset-heading-icon" />
+          <span>소유자 추가</span>
         </button>
         <button
-          className="button primary add-button"
+          className="button primary"
           onClick={() => (activeOwners.length ? openUpload() : ownerForm())}
+          aria-label="자산 기록"
+          title="자산 기록"
         >
-          <Upload size={17} />
+          <Upload size={16} />
           <span>자산 기록</span>
         </button>
       </div>
@@ -255,6 +297,14 @@ export function AssetStatus({
           </button>
         ))}
       </div>
+      <label className="asset-hide-toggle">
+        <input
+          type="checkbox"
+          checked={hide}
+          onChange={(e) => toggleHide(e.target.checked)}
+        />
+        금액 가리기
+      </label>
     </div>
   );
   if (error)
@@ -293,6 +343,7 @@ export function AssetStatus({
   const mix = data.currencyMix;
   const mixTotal = mix.KRW + mix.USD + mix.NONE;
   const ownerSum = data.ownerTotals.reduce((n, o) => n + o.total, 0);
+  const share = (n: number, of: number) => assetPct(of > 0 ? n / of : null);
   const drill = (at: string, bucket: string) => {
     const label =
       timeline
@@ -312,7 +363,7 @@ export function AssetStatus({
       ? { key: TOTAL_KEY, name: "합계", values: timeline.map((p) => p.total) }
       : series.find((s) => s.key === trend);
   return (
-    <div className="asset-page">
+    <div className={`asset-page${hide ? " asset-amounts-hidden" : ""}`}>
       {heading}
       {!activeOwners.length ? (
         <div className="empty-state">
@@ -349,8 +400,10 @@ export function AssetStatus({
                 <div className="asset-warning" role="status">
                   <TriangleAlert size={17} />
                   <span>
-                    미분류 자산 {assetMoney(data.unclassified)}이 있습니다. 어느
-                    그룹인지 확인하고 다시 기록해주세요.
+                    {hide
+                      ? `미분류 자산이 총자산의 ${share(data.unclassified, groupSummary.total)} 있습니다.`
+                      : `미분류 자산 ${assetMoney(data.unclassified)}이 있습니다.`}{" "}
+                    어느 그룹인지 확인하고 다시 기록해주세요.
                   </span>
                 </div>
               )}
@@ -362,7 +415,7 @@ export function AssetStatus({
                     총자산 · {periodLabel(groupSummary.period)} 기준
                   </span>
                   <strong className="asset-kpi-value">
-                    {assetMoney(groupSummary.total)}
+                    {hide ? ASSET_HIDDEN : assetMoney(groupSummary.total)}
                   </strong>
                   <p className="asset-kpi-sub">
                     {groupSummary.change === null ? (
@@ -371,8 +424,9 @@ export function AssetStatus({
                       <>
                         직전 대비{" "}
                         <b className={changeTone(groupSummary.change)}>
-                          {assetSignedMoney(groupSummary.change)} (
-                          {assetSignedPct(groupSummary.change_rate)})
+                          {hide
+                            ? assetSignedPct(groupSummary.change_rate)
+                            : `${assetSignedMoney(groupSummary.change)} (${assetSignedPct(groupSummary.change_rate)})`}
                         </b>
                       </>
                     )}
@@ -387,24 +441,36 @@ export function AssetStatus({
                     <ul className="asset-kpi-owners">
                       {data.ownerTotals.map((o) => (
                         <li key={o.owner_id}>
+                          {/* 가릴 때는 금액 자리에 비중을 올리고 이름 옆 비중은 뺀다. */}
                           <span>
                             {o.name}
-                            <i>
-                              {assetPct(
-                                ownerSum > 0 ? o.total / ownerSum : null,
-                              )}
-                            </i>
+                            {!hide && <i>{share(o.total, ownerSum)}</i>}
                           </span>
-                          <b>{assetCompact(o.total)}</b>
+                          <b>
+                            {hide
+                              ? share(o.total, ownerSum)
+                              : assetCompact(o.total)}
+                          </b>
                           <small>
                             {o.as_of
                               ? `${o.as_of.replaceAll("-", ".")} 기록`
                               : "기록 없음"}
                           </small>
                           <em className={changeTone(o.change)}>
-                            {o.change === null
-                              ? "—"
-                              : `${o.change > 0 ? "▲" : o.change < 0 ? "▼" : ""}${assetCompact(Math.abs(o.change))}`}
+                            {hide
+                              ? changeText(
+                                  o.change,
+                                  o.change === null
+                                    ? null
+                                    : assetChangeRate(
+                                        o.total,
+                                        o.total - o.change,
+                                      ),
+                                  true,
+                                )
+                              : o.change === null
+                                ? "—"
+                                : `${o.change > 0 ? "▲" : o.change < 0 ? "▼" : ""}${assetCompact(Math.abs(o.change))}`}
                           </em>
                         </li>
                       ))}
@@ -423,11 +489,19 @@ export function AssetStatus({
                     {spanChange !== null && (
                       <div className="asset-kpi-fact">
                         <b className={changeTone(spanChange)}>
-                          {assetSignedMoney(spanChange)}
+                          {hide
+                            ? assetSignedPct(
+                                assetChangeRate(
+                                  withData.at(-1)!.total,
+                                  withData[0].total,
+                                ),
+                              )
+                            : assetSignedMoney(spanChange)}
                         </b>
                         <span>
-                          {assetCompact(withData[0].total)} →{" "}
-                          {assetCompact(withData.at(-1)!.total)}
+                          {hide
+                            ? "구간 증감률"
+                            : `${assetCompact(withData[0].total)} → ${assetCompact(withData.at(-1)!.total)}`}
                         </span>
                       </div>
                     )}
@@ -454,9 +528,9 @@ export function AssetStatus({
                           {label}
                         </span>
                         <strong className="asset-kpi-value">
-                          {assetPct(mixTotal > 0 ? mix[key] / mixTotal : null)}
+                          {share(mix[key], mixTotal)}
                         </strong>
-                        <small>{assetCompact(mix[key])}</small>
+                        {!hide && <small>{assetCompact(mix[key])}</small>}
                       </div>
                     ))}
                   </div>
@@ -477,7 +551,7 @@ export function AssetStatus({
                         className="asset-dot"
                         style={{ background: assetColor("NONE") }}
                       />
-                      기타 {assetCompact(mix.NONE)} ·{" "}
+                      기타 {!hide && `${assetCompact(mix.NONE)} · `}
                       {assetPct(mix.NONE / mixTotal)}
                     </p>
                   )}
@@ -527,10 +601,12 @@ export function AssetStatus({
                     periods={points}
                     series={series}
                     onPoint={drill}
+                    hide={hide}
                   />
                   <AssetPie
                     rows={summary?.rows ?? []}
                     total={summary?.total ?? 0}
+                    hide={hide}
                     onSlice={(key) => {
                       // 주식 두 그룹은 카드의 전체 보기와 같은 종목 팝업을 연다. 원본 항목 서랍은
                       // 계좌·구성원별로 쪼개져 있어 종목 규모와 비중을 읽기 어렵다.
@@ -549,7 +625,11 @@ export function AssetStatus({
                       각 묶음 안의 비중
                     </span>
                   </div>
-                  <AssetRiskBoard summary={groupSummary} onRow={drillGroup} />
+                  <AssetRiskBoard
+                    summary={groupSummary}
+                    onRow={drillGroup}
+                    hide={hide}
+                  />
                 </section>
               )}
               <section className="panel">
@@ -567,6 +647,7 @@ export function AssetStatus({
                     <AssetStockCard
                       key={board.key}
                       board={board}
+                      assetTotal={hide ? groupSummary.total : null}
                       onOpen={() => setStockKey(board.key)}
                     />
                   ))}
@@ -574,7 +655,7 @@ export function AssetStatus({
               </section>
               <section className="panel">
                 <div className="section-heading compact">
-                  <h2>기간별 금액·증감</h2>
+                  <h2>기간별 {hide ? "비중" : "금액"}·증감</h2>
                   <span className="muted small">
                     {period === "year" ? "연별" : "월별"} · 이름을 누르면 추이,
                     셀을 누르면 종목을 봅니다
@@ -585,6 +666,7 @@ export function AssetStatus({
                   series={series}
                   onCell={drill}
                   onSeries={setTrend}
+                  hide={hide}
                 />
               </section>
             </>
@@ -595,6 +677,7 @@ export function AssetStatus({
         <AssetStockDialog
           board={openStock}
           period={periodLabel(groupSummary.period)}
+          assetTotal={hide ? groupSummary.total : null}
           onClose={() => setStockKey(null)}
         />
       )}
@@ -609,6 +692,7 @@ export function AssetStatus({
           unit={period === "year" ? "연별" : "월별"}
           periods={points}
           values={trendSeries.values}
+          hide={hide}
           onClose={() => setTrend(null)}
         />
       )}
@@ -620,11 +704,13 @@ export function AssetStatus({
 // 부호는 화살표가 이미 말하므로 금액은 절댓값으로 적는다.
 const changeTone = (change: number | null) =>
   !change ? "flat" : change > 0 ? "up" : "down";
-function changeText(change: number | null, rate: number | null) {
+// 금액을 가릴 때는 비율만 적는다. 직전 값이 0이라 비율이 없으면 그 자리는 비공개다.
+function changeText(change: number | null, rate: number | null, hide = false) {
   if (change === null) return "—";
   const arrow = change > 0 ? "▲" : change < 0 ? "▼" : "";
-  const pct = rate === null ? "" : ` ${Math.abs(rate * 100).toFixed(1)}%`;
-  return `${arrow}${assetCompact(Math.abs(change))}${pct}`;
+  const pct = rate === null ? "" : `${Math.abs(rate * 100).toFixed(1)}%`;
+  if (hide) return `${arrow}${pct || ASSET_HIDDEN}`;
+  return `${arrow}${assetCompact(Math.abs(change))}${pct && ` ${pct}`}`;
 }
 // 한 칸에 금액과 직전 기간 대비 증감을 적는다. 비중은 위 파이·위험 박스가 이미 보여주므로 빼고,
 // 표는 "얼마에서 얼마로 움직였는가" 한 가지만 읽게 한다. 합계는 기준선이므로 맨 위에 둔다.
@@ -633,11 +719,14 @@ function AssetMatrix({
   series,
   onCell,
   onSeries,
+  hide,
 }: {
   timeline: AssetOverview["timelines"][AssetAxis];
   series: { key: string; name: string; values: number[] }[];
   onCell: (period: string, key: string) => void;
   onSeries: (key: string) => void;
+  // 금액 가리기. 칸의 금액 대신 그 기간 합계 대비 비중을, 합계 줄은 비공개를 적는다.
+  hide: boolean;
 }) {
   const rows = useMemo(
     () => [
@@ -687,9 +776,19 @@ function AssetMatrix({
                     before === null ? null : assetChangeRate(value, before);
                   const figures = (
                     <>
-                      <b>{assetCompact(value)}</b>
+                      <b>
+                        {!hide
+                          ? assetCompact(value)
+                          : total
+                            ? ASSET_HIDDEN
+                            : assetPct(
+                                timeline[i].total > 0
+                                  ? value / timeline[i].total
+                                  : null,
+                              )}
+                      </b>
                       <em className={changeTone(change)}>
-                        {changeText(change, rate)}
+                        {changeText(change, rate, hide)}
                       </em>
                     </>
                   );
@@ -723,6 +822,7 @@ function AssetTrendDialog({
   unit,
   periods,
   values,
+  hide,
   onClose,
 }: {
   name: string;
@@ -730,6 +830,7 @@ function AssetTrendDialog({
   unit: string;
   periods: string[];
   values: number[];
+  hide: boolean;
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -762,13 +863,14 @@ function AssetTrendDialog({
               {name}
             </h2>
             <p className="muted small">
-              최근 {assetMoney(last)}
+              {hide ? "" : `최근 ${assetMoney(last)}`}
               {change !== null && (
                 <>
-                  {" · 기간 내 "}
+                  {hide ? "기간 내 " : " · 기간 내 "}
                   <em className={!change ? "" : change > 0 ? "up" : "down"}>
-                    {assetSignedMoney(change)} (
-                    {assetSignedPct(assetChangeRate(last, first))})
+                    {hide
+                      ? assetSignedPct(assetChangeRate(last, first))
+                      : `${assetSignedMoney(change)} (${assetSignedPct(assetChangeRate(last, first))})`}
                   </em>
                 </>
               )}
@@ -783,6 +885,7 @@ function AssetTrendDialog({
           name={name}
           color={color}
           values={values}
+          hide={hide}
         />
       </div>
     </dialog>
@@ -798,9 +901,11 @@ const riskSides: { risk: AssetRisk | null; key: string; label: string }[] = [
 function AssetRiskBoard({
   summary,
   onRow,
+  hide,
 }: {
   summary: AssetSummary;
   onRow: (key: string, label: string) => void;
+  hide: boolean;
 }) {
   const sides = riskSides
     .map((side) => {
@@ -856,7 +961,8 @@ function AssetRiskBoard({
               </span>
               <strong>{assetPct(share(side.amount))}</strong>
               <small>
-                {assetCompact(side.amount)} · {side.rows.length}개 분류
+                {!hide && `${assetCompact(side.amount)} · `}
+                {side.rows.length}개 분류
               </small>
             </header>
             <ul>
@@ -877,7 +983,7 @@ function AssetRiskBoard({
                         side.amount > 0 ? row.amount / side.amount : null,
                       )}
                     </em>
-                    <b>{assetCompact(row.amount)}</b>
+                    {!hide && <b>{assetCompact(row.amount)}</b>}
                   </button>
                 </li>
               ))}
@@ -892,14 +998,19 @@ function AssetRiskBoard({
 const shares = (n: number | null) =>
   n === null ? "" : `${Math.round(n).toLocaleString("ko-KR")}주`;
 const STOCK_TOP = 5;
+// assetTotal이 있으면 금액 가리기다. 그룹 합계 자리에 총자산 대비 비중을 적고 수량은 뺀다.
+// 수량은 비율로 바꿀 수 없고, 시세를 알면 금액이 되므로 함께 가린다.
 function AssetStockCard({
   board,
+  assetTotal,
   onOpen,
 }: {
   board: AssetStockBoard;
+  assetTotal: number | null;
   onOpen: () => void;
 }) {
   const top = board.holdings.slice(0, STOCK_TOP);
+  const hide = assetTotal !== null;
   return (
     <article className="asset-stock-card">
       <header>
@@ -914,15 +1025,21 @@ function AssetStockCard({
           />
           {board.name}
         </button>
-        <strong>{assetCompact(board.total)}</strong>
+        <strong>
+          {hide
+            ? `총자산의 ${assetPct(assetTotal > 0 ? board.total / assetTotal : null)}`
+            : assetCompact(board.total)}
+        </strong>
       </header>
       <p className="asset-stock-meta">
         {board.count}종목
-        {board.quantity !== null && ` · 보유 ${shares(board.quantity)}`}
+        {!hide &&
+          board.quantity !== null &&
+          ` · 보유 ${shares(board.quantity)}`}
       </p>
       {top.length ? (
         <>
-          <AssetHoldingList board={board} holdings={top} />
+          <AssetHoldingList board={board} holdings={top} hide={hide} />
           <button className="asset-stock-more" onClick={onOpen}>
             전체 {board.count}종목 · 비중 보기 <ChevronRight size={15} />
           </button>
@@ -937,9 +1054,11 @@ function AssetStockCard({
 function AssetHoldingList({
   board,
   holdings,
+  hide,
 }: {
   board: AssetStockBoard;
   holdings: AssetStockBoard["holdings"];
+  hide: boolean;
 }) {
   const max = board.holdings[0]?.amount ?? 0;
   return (
@@ -952,11 +1071,24 @@ function AssetHoldingList({
             {holding.detail && <small>{holding.detail}</small>}
           </div>
           <div className="asset-stock-figure">
-            <strong>{assetCompact(holding.amount)}</strong>
-            <small>
-              {assetPct(board.total > 0 ? holding.amount / board.total : null)}
-              {holding.quantity !== null && ` · ${shares(holding.quantity)}`}
-            </small>
+            {hide ? (
+              <strong>
+                {assetPct(
+                  board.total > 0 ? holding.amount / board.total : null,
+                )}
+              </strong>
+            ) : (
+              <>
+                <strong>{assetCompact(holding.amount)}</strong>
+                <small>
+                  {assetPct(
+                    board.total > 0 ? holding.amount / board.total : null,
+                  )}
+                  {holding.quantity !== null &&
+                    ` · ${shares(holding.quantity)}`}
+                </small>
+              </>
+            )}
           </div>
           <i className="asset-bar">
             <b
@@ -975,12 +1107,15 @@ function AssetHoldingList({
 function AssetStockDialog({
   board,
   period,
+  assetTotal,
   onClose,
 }: {
   board: AssetStockBoard;
   period: string;
+  assetTotal: number | null;
   onClose: () => void;
 }) {
+  const hide = assetTotal !== null;
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     if (!dialog.current?.open) dialog.current?.showModal();
@@ -1007,12 +1142,18 @@ function AssetStockDialog({
               style={{ background: assetColor(board.key) }}
             />
             {board.name}
-            <strong>{assetMoney(board.total)}</strong>
+            <strong>
+              {hide
+                ? `총자산의 ${assetPct(assetTotal > 0 ? board.total / assetTotal : null)}`
+                : assetMoney(board.total)}
+            </strong>
           </h2>
           <p className="asset-stock-meta">
             {board.count}종목
-            {board.quantity !== null && ` · 보유 ${shares(board.quantity)}`} ·
-            비중은 그룹 합계 대비
+            {!hide &&
+              board.quantity !== null &&
+              ` · 보유 ${shares(board.quantity)}`}{" "}
+            · 비중은 그룹 합계 대비
           </p>
         </div>
         <button className="icon-button" aria-label="닫기" onClick={onClose}>
@@ -1020,7 +1161,7 @@ function AssetStockDialog({
         </button>
       </header>
       <div className="asset-stock-dialog-list">
-        <AssetHoldingList board={board} holdings={board.holdings} />
+        <AssetHoldingList board={board} holdings={board.holdings} hide={hide} />
       </div>
     </dialog>
   );

@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Chart } from "chart.js/auto";
 import {
+  ASSET_HIDDEN,
+  assetChangeRate,
   assetCompact,
   assetMoney,
   assetPct,
@@ -52,10 +54,13 @@ export function AssetTrend({
   periods,
   series,
   onPoint,
+  hide = false,
 }: {
   periods: string[];
   series: AssetSeries[];
   onPoint?: (period: string, key: string) => void;
+  // 금액 가리기. 막대 높이는 그대로 두고 금액 라벨·축을 지우며, 툴팁은 그 기간 안의 비중으로 바꾼다.
+  hide?: boolean;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [hidden, setHidden] = useState<string[]>([]);
@@ -69,7 +74,7 @@ export function AssetTrend({
     const stackTotals = {
       id: "assetStackTotals",
       afterDatasetsDraw(chart: Chart) {
-        if (expand || !visible.length) return;
+        if (hide || expand || !visible.length) return;
         const { ctx } = chart;
         const meta = chart.getDatasetMeta(0);
         ctx.save();
@@ -123,12 +128,17 @@ export function AssetTrend({
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: (ctx) =>
-                `${ctx.dataset.label}: ${assetMoney(
-                  visible[ctx.datasetIndex].values[ctx.dataIndex],
-                )}`,
+              label: (ctx) => {
+                const value = visible[ctx.datasetIndex].values[ctx.dataIndex];
+                if (!hide) return `${ctx.dataset.label}: ${assetMoney(value)}`;
+                const sum = visible.reduce(
+                  (n, s) => n + (s.values[ctx.dataIndex] ?? 0),
+                  0,
+                );
+                return `${ctx.dataset.label}: ${assetPct(sum > 0 ? value / sum : null)}`;
+              },
               footer: (items) =>
-                expand
+                hide || expand
                   ? ""
                   : `합계 ${assetMoney(
                       items.reduce((n, i) => n + i.parsed.y, 0),
@@ -147,6 +157,7 @@ export function AssetTrend({
             beginAtZero: true,
             grid: { color: "#e9edf5" },
             ticks: {
+              display: !hide,
               maxTicksLimit: 5,
               font: { size: 11 },
               callback: (v) =>
@@ -162,7 +173,7 @@ export function AssetTrend({
       plugins: [stackTotals],
     });
     return () => chart.destroy();
-  }, [periods, series, hidden, expand, onPoint]);
+  }, [periods, series, hidden, expand, onPoint, hide]);
   return (
     <div className="asset-plot">
       <div className="asset-plot-canvas">
@@ -243,7 +254,7 @@ const shareLabels = {
   },
 };
 // 구멍은 조각 라벨을 밀어내지 않을 만큼만 뚫는다. 총액은 두 줄로 적는다.
-const centerTotal = {
+const centerTotal = (hide: boolean) => ({
   id: "assetCenterTotal",
   afterDatasetsDraw(chart: Chart) {
     const { ctx } = chart;
@@ -264,7 +275,7 @@ const centerTotal = {
     ctx.fillText("총자산", arc.x, arc.y - 9);
     ctx.fillStyle = "#2f3a2f";
     ctx.font = "700 14px system-ui";
-    const text = assetCompact(total);
+    const text = hide ? ASSET_HIDDEN : assetCompact(total);
     // 구멍보다 글자가 넓으면 줄인다. 잘린 숫자는 없느니만 못하다.
     const room = arc.innerRadius * 1.8;
     if (ctx.measureText(text).width > room)
@@ -272,15 +283,17 @@ const centerTotal = {
     ctx.fillText(text, arc.x, arc.y + 6);
     ctx.restore();
   },
-};
+});
 export function AssetPie({
   rows,
   total,
   onSlice,
+  hide = false,
 }: {
   rows: { key: string; name: string; amount: number }[];
   total: number;
   onSlice?: (key: string) => void;
+  hide?: boolean;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const shown = rows.filter((r) => r.amount > 0);
@@ -310,21 +323,23 @@ export function AssetPie({
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: (ctx) =>
-                `${ctx.label}: ${assetMoney(ctx.parsed)} · ${assetPct(
-                  total > 0 ? ctx.parsed / total : null,
-                )}`,
+              label: (ctx) => {
+                const share = assetPct(total > 0 ? ctx.parsed / total : null);
+                return hide
+                  ? `${ctx.label}: ${share}`
+                  : `${ctx.label}: ${assetMoney(ctx.parsed)} · ${share}`;
+              },
             },
           },
         },
       },
-      plugins: [shareLabels, centerTotal],
+      plugins: [shareLabels, centerTotal(hide)],
     });
     // chart.js의 설정 타입이 doughnut으로 좁혀지지 않아 구멍 크기는 생성 뒤에 지정한다.
     (chart.options as { cutout?: string }).cutout = "34%";
     chart.update("none");
     return () => chart.destroy();
-  }, [shown, total, onSlice]);
+  }, [shown, total, onSlice, hide]);
   if (!shown.length) return null;
   return (
     <div className="asset-pie">
@@ -348,11 +363,14 @@ export function AssetLine({
   name,
   color,
   values,
+  hide = false,
 }: {
   periods: string[];
   name: string;
   color: string;
   values: number[];
+  // 금액 가리기. 축 금액을 지우고 툴팁은 첫 기간·직전 기간 대비 증감률로 적는다.
+  hide?: boolean;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
@@ -384,15 +402,24 @@ export function AssetLine({
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: (ctx) => assetMoney(Number(ctx.parsed.y)),
+              label: (ctx) => {
+                if (!hide) return assetMoney(Number(ctx.parsed.y));
+                const first = values.find((v) => v > 0) ?? 0;
+                return `처음 대비 ${assetSignedPct(
+                  assetChangeRate(Number(ctx.parsed.y), first),
+                )}`;
+              },
               // 기간이 많으면 눈으로 직전 값을 못 찾는다. 툴팁에 증감을 같이 적는다.
               afterLabel: (ctx) => {
                 const before = values[ctx.dataIndex - 1];
                 if (before === undefined) return "";
                 const change = Number(ctx.parsed.y) - before;
-                return `직전 대비 ${assetSignedMoney(change)} (${assetSignedPct(
+                const rate = assetSignedPct(
                   before > 0 ? change / before : null,
-                )})`;
+                );
+                return hide
+                  ? `직전 대비 ${rate}`
+                  : `직전 대비 ${assetSignedMoney(change)} (${rate})`;
               },
             },
           },
@@ -408,6 +435,7 @@ export function AssetLine({
             grace: "8%",
             grid: { color: "#e9edf5" },
             ticks: {
+              display: !hide,
               maxTicksLimit: 5,
               font: { size: 11 },
               callback: (v) => assetCompact(Number(v)),
@@ -417,7 +445,7 @@ export function AssetLine({
       },
     });
     return () => chart.destroy();
-  }, [periods, name, color, values]);
+  }, [periods, name, color, values, hide]);
   return (
     <>
       <div className="asset-line-canvas">
@@ -425,7 +453,8 @@ export function AssetLine({
       </div>
       <p className="asset-note">
         세로축은 0이 아니라 이 항목의 값 범위에 맞췄습니다. 변화의 모양을 보기
-        위한 표시이며 정확한 금액은 점 위에 올려 확인하세요.
+        위한 표시이며 {hide ? "증감률" : "정확한 금액"}은 점 위에 올려
+        확인하세요.
       </p>
     </>
   );

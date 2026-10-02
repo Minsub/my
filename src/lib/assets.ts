@@ -764,6 +764,8 @@ export const assetSignedPct = (n: number | null) =>
   n === null ? "—" : `${n >= 0 ? "+" : ""}${(n * 100).toFixed(1)}%`;
 export const assetSignedMoney = (n: number | null) =>
   n === null ? "—" : `${n >= 0 ? "+" : "-"}${assetCompact(Math.abs(n))}`;
+// 자산현황의 "금액 가리기"에서 비율로 바꿀 수 없는 금액 자리에 적는 말.
+export const ASSET_HIDDEN = "비공개";
 
 // ---- 업로드 CSV ----
 // 화면에서 항목을 하나씩 입력하는 대신 CSV 한 장을 올린다. 자산 목록은 수십 줄이라 손으로 넣을 것이 아니다.

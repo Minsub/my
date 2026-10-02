@@ -23,6 +23,7 @@ export function AssetDetail({
   period,
   demo,
   demoItems,
+  hide = false,
   onClose,
 }: {
   target: AssetDetailTarget;
@@ -30,6 +31,8 @@ export function AssetDetail({
   period: AssetPeriod;
   demo?: boolean;
   demoItems?: (t: AssetDetailTarget) => AssetItemRow[];
+  // 금액 가리기. 금액 자리에 묶음 안 비중을 적고, 수량·수익금은 빼고 수익률만 남긴다.
+  hide?: boolean;
   onClose: () => void;
 }) {
   const [items, setItems] = useState<AssetItemRow[] | null>(null);
@@ -83,7 +86,7 @@ export function AssetDetail({
             <h2>{target.label}</h2>
             {items && (
               <p className="muted small">
-                {items.length}개 항목 · {assetMoney(total)}
+                {items.length}개 항목{!hide && ` · ${assetMoney(total)}`}
               </p>
             )}
           </div>
@@ -109,21 +112,35 @@ export function AssetDetail({
                       .join(" · ")}
                   </small>
                 </div>
-                <div className="asset-item-figures">
-                  <strong>{assetMoney(item.amount)}</strong>
-                  <small>
-                    {assetPct(total > 0 ? item.amount / total : null)}
-                    {item.quantity !== null &&
-                      ` · ${item.quantity.toLocaleString("ko-KR")}주`}
-                  </small>
-                  {item.profit !== null && (
-                    <em className={item.profit >= 0 ? "up" : "down"}>
-                      {assetSignedMoney(item.profit)}
-                      {item.profit_rate !== null &&
-                        ` (${(item.profit_rate * 100).toFixed(2)}%)`}
-                    </em>
-                  )}
-                </div>
+                {hide ? (
+                  <div className="asset-item-figures">
+                    <strong>
+                      {assetPct(total > 0 ? item.amount / total : null)}
+                    </strong>
+                    {item.profit !== null && item.profit_rate !== null && (
+                      <em className={item.profit >= 0 ? "up" : "down"}>
+                        {item.profit_rate >= 0 ? "+" : ""}
+                        {(item.profit_rate * 100).toFixed(2)}%
+                      </em>
+                    )}
+                  </div>
+                ) : (
+                  <div className="asset-item-figures">
+                    <strong>{assetMoney(item.amount)}</strong>
+                    <small>
+                      {assetPct(total > 0 ? item.amount / total : null)}
+                      {item.quantity !== null &&
+                        ` · ${item.quantity.toLocaleString("ko-KR")}주`}
+                    </small>
+                    {item.profit !== null && (
+                      <em className={item.profit >= 0 ? "up" : "down"}>
+                        {assetSignedMoney(item.profit)}
+                        {item.profit_rate !== null &&
+                          ` (${(item.profit_rate * 100).toFixed(2)}%)`}
+                      </em>
+                    )}
+                  </div>
+                )}
               </li>
             ))}
           </ul>
