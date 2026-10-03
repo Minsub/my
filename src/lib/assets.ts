@@ -766,6 +766,55 @@ export const assetSignedMoney = (n: number | null) =>
   n === null ? "—" : `${n >= 0 ? "+" : "-"}${assetCompact(Math.abs(n))}`;
 // 자산현황의 "금액 가리기"에서 비율로 바꿀 수 없는 금액 자리에 적는 말.
 export const ASSET_HIDDEN = "비공개";
+// 자산현황의 "자산 복사"가 만드는 글. 메신저·메모에 붙여 넣을 수 있도록 표 없이 줄 단위로 적는다.
+// 최신 기간의 자산 그룹별 비중·금액과 주식 그룹별 전체 종목·그룹 내 비중을 담는다.
+// 금액을 가린 화면에서 복사하면 글에도 금액을 넣지 않는다.
+export function assetStatusText({
+  summary,
+  stocks,
+  owners,
+  hide,
+}: {
+  summary: AssetSummary;
+  stocks: AssetStockBoard[];
+  owners: { name: string; as_of: string | null }[];
+  hide: boolean;
+}) {
+  const share = (n: number, of: number) => assetPct(of > 0 ? n / of : null);
+  const money = (n: number) => (hide ? "" : ` · ${assetMoney(n)}`);
+  const lines = [
+    `자산현황 · ${periodLabel(summary.period)} 기준 · 전체 구성원`,
+  ];
+  if (!hide) lines.push(`총자산 ${assetMoney(summary.total)}`);
+  // 구성원마다 기록 주기가 달라 이월된 값이 섞일 수 있으므로 각자의 기준일을 남긴다.
+  const dated = owners.filter((o) => o.as_of);
+  if (dated.length)
+    lines.push(
+      `기준일 ${dated.map((o) => `${o.name} ${o.as_of!.replaceAll("-", ".")}`).join(", ")}`,
+    );
+  lines.push("", hide ? "■ 자산별 비중" : "■ 자산별 비중·금액");
+  for (const row of summary.rows
+    .filter((r) => r.amount > 0)
+    .sort((a, b) => b.amount - a.amount))
+    lines.push(
+      `- ${row.name} ${share(row.amount, summary.total)}${money(row.amount)}`,
+    );
+  const boards = stocks.filter((b) => b.count > 0);
+  if (boards.length) {
+    lines.push("", "■ 주식 보유 (비중은 그룹 합계 대비)");
+    for (const board of boards) {
+      lines.push(
+        `[${board.name}] 총자산의 ${share(board.total, summary.total)}${money(board.total)} · ${board.count}종목`,
+      );
+      board.holdings.forEach((h, i) =>
+        lines.push(
+          `${i + 1}. ${h.name} ${share(h.amount, board.total)}${money(h.amount)}`,
+        ),
+      );
+    }
+  }
+  return lines.join("\n");
+}
 // 종목 코드를 저장하지 않으므로 이름으로 연다. 서버가 코드를 못 찾을 때와 둘러보기 화면이 이 검색을 쓴다.
 export const naverStockSearchUrl = (name: string) =>
   `https://search.naver.com/search.naver?query=${encodeURIComponent(`${name} 주가`)}`;

@@ -6,6 +6,7 @@ import {
   TriangleAlert,
   ArrowUpRight,
   ChevronRight,
+  ClipboardCopy,
   ExternalLink,
   History,
   LineChart,
@@ -24,6 +25,7 @@ import {
   assetSignedMoney,
   assetSignedPct,
   assetRanges,
+  assetStatusText,
   assetTimelineSeries,
   findAssetGroup,
   naverStockSearchUrl,
@@ -42,6 +44,7 @@ import { AssetUpload } from "./asset-upload";
 import { RecordForm, type FormSpec } from "./record-form";
 import type { Operation } from "@/lib/contracts";
 import { demoAssetOverview, demoAssetItems } from "@/lib/demo-assets";
+import { copyTextLater } from "@/lib/clipboard";
 
 const periods: { key: AssetPeriod; label: string }[] = [
   { key: "month", label: "월별" },
@@ -185,6 +188,40 @@ export function AssetStatus({
   // 저장은 save()가 막으므로 창 안에서 그 이유를 읽는 편이 낫다.
   const openUpload = () => setUpload(true);
   const activeOwners = data?.owners.filter((o) => o.active) ?? [];
+  // 현재 자산을 글로 복사한다. 화면의 구성원 필터와 무관하게 늘 전체 구성원 합계의 최신 기간이다.
+  // 종합을 보고 있으면 받은 값을 그대로 쓰고, 한 사람을 보고 있으면 종합을 한 번 더 받는다.
+  async function loadAll(): Promise<AssetOverview> {
+    if (data && owner === "all") return data;
+    const q = new URLSearchParams(query);
+    q.delete("owner");
+    if (!q.get("range")) q.set("range", "1y");
+    if (demo) return demoAssetOverview(q);
+    const r = await fetch(`/api/assets?${q}`, { cache: "no-store" });
+    const body = await r.json();
+    if (!r.ok) throw Error(body.error?.message ?? "불러오지 못했습니다.");
+    return body as AssetOverview;
+  }
+  async function copyAssets() {
+    const text = loadAll().then((all) => {
+      if (!all.summaries.group) throw Error("복사할 자산 기록이 없습니다.");
+      return assetStatusText({
+        summary: all.summaries.group,
+        stocks: all.stocks,
+        owners: all.ownerTotals,
+        hide,
+      });
+    });
+    try {
+      await copyTextLater(text);
+      inform(
+        hide
+          ? "현재 자산을 금액 없이 복사했습니다."
+          : "현재 자산을 클립보드에 복사했습니다.",
+      );
+    } catch (e) {
+      inform((e as Error).message || "복사하지 못했습니다.");
+    }
+  }
   // 머리말 버튼은 오류·로딩 화면에도 그대로 나온다. 그 화면에서 눌러도 창이 떠야 하므로
   // 모달과 토스트는 모든 반환 경로에 함께 붙인다.
   const overlays = (
@@ -243,6 +280,16 @@ export function AssetStatus({
           <span>기록 이력</span>
           <ArrowUpRight size={15} className="asset-heading-go" />
         </Link>
+        <button
+          className="button secondary"
+          onClick={copyAssets}
+          disabled={!activeOwners.length}
+          aria-label="자산 복사"
+          title="전체 구성원의 최신 자산을 글로 복사"
+        >
+          <ClipboardCopy size={16} className="asset-heading-icon" />
+          <span>자산 복사</span>
+        </button>
         <button
           className="button secondary"
           onClick={ownerForm}

@@ -55,6 +55,7 @@ import {
   type TimedKind,
 } from "@/lib/pregnancy";
 import { demoPregnancy } from "@/lib/demo-pregnancy";
+import { copyText } from "@/lib/clipboard";
 
 const MIN = 60000;
 type Running = { started_at: string; key: string };
@@ -186,24 +187,6 @@ async function photoBase64(file: File) {
   throw Error("사진 용량이 큽니다. 다른 사진을 선택해주세요.");
 }
 
-// 클립보드 API가 막힌 환경(비보안 연결 등)에서는 선택 복사로 대신한다.
-async function copyText(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return;
-  } catch {
-    const area = document.createElement("textarea");
-    area.value = text;
-    area.setAttribute("readonly", "");
-    area.style.position = "fixed";
-    area.style.opacity = "0";
-    document.body.appendChild(area);
-    area.select();
-    const ok = document.execCommand("copy");
-    area.remove();
-    if (!ok) throw Error("복사하지 못했습니다.");
-  }
-}
 // 진료·검사 상세의 복사 문구. 날짜 한 줄, 입력한 값, 빈 줄, 메모 순서.
 const checkupCopyText = (e: PregnancyEvent) =>
   [
