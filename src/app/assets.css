@@ -1252,6 +1252,26 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 종목 이름은 네이버 증권을 새 창으로 여는 링크다. 긴 이름은 말줄임하고 아이콘은 남긴다. */
+.asset-stock-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+.asset-stock-link span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.asset-stock-link svg {
+  flex: none;
+  color: var(--muted);
+}
+.asset-stock-link:hover span {
+  text-decoration: underline;
+}
 .asset-stock-name small,
 .asset-stock-figure small {
   font-size: 11.5px;

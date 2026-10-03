@@ -87,7 +87,7 @@ UI 숨김은 보안 검사가 아니다. 쿠키 기반 변경은 sameOrigin, 모
 
 ## 자산 스냅샷
 
-`/assets/status`는 전용 `/api/assets`로 조회하고 쓰기는 공통 `POST /api/commands`를 쓴다. 자산 시계열을 공통 `snapshot`에 넣지 않은 이유는 `snapshot`이 도메인 전체를 매번 읽고 모든 MCP 조회 도구가 그것을 호출하기 때문이다. `asset_snapshots`는 `(household_id, owner_id, as_of)`가 유일하며 같은 날 재등록은 `asset_snapshot_items` 전체 교체다. 그룹 합계는 항목에서 유도하고 별도 합계 테이블을 두지 않는다. 금액은 `bigint`이고 `pg`가 int8을 문자열로 반환하므로 조회에서 `::float8`로 캐스팅한다. 자산 그룹은 코드 상수이며 `group_key`에 SQL CHECK를 걸지 않는다. 자세한 규칙은 [자산관리 문서](assert-management/README.md)에 있다.
+`/assets/status`는 전용 `/api/assets`로 조회하고 쓰기는 공통 `POST /api/commands`를 쓴다. 자산 시계열을 공통 `snapshot`에 넣지 않은 이유는 `snapshot`이 도메인 전체를 매번 읽고 모든 MCP 조회 도구가 그것을 호출하기 때문이다. `asset_snapshots`는 `(household_id, owner_id, as_of)`가 유일하며 같은 날 재등록은 `asset_snapshot_items` 전체 교체다. 그룹 합계는 항목에서 유도하고 별도 합계 테이블을 두지 않는다. 금액은 `bigint`이고 `pg`가 int8을 문자열로 반환하므로 조회에서 `::float8`로 캐스팅한다. 자산 그룹은 코드 상수이며 `group_key`에 SQL CHECK를 걸지 않는다. 종목 이름의 네이버 증권 링크는 `GET /api/assets/stock`이 외부 자동완성으로 주소를 찾아 302로 보낸다. 공간 데이터는 읽지 않는다. 자세한 규칙은 [자산관리 문서](assert-management/README.md)에 있다.
 
 ## 꼬미 기록
 

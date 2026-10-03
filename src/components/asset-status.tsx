@@ -6,6 +6,7 @@ import {
   TriangleAlert,
   ArrowUpRight,
   ChevronRight,
+  ExternalLink,
   History,
   LineChart,
   Upload,
@@ -25,6 +26,7 @@ import {
   assetRanges,
   assetTimelineSeries,
   findAssetGroup,
+  naverStockSearchUrl,
   periodLabel,
   type AssetAxis,
   type AssetPeriod,
@@ -358,6 +360,12 @@ export function AssetStatus({
   const stockBoard = (key: string | null) =>
     data.stocks.find((b) => b.key === key && b.count > 0);
   const openStock = stockBoard(stockKey);
+  // 종목 이름은 네이버 증권을 새 창으로 연다. 서버가 이름으로 종목 코드를 찾아 보낸다.
+  // 둘러보기는 로그인이 없어 서버 조회를 거치지 않고 바로 "종목명 주가" 검색을 연다.
+  const stockHref = (name: string) =>
+    demo
+      ? naverStockSearchUrl(name)
+      : `/api/assets/stock?${new URLSearchParams({ name })}`;
   const trendSeries =
     trend === TOTAL_KEY
       ? { key: TOTAL_KEY, name: "합계", values: timeline.map((p) => p.total) }
@@ -602,6 +610,7 @@ export function AssetStatus({
                     series={series}
                     onPoint={drill}
                     hide={hide}
+                    unit={period === "year" ? "전년" : "전월"}
                   />
                   <AssetPie
                     rows={summary?.rows ?? []}
@@ -648,6 +657,7 @@ export function AssetStatus({
                       key={board.key}
                       board={board}
                       assetTotal={hide ? groupSummary.total : null}
+                      stockHref={stockHref}
                       onOpen={() => setStockKey(board.key)}
                     />
                   ))}
@@ -678,6 +688,7 @@ export function AssetStatus({
           board={openStock}
           period={periodLabel(groupSummary.period)}
           assetTotal={hide ? groupSummary.total : null}
+          stockHref={stockHref}
           onClose={() => setStockKey(null)}
         />
       )}
@@ -1003,10 +1014,12 @@ const STOCK_TOP = 5;
 function AssetStockCard({
   board,
   assetTotal,
+  stockHref,
   onOpen,
 }: {
   board: AssetStockBoard;
   assetTotal: number | null;
+  stockHref: (name: string) => string;
   onOpen: () => void;
 }) {
   const top = board.holdings.slice(0, STOCK_TOP);
@@ -1039,7 +1052,12 @@ function AssetStockCard({
       </p>
       {top.length ? (
         <>
-          <AssetHoldingList board={board} holdings={top} hide={hide} />
+          <AssetHoldingList
+            board={board}
+            holdings={top}
+            hide={hide}
+            stockHref={stockHref}
+          />
           <button className="asset-stock-more" onClick={onOpen}>
             전체 {board.count}종목 · 비중 보기 <ChevronRight size={15} />
           </button>
@@ -1055,10 +1073,12 @@ function AssetHoldingList({
   board,
   holdings,
   hide,
+  stockHref,
 }: {
   board: AssetStockBoard;
   holdings: AssetStockBoard["holdings"];
   hide: boolean;
+  stockHref: (name: string) => string;
 }) {
   const max = board.holdings[0]?.amount ?? 0;
   return (
@@ -1067,7 +1087,18 @@ function AssetHoldingList({
         <li key={holding.name}>
           <span className="asset-rank">{i + 1}</span>
           <div className="asset-stock-name">
-            <strong>{holding.name}</strong>
+            <strong>
+              <a
+                className="asset-stock-link"
+                href={stockHref(holding.name)}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`${holding.name} 네이버 증권에서 보기`}
+              >
+                <span>{holding.name}</span>
+                <ExternalLink size={12} aria-hidden />
+              </a>
+            </strong>
             {holding.detail && <small>{holding.detail}</small>}
           </div>
           <div className="asset-stock-figure">
@@ -1108,11 +1139,13 @@ function AssetStockDialog({
   board,
   period,
   assetTotal,
+  stockHref,
   onClose,
 }: {
   board: AssetStockBoard;
   period: string;
   assetTotal: number | null;
+  stockHref: (name: string) => string;
   onClose: () => void;
 }) {
   const hide = assetTotal !== null;
@@ -1161,7 +1194,12 @@ function AssetStockDialog({
         </button>
       </header>
       <div className="asset-stock-dialog-list">
-        <AssetHoldingList board={board} holdings={board.holdings} hide={hide} />
+        <AssetHoldingList
+          board={board}
+          holdings={board.holdings}
+          hide={hide}
+          stockHref={stockHref}
+        />
       </div>
     </dialog>
   );

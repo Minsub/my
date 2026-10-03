@@ -48,6 +48,18 @@ export function assetColor(key: string) {
   return fallback[Math.abs(hash) % fallback.length];
 }
 export type AssetSeries = { key: string; name: string; values: number[] };
+// 직전 기간 대비 증감률. 색은 국내 시세 관행(증가 빨강, 하락 파랑)이고 ▲▼를 함께 적는다.
+// 직전 값이 없거나 0이면 비율이 없으므로 적지 않는다.
+function changeMark(values: number[], i: number) {
+  if (i < 1) return null;
+  const rate = assetChangeRate(values[i] ?? 0, values[i - 1] ?? 0);
+  if (rate === null) return null;
+  const arrow = rate > 0 ? "▲" : rate < 0 ? "▼" : "";
+  return {
+    text: `${arrow}${Math.abs(rate * 100).toFixed(1)}%`,
+    color: rate > 0 ? "#c4362f" : rate < 0 ? "#2f5fc4" : "#9aa392",
+  };
+}
 // 막대로 그린다. 기본은 누적이라 총자산 증감이 바로 보이고,
 // 작은 항목은 큰 항목에 눌려 변화가 안 보이므로 대칭 로그 축으로 펼치는 전환을 둔다.
 export function AssetTrend({
@@ -55,12 +67,15 @@ export function AssetTrend({
   series,
   onPoint,
   hide = false,
+  unit = "직전",
 }: {
   periods: string[];
   series: AssetSeries[];
   onPoint?: (period: string, key: string) => void;
   // 금액 가리기. 막대 높이는 그대로 두고 금액 라벨·축을 지우며, 툴팁은 그 기간 안의 비중으로 바꾼다.
   hide?: boolean;
+  // 증감률을 무엇과 비교했는지. 월별은 "전월", 연별은 "전년".
+  unit?: string;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [hidden, setHidden] = useState<string[]>([]);
@@ -69,6 +84,104 @@ export function AssetTrend({
     if (!ref.current) return;
     const visible = series.filter((s) => !hidden.includes(s.key));
     const symlog = (v: number) => Math.sign(v) * Math.log10(1 + Math.abs(v));
+    const sumAt = (i: number) =>
+      visible.reduce((n, s) => n + (s.values[i] ?? 0), 0);
+    // 최신 막대 오른쪽에 항목별 비중과 직전 대비 증감률을 적는다. 모든 막대의 칸 안에 적으면
+    // 막대 폭이 30px 안팎이라 글자가 겹친다. 다른 기간은 툴팁에서 같은 값을 본다.
+    // 펼침 모드는 누적이 아니라 칸 위치가 비중과 맞지 않으므로 적지 않는다.
+    const last = periods.length - 1;
+    const latestTotal = last < 0 ? 0 : sumAt(last);
+    const latest =
+      expand || !latestTotal
+        ? []
+        : visible.flatMap((s, dataset) => {
+            const value = s.values[last] ?? 0;
+            if (value <= 0) return [];
+            return [
+              {
+                dataset,
+                key: s.key,
+                name: s.name,
+                share: assetPct(value / latestTotal),
+                change: changeMark(s.values, last),
+              },
+            ];
+          });
+    const NAME_FONT = "600 10px system-ui";
+    const VALUE_FONT = "700 10px system-ui";
+    const GAP = 8;
+    const LINE = 12;
+    const DOT = 10;
+    // 폭이 좁으면 이름을 빼고 색 점으로 대신한다. 이름은 아래 범례가 같은 색으로 보여준다.
+    let withNames = true;
+    const latestLabels = {
+      id: "assetLatestLabels",
+      beforeLayout(chart: Chart) {
+        if (!latest.length) return;
+        const { ctx } = chart;
+        ctx.save();
+        const width = (font: string, text: string) => {
+          ctx.font = font;
+          return ctx.measureText(text).width;
+        };
+        const tail = (l: (typeof latest)[number]) =>
+          width(VALUE_FONT, l.share) +
+          (l.change ? width(VALUE_FONT, ` ${l.change.text}`) : 0);
+        const named = Math.max(
+          ...latest.map((l) => width(NAME_FONT, `${l.name} `) + tail(l)),
+        );
+        const dotted = Math.max(...latest.map((l) => DOT + tail(l)));
+        ctx.restore();
+        withNames = named + GAP <= chart.width * 0.4;
+        if (chart.options.layout)
+          chart.options.layout.padding = {
+            top: 16,
+            right: Math.ceil((withNames ? named : dotted) + GAP + 2),
+          };
+      },
+      afterDatasetsDraw(chart: Chart) {
+        if (!latest.length) return;
+        const { ctx } = chart;
+        ctx.save();
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        // 아래 칸부터 자리를 잡는다. 앞 라벨과 겹치면 위로 밀고, 밀려서 제 칸을 벗어나면 적지 않는다.
+        let above = Infinity;
+        for (const label of latest) {
+          const bar = chart.getDatasetMeta(label.dataset).data[last];
+          if (!bar) continue;
+          const { x, y, base, width } = bar.getProps(
+            ["x", "y", "base", "width"],
+            true,
+          ) as { x: number; y: number; base: number; width: number };
+          const top = Math.min(y, base);
+          const at = Math.min((y + base) / 2, above - LINE);
+          if (at < top - 1) continue;
+          above = at;
+          let left = x + width / 2 + GAP;
+          if (withNames) {
+            ctx.font = NAME_FONT;
+            ctx.fillStyle = "#6b7464";
+            const text = `${label.name} `;
+            ctx.fillText(text, left, at);
+            left += ctx.measureText(text).width;
+          } else {
+            ctx.fillStyle = assetColor(label.key);
+            ctx.fillRect(left, at - 3.5, 7, 7);
+            left += DOT;
+          }
+          ctx.font = VALUE_FONT;
+          ctx.fillStyle = "#2f3a2f";
+          ctx.fillText(label.share, left, at);
+          left += ctx.measureText(label.share).width;
+          if (label.change) {
+            ctx.fillStyle = label.change.color;
+            ctx.fillText(` ${label.change.text}`, left, at);
+          }
+        }
+        ctx.restore();
+      },
+    };
     // 누적 막대 맨 위에 그 기간의 합산 금액을 적는다. 막대 높이만으로는 총자산이 얼마인지 못 읽는다.
     // 펼침 모드는 누적이 아니라 대칭 로그 축이라 합계를 그릴 자리가 없으므로 건너뛴다.
     const stackTotals = {
@@ -85,7 +198,7 @@ export function AssetTrend({
         // 라벨이 겹치면 못 읽는다. 최신 기간부터 자리를 잡고 겹치는 것만 버린다.
         let leftmost = Infinity;
         for (let i = periods.length - 1; i >= 0; i--) {
-          const total = visible.reduce((n, s) => n + (s.values[i] ?? 0), 0);
+          const total = sumAt(i);
           const bar = meta.data[i];
           if (!total || !bar) continue;
           const text = assetCompact(total);
@@ -129,13 +242,16 @@ export function AssetTrend({
           tooltip: {
             callbacks: {
               label: (ctx) => {
-                const value = visible[ctx.datasetIndex].values[ctx.dataIndex];
-                if (!hide) return `${ctx.dataset.label}: ${assetMoney(value)}`;
-                const sum = visible.reduce(
-                  (n, s) => n + (s.values[ctx.dataIndex] ?? 0),
-                  0,
-                );
-                return `${ctx.dataset.label}: ${assetPct(sum > 0 ? value / sum : null)}`;
+                const { name, values } = visible[ctx.datasetIndex];
+                const i = ctx.dataIndex;
+                const sum = sumAt(i);
+                const parts = [
+                  assetPct(sum > 0 ? (values[i] ?? 0) / sum : null),
+                ];
+                if (!hide) parts.unshift(assetMoney(values[i] ?? 0));
+                const change = changeMark(values, i);
+                if (change) parts.push(`${unit} 대비 ${change.text}`);
+                return `${name}: ${parts.join(" · ")}`;
               },
               footer: (items) =>
                 hide || expand
@@ -170,10 +286,10 @@ export function AssetTrend({
           },
         },
       },
-      plugins: [stackTotals],
+      plugins: [stackTotals, latestLabels],
     });
     return () => chart.destroy();
-  }, [periods, series, hidden, expand, onPoint, hide]);
+  }, [periods, series, hidden, expand, onPoint, hide, unit]);
   return (
     <div className="asset-plot">
       <div className="asset-plot-canvas">
