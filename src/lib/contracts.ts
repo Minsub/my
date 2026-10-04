@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { today } from "./format";
 import { assetGroupKeys } from "./assets";
+import {
+  ASSET_PLAN_MAX_ITEMS,
+  ASSET_PLAN_MAX_MONTHS,
+  weightsComplete,
+} from "./asset-plans";
 import type { Scope } from "./types";
 const id = z.uuid();
 const text = z.string().trim().max(5000);
@@ -233,6 +238,51 @@ export const commandSchemas = {
       "바꿀 값을 하나 이상 보내주세요.",
     ),
   asset_delete_snapshot: z.object({ ...key, id }).strict(),
+  // 분할매수 전략 한 그룹(월급·현금)을 통째로 저장한다. 종목 목록은 매번 교체한다.
+  asset_save_buy_plan: z
+    .object({
+      ...key,
+      owner_id: id,
+      kind: z.enum(["salary", "cash"]),
+      // 처음 저장할 때는 null이다. 이미 있는 전략을 null로 덮어쓰면 거부한다.
+      expected_version: version.nullable().default(null),
+      amount: krwAmount,
+      months: z
+        .number()
+        .int()
+        .min(1)
+        .max(ASSET_PLAN_MAX_MONTHS)
+        .nullable()
+        .default(null),
+      items: z
+        .array(
+          z
+            .object({
+              name: z.string().trim().min(1).max(200),
+              code: z.string().trim().max(40).default(""),
+              market: z.string().trim().max(40).default(""),
+              // 퍼센트다. 30%는 30으로 보낸다. 소수 둘째 자리에서 반올림한다.
+              weight: z
+                .number()
+                .gt(0)
+                .max(100)
+                .transform((w) => Math.round(w * 100) / 100),
+              // ISA 계좌로 사는 종목인지.
+              isa: z.boolean().default(false),
+            })
+            .strict(),
+        )
+        .max(ASSET_PLAN_MAX_ITEMS),
+    })
+    .strict()
+    .refine(
+      (d) => (d.kind === "cash") === (d.months !== null),
+      "현금 분할매수만 개월 수를 정합니다.",
+    )
+    .refine(
+      (d) => !d.items.length || weightsComplete(d.items),
+      "종목 비중의 합계가 100%여야 합니다.",
+    ),
   family_invite: z
     .object({
       ...key,
@@ -268,6 +318,7 @@ export const commandScopes: Record<Operation, Scope | null> = {
   asset_record_snapshot: "asset:write",
   asset_update_item: "asset:write",
   asset_delete_snapshot: "asset:write",
+  asset_save_buy_plan: "asset:write",
   archive_item: null,
   family_invite: null,
   family_remove: null,
@@ -276,7 +327,11 @@ export const commandScopes: Record<Operation, Scope | null> = {
 // MCP 도구로 내보내지 않는 명령. scope는 그대로 두고 노출만 막는다.
 // 자산 소유자는 공간 안의 라벨이라 AI가 임의로 만들면 같은 사람이 두 이름으로 갈린다.
 // 웹의 "소유자 추가"에서만 만들고, MCP는 없는 이름을 만나면 그 화면을 안내한다.
-export const webOnlyCommands = new Set<Operation>(["asset_save_owner"]);
+// 분할매수 전략은 사람이 화면에서 비중을 맞춰 정하는 값이라 AI 도구로 열지 않는다.
+export const webOnlyCommands = new Set<Operation>([
+  "asset_save_owner",
+  "asset_save_buy_plan",
+]);
 export type Command = {
   [K in Operation]: {
     operation: K;

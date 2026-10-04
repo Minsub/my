@@ -5,6 +5,7 @@ import {
   RefreshCw,
   TriangleAlert,
   ArrowUpRight,
+  CalendarRange,
   ChevronRight,
   ClipboardCopy,
   ExternalLink,
@@ -268,7 +269,7 @@ export function AssetStatus({
         </h1>
         <p>구성원별 자산을 그룹으로 나눠 기간별로 비교합니다.</p>
       </div>
-      {/* 좁은 화면에서는 세 버튼을 아이콘만 남겨 한 줄에 둔다. 이름은 aria-label·title로 남긴다. */}
+      {/* 좁은 화면에서는 버튼을 아이콘만 남겨 한 줄에 둔다. 이름은 aria-label·title로 남긴다. */}
       <div className="button-row asset-heading-actions">
         <Link
           className="button secondary"
@@ -278,6 +279,16 @@ export function AssetStatus({
         >
           <History size={16} className="asset-heading-icon" />
           <span>기록 이력</span>
+          <ArrowUpRight size={15} className="asset-heading-go" />
+        </Link>
+        <Link
+          className="button secondary"
+          href={href("/assets/strategy")}
+          aria-label="분할매수 전략"
+          title="분할매수 전략"
+        >
+          <CalendarRange size={16} className="asset-heading-icon" />
+          <span>분할매수</span>
           <ArrowUpRight size={15} className="asset-heading-go" />
         </Link>
         <button

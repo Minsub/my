@@ -356,6 +356,12 @@ export const assetSubMenus = [
     description: "구성원별 자산을 그룹으로 나눠 시계열로 증감과 종합을 봅니다.",
   },
   {
+    key: "strategy",
+    path: "/assets/strategy",
+    title: "분할매수 전략",
+    description: "구성원별로 매달 어떤 종목을 얼마씩 살지 정리합니다.",
+  },
+  {
     key: "cash",
     path: "/cash",
     title: "가계부",

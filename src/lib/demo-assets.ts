@@ -16,6 +16,7 @@ import {
   type AssetSummary,
   type AssetTimelinePoint,
 } from "./assets";
+import type { AssetPlansView } from "./asset-plans";
 export type DemoItem = {
   group_key: string;
   name: string;
@@ -422,5 +423,106 @@ export function demoAssetHistory(selected: string) {
     snapshots,
     selected:
       target && source ? { snapshot: target, items: itemRows(source) } : null,
+  };
+}
+// 분할매수 전략 둘러보기. 저장하지 않으므로 고정된 예시 한 벌을 돌려준다.
+export function demoAssetPlans(): AssetPlansView {
+  const at = "2026-09-01T00:00:00.000Z";
+  return {
+    owners: owners.map((name) => ({ id: ownerId(name), name })),
+    plans: [
+      {
+        id: "demo-plan-0-salary",
+        owner_id: ownerId("민섭"),
+        kind: "salary",
+        amount: 1500000,
+        months: null,
+        version: 1,
+        editable: true,
+        updated_at: at,
+        items: [
+          {
+            name: "VOO",
+            code: "VOO",
+            market: "NYSE Arca",
+            weight: 40,
+            isa: false,
+          },
+          {
+            name: "QQQM",
+            code: "QQQM",
+            market: "나스닥",
+            weight: 30,
+            isa: false,
+          },
+          {
+            name: "SCHD",
+            code: "SCHD",
+            market: "NYSE Arca",
+            weight: 20,
+            isa: false,
+          },
+          {
+            name: "삼성전자",
+            code: "005930",
+            market: "코스피",
+            weight: 10,
+            isa: true,
+          },
+        ],
+      },
+      {
+        id: "demo-plan-0-cash",
+        owner_id: ownerId("민섭"),
+        kind: "cash",
+        amount: 30000000,
+        months: 12,
+        version: 1,
+        editable: true,
+        updated_at: at,
+        items: [
+          {
+            name: "VOO",
+            code: "VOO",
+            market: "NYSE Arca",
+            weight: 50,
+            isa: false,
+          },
+          {
+            name: "TIGER 미국나스닥100",
+            code: "133690",
+            market: "코스피",
+            weight: 50,
+            isa: true,
+          },
+        ],
+      },
+      {
+        id: "demo-plan-1-salary",
+        owner_id: ownerId("장미"),
+        kind: "salary",
+        amount: 800000,
+        months: null,
+        version: 1,
+        editable: true,
+        updated_at: at,
+        items: [
+          {
+            name: "SPLG",
+            code: "SPLG",
+            market: "NYSE Arca",
+            weight: 60,
+            isa: false,
+          },
+          {
+            name: "SCHD",
+            code: "SCHD",
+            market: "NYSE Arca",
+            weight: 40,
+            isa: false,
+          },
+        ],
+      },
+    ],
   };
 }

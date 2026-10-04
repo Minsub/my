@@ -14,6 +14,7 @@ import {
   saveAssetOwner,
   updateAssetSnapshotItem,
 } from "./assets";
+import { saveAssetBuyPlan } from "./asset-plans";
 import type { Actor, Snapshot } from "@/lib/types";
 const tables = {
   brand: "coffee_brands",
@@ -594,6 +595,12 @@ export async function execute(
         );
         result = removed;
         label = `${removed.as_of} 자산 기록 삭제`;
+        break;
+      }
+      case "asset_save_buy_plan": {
+        const saved = await saveAssetBuyPlan(client, actor, command.input);
+        result = saved;
+        label = `${saved.owner.name} ${saved.kind === "cash" ? "현금" : "월급"} 분할매수 전략`;
         break;
       }
       case "family_invite": {

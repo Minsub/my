@@ -31,6 +31,7 @@ export default async function Page({
       "/assets",
       "/assets/status",
       "/assets/records",
+      "/assets/strategy",
       "/etc/html",
       "/hobby",
       "/baby",

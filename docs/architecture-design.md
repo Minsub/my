@@ -53,6 +53,7 @@ flowchart LR
 | `src/lib/pregnancy.ts`, `src/server/pregnancy.ts`, `/api/baby/pregnancy` | 꼬미 임신 중 통증 기록. 웹 전용, 공통 snapshot·MCP와 분리. 계산 규칙은 lib가 단일 기준 |
 | `src/lib/assets.ts` | 자산 그룹 카탈로그·분류 룰·집계 순수 함수. 웹·서버·MCP가 공유하는 단일 기준 |
 | `src/server/assets.ts`, `/api/assets` | 자산 스냅샷 저장·조회. 공통 snapshot과 분리하고 쓰기는 execute 경유 |
+| `src/lib/asset-plans.ts`, `src/server/asset-plans.ts` | 분할매수 전략. 연금저축·IRP 고정 상수와 월급·현금 그룹 저장·조회(`/api/assets?view=plans`) |
 | `db/migrations/*.sql` | 적용 순서가 있는 실제 도메인 스키마 |
 
 `(family)`는 URL에 포함되지 않는다. 별도 `(family)/layout.tsx`나 `modules/*/repository.ts`, `/api/coffee/*`는 현재 없다. 새 페이지 파일 하나를 추가하는 것만으로 기존 공통 메뉴가 자동 연결되지는 않는다.
@@ -87,7 +88,7 @@ UI 숨김은 보안 검사가 아니다. 쿠키 기반 변경은 sameOrigin, 모
 
 ## 자산 스냅샷
 
-`/assets/status`는 전용 `/api/assets`로 조회하고 쓰기는 공통 `POST /api/commands`를 쓴다. 자산 시계열을 공통 `snapshot`에 넣지 않은 이유는 `snapshot`이 도메인 전체를 매번 읽고 모든 MCP 조회 도구가 그것을 호출하기 때문이다. `asset_snapshots`는 `(household_id, owner_id, as_of)`가 유일하며 같은 날 재등록은 `asset_snapshot_items` 전체 교체다. 그룹 합계는 항목에서 유도하고 별도 합계 테이블을 두지 않는다. 금액은 `bigint`이고 `pg`가 int8을 문자열로 반환하므로 조회에서 `::float8`로 캐스팅한다. 자산 그룹은 코드 상수이며 `group_key`에 SQL CHECK를 걸지 않는다. 종목 이름의 네이버 증권 링크는 `GET /api/assets/stock`이 외부 자동완성으로 주소를 찾아 302로 보낸다. 공간 데이터는 읽지 않는다. 자세한 규칙은 [자산관리 문서](assert-management/README.md)에 있다.
+`/assets/status`는 전용 `/api/assets`로 조회하고 쓰기는 공통 `POST /api/commands`를 쓴다. 자산 시계열을 공통 `snapshot`에 넣지 않은 이유는 `snapshot`이 도메인 전체를 매번 읽고 모든 MCP 조회 도구가 그것을 호출하기 때문이다. `asset_snapshots`는 `(household_id, owner_id, as_of)`가 유일하며 같은 날 재등록은 `asset_snapshot_items` 전체 교체다. 그룹 합계는 항목에서 유도하고 별도 합계 테이블을 두지 않는다. 금액은 `bigint`이고 `pg`가 int8을 문자열로 반환하므로 조회에서 `::float8`로 캐스팅한다. 자산 그룹은 코드 상수이며 `group_key`에 SQL CHECK를 걸지 않는다. 종목 이름의 네이버 증권 링크는 `GET /api/assets/stock`이 외부 자동완성으로 주소를 찾아 302로 보낸다. 공간 데이터는 읽지 않는다. 분할매수 전략(`/assets/strategy`)은 `asset_buy_plans`·`asset_buy_plan_items`에 소유자×그룹(월급·현금) 단위로 저장하고 `GET /api/assets?view=plans`로 읽는다. 쓰기는 웹 전용 명령 `asset_save_buy_plan`이다. 종목 입력의 검색은 `GET /api/assets/stock/search`가 같은 자동완성으로 후보를 돌려준다. 연금저축·IRP는 코드 상수다. 자세한 규칙은 [자산관리 문서](assert-management/README.md)에 있다.
 
 ## 꼬미 기록
 

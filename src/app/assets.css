@@ -1293,3 +1293,714 @@
 .asset-export {
   margin-left: auto;
 }
+/* 분할매수 전략. 다른 자산 화면과 달리 금액을 가장 크게 읽히게 한다.
+   위는 어두운 배너(합계·구성), 아래는 그룹 카드와 종목 타일이다. 그룹마다 색이 정해져 있다. */
+.plan-page {
+  --plan-hero: #16201b;
+  --plan-hero-2: #22302a;
+  --plan-mint: #7ed9a6;
+  --plan-line: #e5e4dc;
+  --plan-muted: #7b8478;
+  --plan-pension: #d9a54e;
+  --plan-irp: #db7f55;
+  --plan-salary: #4fb27d;
+  --plan-cash: #5b9be0;
+  --plan-isa: #8b7cf0;
+  --plan-isa-ink: #5a49c9;
+  --plan-isa-soft: #efecfd;
+  display: grid;
+  gap: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.plan-c-pension {
+  --c: var(--plan-pension);
+}
+.plan-c-irp {
+  --c: var(--plan-irp);
+}
+.plan-c-salary {
+  --c: var(--plan-salary);
+}
+.plan-c-cash {
+  --c: var(--plan-cash);
+}
+.plan-c-isa {
+  --c: var(--plan-isa);
+}
+
+.plan-hero {
+  --plan-hero: #16201b;
+  --plan-hero-2: #22302a;
+  --plan-mint: #7ed9a6;
+  display: grid;
+  gap: 22px;
+  padding: 26px 30px 28px;
+  border-radius: 26px;
+  background: radial-gradient(
+    120% 140% at 0% 0%,
+    var(--plan-hero-2),
+    var(--plan-hero)
+  );
+  color: #eef3ef;
+  margin-bottom: 18px;
+}
+.plan-page > .plan-hero {
+  margin-bottom: 0;
+}
+.plan-hero.simulated {
+  box-shadow: 0 0 0 3px var(--plan-mint);
+}
+.plan-hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.plan-tag {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  color: #9fb2a6;
+  font-weight: 700;
+}
+.plan-hero h1 {
+  font-size: 24px;
+  font-weight: 800;
+  margin-top: 4px;
+  color: #fff;
+}
+.plan-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.plan-hero-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid #ffffff33;
+  color: #eef3ef;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.plan-hero-link:hover {
+  background: #ffffff14;
+}
+.plan-seg {
+  display: flex;
+  background: #ffffff14;
+  border-radius: 999px;
+  padding: 4px;
+}
+.plan-seg button {
+  border: 0;
+  background: none;
+  min-height: 36px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #b9c7be;
+}
+.plan-seg button.on {
+  background: #fff;
+  color: var(--plan-hero);
+}
+.plan-hero-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: end;
+}
+.plan-hero-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #9fb2a6;
+}
+.plan-sim-badge {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--plan-hero);
+  background: var(--plan-mint);
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+.plan-total {
+  display: block;
+  margin-top: 6px;
+  font-size: 60px;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  color: #fff;
+}
+.plan-total small {
+  font-size: 26px;
+  color: #b9c7be;
+  margin-left: 4px;
+}
+/* 바꿔 보기의 증감. 어두운 배너 위라 자산현황의 빨강·파랑보다 밝게 쓴다. */
+.plan-hero em {
+  font-style: normal;
+  font-weight: 800;
+  font-size: 18px;
+}
+.plan-hero em.up {
+  color: #ff8f7a;
+}
+.plan-hero em.down {
+  color: #8cc2ff;
+}
+.plan-year {
+  text-align: right;
+}
+.plan-year b {
+  display: block;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--plan-mint);
+}
+.plan-year span {
+  font-size: 14px;
+  color: #9fb2a6;
+}
+.plan-year em {
+  font-size: 14px;
+}
+.plan-stack {
+  display: flex;
+  height: 16px;
+  gap: 3px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.plan-stack i {
+  display: block;
+  background: var(--c);
+}
+.plan-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.plan-legend li {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #ffffff0d;
+}
+.plan-legend span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #9fb2a6;
+}
+.plan-legend span::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c);
+}
+.plan-legend b {
+  display: block;
+  margin-top: 4px;
+  font-size: 21px;
+  font-weight: 800;
+  color: #fff;
+}
+.plan-legend-isa {
+  outline: 1px solid #8b7cf066;
+}
+.plan-legend-isa b {
+  color: #b9b0ff;
+}
+.plan-sim-toggle {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--plan-mint);
+  color: var(--plan-hero);
+  font-size: 15px;
+  font-weight: 800;
+}
+.plan-sim-toggle.on {
+  background: #ffffff1f;
+  color: #eef3ef;
+}
+
+.plan-sim {
+  display: grid;
+  gap: 16px;
+  padding: 20px 24px 22px;
+  border: 1px solid var(--plan-line);
+  border-radius: 22px;
+  background: #fff;
+}
+.plan-sim header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.plan-sim h2 {
+  font-size: 18px;
+  font-weight: 800;
+}
+.plan-sim header > span {
+  margin-right: auto;
+  margin-left: 8px;
+  font-size: 13px;
+  color: var(--plan-muted);
+}
+.plan-sim-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 18px 22px;
+}
+.plan-sim-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  min-width: 0;
+}
+.plan-sim-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--plan-muted);
+}
+.plan-sim-value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  border-bottom: 2px solid var(--plan-line);
+}
+.plan-sim-value input {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: none;
+  padding: 4px 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.plan-sim-value input:focus {
+  outline: none;
+}
+.plan-sim-value:focus-within {
+  border-color: var(--plan-salary);
+}
+.plan-sim-value em {
+  font-style: normal;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--plan-muted);
+}
+.plan-sim-field.changed .plan-sim-value {
+  border-color: var(--plan-salary);
+}
+.plan-sim-field.changed .plan-sim-value input {
+  color: #1d8a55;
+}
+.plan-sim-field input[type="range"] {
+  width: 100%;
+  accent-color: #1d8a55;
+}
+.plan-sim-field small {
+  font-size: 12px;
+  color: var(--plan-muted);
+}
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.plan-card {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  padding: 22px 24px;
+  border: 1px solid var(--plan-line);
+  border-radius: 22px;
+  background: #fff;
+  min-width: 0;
+}
+.plan-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.plan-kind {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--c);
+  filter: brightness(0.85);
+}
+.plan-amount {
+  display: block;
+  margin-top: 2px;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.plan-amount small {
+  margin-left: 4px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--plan-muted);
+}
+.plan-meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+  color: var(--plan-muted);
+}
+.plan-meta b {
+  color: var(--plan-isa-ink);
+}
+.plan-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--plan-line);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.plan-edit:hover {
+  background: #f6f6f1;
+}
+.plan-readonly {
+  font-size: 13px;
+  color: var(--plan-muted);
+}
+.plan-mini {
+  display: flex;
+  height: 10px;
+  gap: 2px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.plan-mini i {
+  display: block;
+  background: var(--c);
+}
+.plan-mini i.isa {
+  background: var(--plan-isa);
+}
+.plan-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.plan-tiles li {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: #f6f6f1;
+}
+.plan-tiles li.isa {
+  background: var(--plan-isa-soft);
+}
+.plan-pct {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--c);
+  filter: brightness(0.85);
+}
+.plan-name {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  padding-right: 48px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration: none;
+}
+/* 긴 ETF 이름(TIGER 미국나스닥100)이 잘리지 않게 두 줄까지 쓴다. */
+.plan-name span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.plan-name svg {
+  flex: none;
+  margin-top: 4px;
+  color: var(--plan-muted);
+}
+.plan-name:hover span {
+  text-decoration: underline;
+}
+.plan-code {
+  font-size: 12px;
+  color: var(--plan-muted);
+}
+.plan-item-amount {
+  margin-top: 6px;
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.plan-item-total {
+  font-size: 13px;
+  color: var(--plan-muted);
+}
+.plan-isa {
+  display: inline-block;
+  margin-right: 5px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: var(--plan-isa-ink);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 17px;
+}
+.plan-empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--plan-muted);
+  line-height: 1.6;
+}
+
+/* 편집 창. */
+.asset-plan-monthly {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  font-size: 24px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.asset-plan-rows {
+  display: grid;
+  gap: 6px;
+}
+.asset-plan-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px 40px 36px;
+  gap: 8px;
+  align-items: center;
+}
+.asset-plan-row-head {
+  font-size: 11px;
+  color: #748665;
+}
+.asset-plan-row input {
+  border: 1px solid #dce4d1;
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink);
+  padding: 9px 11px;
+  min-width: 0;
+  width: 100%;
+  font-size: 13px;
+  min-height: 40px;
+}
+.asset-plan-name {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+}
+.asset-plan-weight {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.asset-plan-weight input {
+  text-align: right;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.asset-plan-row-meta {
+  display: block;
+  min-height: 14px;
+  padding-left: 2px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.asset-plan-found {
+  display: grid;
+  gap: 2px;
+  margin: 2px 0 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+.asset-plan-found p {
+  margin: 0 0 4px;
+}
+.asset-plan-found button {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  text-align: left;
+  font-size: 13px;
+  color: var(--ink);
+}
+.asset-plan-found button:hover {
+  background: var(--green-pale);
+}
+.asset-plan-found button span {
+  flex: none;
+  font-size: 12px;
+  color: var(--muted);
+}
+.asset-plan-rows-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;
+}
+.asset-plan-sum {
+  font-size: 15px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.asset-plan-sum b {
+  color: var(--green);
+}
+.asset-plan-sum b.isa {
+  color: #5a49c9;
+}
+.asset-plan-sum.off b {
+  color: #b5482b;
+}
+.asset-plan-problems {
+  margin: 14px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: #a47360;
+  line-height: 1.7;
+}
+.asset-plan-isa-check {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 40px;
+  cursor: pointer;
+}
+.asset-plan-isa-check input {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  accent-color: #5a49c9;
+}
+@media (max-width: 760px) {
+  .plan-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 620px) {
+  .plan-hero {
+    padding: 20px 18px 22px;
+    border-radius: 22px;
+    gap: 18px;
+  }
+  .plan-hero-main {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .plan-year {
+    text-align: left;
+  }
+  .plan-total {
+    font-size: 42px;
+  }
+  .plan-total small {
+    font-size: 20px;
+  }
+  .plan-year b {
+    font-size: 22px;
+  }
+  .plan-legend {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .plan-legend b {
+    font-size: 18px;
+  }
+  .plan-sim-toggle {
+    justify-self: stretch;
+    justify-content: center;
+  }
+  .plan-sim {
+    padding: 18px;
+  }
+  .plan-sim-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .plan-card {
+    padding: 18px;
+  }
+  .plan-amount {
+    font-size: 26px;
+  }
+  .plan-tiles li {
+    padding: 12px 13px;
+  }
+  .plan-pct {
+    top: 12px;
+    right: 13px;
+  }
+  .plan-name {
+    padding-right: 40px;
+    font-size: 14px;
+  }
+  .plan-item-amount {
+    font-size: 19px;
+  }
+  .asset-plan-row {
+    grid-template-columns: minmax(0, 1fr) 70px 34px 32px;
+    gap: 6px;
+  }
+}

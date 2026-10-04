@@ -6,6 +6,7 @@ import { MenuHub, hobbyMenus, kkomiMenus } from "./menu-hub";
 import { PregnancyLog } from "./pregnancy-log";
 import { AssetStatus } from "./asset-status";
 import { AssetRecords } from "./asset-records";
+import { AssetPlans } from "./asset-plans";
 import { HtmlPageList, HtmlPageView } from "./html-pages";
 import { WorkspaceHome } from "./workspace-home";
 import { WineCellar } from "./wine-cellar";
@@ -1604,6 +1605,10 @@ export function AppShell({
   else if (path === "/assets/records")
     content = (
       <AssetRecords initialQuery={initialQuery} demo={demo} href={href} />
+    );
+  else if (path === "/assets/strategy")
+    content = (
+      <AssetPlans initialQuery={initialQuery} demo={demo} href={href} />
     );
   else if (path === "/cash/old") content = <CashOld demo={demo} />;
   else if (path === "/cash")

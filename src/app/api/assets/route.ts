@@ -5,6 +5,7 @@ import {
   readAssetItems,
   readAssetOverview,
 } from "@/server/assets";
+import { readAssetBuyPlans } from "@/server/asset-plans";
 import { assetItemsCsv } from "@/lib/assets";
 export const runtime = "nodejs";
 export async function GET(request: Request) {
@@ -25,25 +26,27 @@ export async function GET(request: Request) {
       });
     }
     const data =
-      view === "items"
-        ? await readAssetItems(actor, {
-            owner: q.get("owner") ?? undefined,
-            period: q.get("period") ?? undefined,
-            axis: q.get("axis") ?? undefined,
-            at: q.get("at") ?? undefined,
-            bucket: q.get("bucket") ?? undefined,
-          })
-        : view === "history"
-          ? await readAssetHistory(actor, {
-              snapshot: q.get("snapshot") ?? undefined,
-            })
-          : await readAssetOverview(actor, {
+      view === "plans"
+        ? await readAssetBuyPlans(actor)
+        : view === "items"
+          ? await readAssetItems(actor, {
               owner: q.get("owner") ?? undefined,
               period: q.get("period") ?? undefined,
-              range: q.get("range") ?? undefined,
-              from: q.get("from") ?? undefined,
-              to: q.get("to") ?? undefined,
-            });
+              axis: q.get("axis") ?? undefined,
+              at: q.get("at") ?? undefined,
+              bucket: q.get("bucket") ?? undefined,
+            })
+          : view === "history"
+            ? await readAssetHistory(actor, {
+                snapshot: q.get("snapshot") ?? undefined,
+              })
+            : await readAssetOverview(actor, {
+                owner: q.get("owner") ?? undefined,
+                period: q.get("period") ?? undefined,
+                range: q.get("range") ?? undefined,
+                from: q.get("from") ?? undefined,
+                to: q.get("to") ?? undefined,
+              });
     return Response.json(data, {
       headers: { "Cache-Control": "private, no-store" },
     });
