@@ -127,14 +127,10 @@ export function WineCellar({
   data,
   initialQuery,
   href,
-  receive,
-  consume,
 }: {
   data: Snapshot;
   initialQuery: WineFilters;
   href: (url: string) => string;
-  receive: (w: Wine) => void;
-  consume: (w: Wine) => void;
 }) {
   const [filters, setFilters] = useState<WineFilters>(initialQuery);
   const [photo, setPhoto] = useState<Wine | null>(null);
@@ -687,91 +683,42 @@ export function WineCellar({
                 </strong>
                 {w.score !== null && <span>평점 {w.score}</span>}
               </div>
-              <div className="cellar-card-actions">
-                <button
-                  className="button secondary small-button"
-                  onClick={() => receive(w)}
-                >
-                  입고
-                </button>
-                <button
-                  className="button primary small-button"
-                  disabled={!w.stock}
-                  onClick={() => consume(w)}
-                >
-                  소비
-                </button>
-              </div>
             </article>
           ))}
         </div>
       ) : (
-        <div className="cellar-list">
+        <div className="cellar-lines">
           {rows.map((w) => (
-            <article key={w.id} className="cellar-row">
-              <div className="cellar-product">
-                {w.has_photo ? (
-                  <button
-                    type="button"
-                    className="cellar-photo"
-                    aria-label={`${w.name} 사진 크게 보기`}
-                    onClick={() => setPhoto(w)}
-                  >
-                    <ProductArt
-                      kind="wine"
-                      name={w.name}
-                      imageUrl={photoUrl(w)}
-                    />
-                  </button>
-                ) : (
-                  <Link href={href(`/wine/${w.id}`)} tabIndex={-1} aria-hidden>
-                    <ProductArt kind="wine" name={w.name} />
-                  </Link>
-                )}
-                <Link href={href(`/wine/${w.id}`)} className="cellar-info">
-                  <small>
-                    NO. {w.display_id} · {w.type} · {vintageLabel(w)}
-                  </small>
-                  <h3>{w.name}</h3>
-                  <p>{w.english_name}</p>
-                  <p>
-                    {[w.country, w.region].filter(Boolean).join(" · ") ||
-                      "원산지 미입력"}
-                  </p>
-                  <span>{w.grapes}</span>
-                </Link>
+            <Link
+              key={w.id}
+              href={href(`/wine/${w.id}`)}
+              className={`cellar-line${w.stock ? "" : " is-empty"}`}
+            >
+              <ProductArt
+                kind="wine"
+                name={w.name}
+                imageUrl={w.has_photo ? photoUrl(w) : null}
+              />
+              <div className="cellar-line-info">
+                <h3>{w.name}</h3>
+                {w.english_name && <p>{w.english_name}</p>}
+                <small>
+                  <i style={{ background: typeColor[w.type] ?? "#a99" }} />
+                  {[w.type, vintageLabel(w), w.country, w.region]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </small>
               </div>
-              <div className="cellar-price">
+              <div className="cellar-line-side">
                 <strong>
                   {w.price === null ? "가격 미입력" : money(w.price)}
                 </strong>
-                <small>
-                  병당 구입가{w.price_source === "import" ? " · 이관 기록" : ""}
-                </small>
-                <span>{w.purchased_on || "구입일 미입력"}</span>
-                {w.score !== null && <span>사용자 평점 {w.score}/100</span>}
+                <span>
+                  {w.stock ? `${w.stock}병` : "재고 없음"}
+                  {w.score !== null && ` · 평점 ${w.score}`}
+                </span>
               </div>
-              <div className="cellar-stock">
-                <strong>
-                  {w.stock} <small>병</small>
-                </strong>
-                <div>
-                  <button
-                    className="button secondary small-button"
-                    onClick={() => receive(w)}
-                  >
-                    입고
-                  </button>
-                  <button
-                    className="button primary small-button"
-                    disabled={!w.stock}
-                    onClick={() => consume(w)}
-                  >
-                    소비
-                  </button>
-                </div>
-              </div>
-            </article>
+            </Link>
           ))}
         </div>
       )}

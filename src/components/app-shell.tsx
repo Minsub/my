@@ -1108,8 +1108,6 @@ export function AppShell({
           data={data}
           initialQuery={{ ...initialQuery, stock: stockOnly ? "" : "all" }}
           href={href}
-          receive={receiveForm}
-          consume={consumeForm}
         />
       </>
     );

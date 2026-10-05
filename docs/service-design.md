@@ -15,7 +15,7 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | `/coffee` | 정보형 원두 목록, 가격 정렬·브랜드·상태·추천(사용자 기준/누군가 추천)·사용자·검색·보관함, 행마다 추천 인원 집계 | app-shell.tsx renderCoffee |
 | `/coffee/brands` | 브랜드 목록·등록·수정·브랜드별 원두 바로가기 | app-shell.tsx |
 | `/coffee/beans/{uuid}` | 상품·kg 환산 가격·사용자별 평가·추출 설정 | app-shell.tsx |
-| `/wine` | 보유량 대시보드(모바일은 한 줄 요약), 종류·국가·가격 구간 칩과 상세 필터·정렬, 결과 합계·평균, 세로 사진 카드(기본)/행 목록 전환(`view=list`) | wine-cellar.tsx |
+| `/wine` | 보유량 대시보드(모바일은 한 줄 요약), 종류·국가·가격 구간 칩과 상세 필터·정렬, 결과 합계·평균, 세로 사진 카드(기본)/촘촘한 목록 전환(`view=list`). 입고·소비는 상세에서 | wine-cellar.tsx |
 | `/wine/{uuid}` | 왼쪽 세로 사진(PC 고정)과 정보·입고·소비·취소·시음·사진 | app-shell.tsx, wine-cellar.tsx WineDetailPhoto, wine-photo-upload.tsx |
 | `/wine/glasses` | 와인잔 등록·수정 | app-shell.tsx |
 | `/assets` | 자산관리 하위 화면 목록. 항목은 lib/assets.ts의 assetSubMenus에서 관리 | asset-hub.tsx |
