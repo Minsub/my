@@ -1895,6 +1895,22 @@
   font-size: 12px;
   color: var(--muted);
 }
+.asset-plan-nocode {
+  margin-right: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: #b5482b;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.asset-plan-nocode-note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
 /* 종목 칸을 누르면 펼쳐지는 보유 종목. 수십 개라 높이를 묶고 안에서 스크롤한다. */
 .asset-plan-holdings {
   display: grid;

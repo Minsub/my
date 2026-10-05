@@ -101,8 +101,9 @@ export function AssetPlanEditor({
     change(rowKey, { name: s.name, code: s.code, market: s.market });
     setFound(null);
   }
-  // quiet는 보유 종목을 고른 직후 코드만 채우려고 찾을 때다. 정확히 맞는 하나가 없으면 묻지 않고 이름만 둔다.
-  async function search(row: Row, quiet = false) {
+  // 서버가 적은 글자와 같은 종목(match)을 찾았으면 바로 채우고, 못 찾았으면 후보를 보여 고르게 한다.
+  // fromHolding은 보유 종목을 고른 직후다. 증권사 이름이 네이버 이름과 달라 못 맞춘 경우라 문구만 다르다.
+  async function search(row: Row, fromHolding = false) {
     const q = row.name.trim();
     if (!q || searching) return;
     setPicking(null);
@@ -116,29 +117,25 @@ export function AssetPlanEditor({
       const body = await r.json();
       if (!r.ok) throw Error(body.error?.message ?? "찾지 못했습니다.");
       const items = body.items as Suggestion[];
-      // 티커·코드·이름이 정확히 같은 결과가 하나뿐이면 묻지 않고 채운다.
-      const exact = items.filter(
-        (s) =>
-          normalize(s.code) === normalize(q) ||
-          normalize(s.name) === normalize(q),
-      );
-      if (exact.length === 1) apply(row.key, exact[0]);
-      else if (!quiet)
+      const match = body.match as Suggestion | null;
+      if (match) apply(row.key, match);
+      else
         setFound({
           row: row.key,
           items,
           message: items.length
-            ? "종목을 골라주세요."
+            ? fromHolding
+              ? `"${q}"와 정확히 같은 종목을 찾지 못했습니다. 맞는 종목을 골라주세요.`
+              : "종목을 골라주세요."
             : "찾은 종목이 없습니다. 이름은 앞부분부터 정확히(예: RISE 미국나스닥100) 적거나 티커·코드로 찾아보세요. 적은 이름 그대로 저장할 수도 있습니다.",
         });
     } catch (e) {
-      if (!quiet)
-        setFound({ row: row.key, items: [], message: (e as Error).message });
+      setFound({ row: row.key, items: [], message: (e as Error).message });
     } finally {
       setSearching(null);
     }
   }
-  // 자산 기록에는 종목 코드가 없으므로 이름을 채운 뒤 네이버 증권에서 같은 이름을 찾아 코드를 붙인다.
+  // 자산 기록에는 종목 코드가 없으므로 이름을 채운 뒤 네이버 증권에서 같은 종목을 찾아 코드를 붙인다.
   function pickHolding(row: Row, h: AssetPlanHolding) {
     change(row.key, { name: h.name, code: "", market: "" });
     setPicking(null);
@@ -172,6 +169,7 @@ export function AssetPlanEditor({
     kind === "cash"
       ? monthlyAmount({ kind, amount: total, months: monthCount || 1 })
       : total;
+  const noCode = parsed.filter((i) => i.name && !i.code).length;
   const problems: string[] = [];
   if (!amount) problems.push("금액을 입력해주세요.");
   if (
@@ -390,6 +388,17 @@ export function AssetPlanEditor({
                 </button>
               </div>
               <small className="asset-plan-row-meta">
+                {/* 코드가 없으면 링크가 이름 검색으로 열린다. 그 자리에서 찾아 채울 수 있게 한다. */}
+                {row.name.trim() && !row.code && searching !== row.key && (
+                  <button
+                    type="button"
+                    className="asset-plan-nocode"
+                    disabled={busy || searching !== null}
+                    onClick={() => search(row)}
+                  >
+                    코드 없음 · 찾기
+                  </button>
+                )}
                 {[row.code, row.market].filter(Boolean).join(" · ")}
                 {Number(row.weight) > 0 && monthly > 0
                   ? `${row.code || row.market ? " · " : ""}월 ${assetMoney(itemAmount(monthly, Number(row.weight)))}`
@@ -484,6 +493,13 @@ export function AssetPlanEditor({
               <li key={p}>{p}</li>
             ))}
           </ul>
+        )}
+        {/* 막지는 않는다. 네이버에 없는 종목도 이름만으로 저장할 수 있어야 한다. */}
+        {noCode > 0 && !problems.length && (
+          <p className="asset-plan-nocode-note">
+            코드를 찾지 않은 종목이 {noCode}개 있습니다. 저장은 되지만 종목
+            링크가 이름 검색으로 열립니다.
+          </p>
         )}
         {error && <div className="error-box">{error}</div>}
         <div className="dialog-footer">

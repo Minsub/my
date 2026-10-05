@@ -620,7 +620,7 @@ function PlanCard({
                 {/* 티커가 곧 이름이면(VOO) 같은 글자를 두 번 적지 않는다. */}
                 {[item.code !== item.name && item.code, item.market]
                   .filter(Boolean)
-                  .join(" · ") || "\u00a0"}
+                  .join(" · ") || (item.code ? "\u00a0" : "코드 없음")}
               </span>
               <strong className="plan-item-amount">
                 {amount > 0 ? assetMoney(itemAmount(amount, item.weight)) : "—"}

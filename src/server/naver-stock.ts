@@ -1,4 +1,5 @@
 import { naverStockSearchUrl } from "@/lib/assets";
+import { pickStockMatch } from "@/lib/asset-plans";
 // 자산 기록에는 종목 코드가 없다(증권사 CSV에 없다). 네이버 증권 자동완성으로 이름을 종목 페이지 주소로 바꾼다.
 // 공개 API가 아니라 응답 모양이 바뀔 수 있으므로, 이름이 정확히 맞는 결과를 못 찾거나 실패하면
 // "종목명 주가" 검색으로 연다. 틀린 종목을 여는 것보다 검색 한 번이 낫다.
@@ -110,4 +111,21 @@ export async function searchNaverStocks(text: string) {
   const result = sorted.slice(0, 8);
   found.set(key, { items: result, at: Date.now() });
   return result;
+}
+// 분할매수 종목 칸의 찾기. 적은 글자로 찾고, 같은 종목이 없으면 끝 단어를 떼어 두 번까지 더 찾는다.
+// 네이버 자동완성은 앞부분이 맞아야 나오므로 "알파벳 A"는 없고 "알파벳"은 "알파벳 Class A"를 준다.
+// 다시 찾은 결과도 처음 적은 글자와 같은 종목이어야 고른다. 끝까지 없으면 처음 나온 후보 목록을 돌려준다.
+export async function findNaverStock(text: string) {
+  const tokens = text.trim().split(/\s+/);
+  const tries = [text.trim()];
+  for (let n = tokens.length - 1; n >= 1 && tries.length < 3; n--)
+    tries.push(tokens.slice(0, n).join(" "));
+  let first: StockSuggestion[] | null = null;
+  for (const q of tries) {
+    const items = await searchNaverStocks(q);
+    first ??= items.length ? items : null;
+    const match = pickStockMatch(text, items);
+    if (match) return { items, match };
+  }
+  return { items: first ?? [], match: null };
 }

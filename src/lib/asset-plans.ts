@@ -152,3 +152,48 @@ export const isaAmount = (amount: number, items: AssetPlanItem[]) =>
 export const digitsOnly = (text: string) => text.replace(/[^0-9]/g, "");
 export const groupDigits = (text: string) =>
   text ? new Intl.NumberFormat("ko-KR").format(Number(text)) : "";
+// ---- 종목 찾기 결과 맞추기 ----
+// 증권사 기록의 이름과 네이버 증권의 이름은 대소문자·접미어가 다르다(VANGUARD S&P 500 ↔ Vanguard S&P 500 ETF,
+// 알파벳 A ↔ 알파벳 Class A). 비교할 때만 이런 군더더기를 걷어낸다. (H)·ADR처럼 다른 종목을 가르는 말은 남긴다.
+const stockNoise = new Set([
+  "etf",
+  "inc",
+  "corp",
+  "corporation",
+  "co",
+  "ltd",
+  "plc",
+  "class",
+  "the",
+  "주식회사",
+]);
+export const stockNameKey = (text: string) =>
+  text
+    .normalize("NFC")
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/[.,]/g, ""))
+    .filter((t) => t && !stockNoise.has(t))
+    .join("");
+// 같은 이름이 여러 거래소에 있으면(마이크로소프트: 나스닥 MSFT·홍콩 04338) 국내·미국 거래소를 고른다.
+const usualMarkets =
+  /코스피|코스닥|나스닥|뉴욕|아멕스|NYSE|NASDAQ|KOSPI|KOSDAQ/i;
+// 적은 글자와 같은 종목으로 볼 수 있는 후보가 딱 하나일 때만 고른다. 둘 이상이면 사람이 고른다.
+export function pickStockMatch<
+  T extends { name: string; code: string; market: string },
+>(text: string, items: T[]): T | null {
+  const key = stockNameKey(text);
+  const code = text.trim().toLowerCase();
+  const hits = [
+    ...new Map(
+      items
+        .filter(
+          (i) => i.code.toLowerCase() === code || stockNameKey(i.name) === key,
+        )
+        .map((i) => [i.code || i.name, i]),
+    ).values(),
+  ];
+  if (hits.length === 1) return hits[0];
+  const usual = hits.filter((i) => usualMarkets.test(i.market));
+  return usual.length === 1 ? usual[0] : null;
+}
