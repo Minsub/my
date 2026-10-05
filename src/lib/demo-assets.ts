@@ -430,6 +430,8 @@ export function demoAssetPlans(): AssetPlansView {
   const at = "2026-09-01T00:00:00.000Z";
   return {
     owners: owners.map((name) => ({ id: ownerId(name), name })),
+    // 둘러보기에서는 편집 창을 열지 않으므로 보유 종목 목록을 쓰지 않는다.
+    holdings: [],
     plans: [
       {
         id: "demo-plan-0-salary",

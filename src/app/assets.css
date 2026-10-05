@@ -1895,6 +1895,64 @@
   font-size: 12px;
   color: var(--muted);
 }
+/* 종목 칸을 누르면 펼쳐지는 보유 종목. 수십 개라 높이를 묶고 안에서 스크롤한다. */
+.asset-plan-holdings {
+  display: grid;
+  gap: 2px;
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 2px 0 6px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 6px 18px #1e322614;
+}
+.asset-plan-holdings p {
+  margin: 2px 6px 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.asset-plan-holdings button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  text-align: left;
+  font-size: 14px;
+  color: var(--ink);
+}
+.asset-plan-holdings button:hover,
+.asset-plan-holdings button[aria-selected="true"] {
+  background: var(--green-pale);
+}
+.asset-plan-holdings button b {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.asset-plan-holdings button span {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.asset-plan-holdings em {
+  font-style: normal;
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--green);
+  background: var(--green-pale);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
 .asset-plan-rows-foot {
   display: flex;
   align-items: center;

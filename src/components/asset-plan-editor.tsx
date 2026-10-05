@@ -13,9 +13,10 @@ import {
   weightSum,
   weightsComplete,
   type AssetPlan,
+  type AssetPlanHolding,
   type AssetPlanKind,
 } from "@/lib/asset-plans";
-import { assetMoney } from "@/lib/assets";
+import { assetCompact, assetGroupName, assetMoney } from "@/lib/assets";
 import type { Operation } from "@/lib/contracts";
 
 type Row = {
@@ -44,6 +45,7 @@ export function AssetPlanEditor({
   ownerId,
   ownerName,
   plan,
+  holdings,
   onClose,
   onSave,
 }: {
@@ -51,6 +53,8 @@ export function AssetPlanEditor({
   ownerId: string;
   ownerName: string;
   plan: AssetPlan | null;
+  // 구성원들이 지금 가진 주식 종목. 종목 칸을 누르면 여기서 고를 수 있다.
+  holdings: AssetPlanHolding[];
   onClose: () => void;
   onSave: (
     operation: Operation,
@@ -82,6 +86,8 @@ export function AssetPlanEditor({
     items: Suggestion[];
     message: string;
   } | null>(null);
+  // 보유 종목 목록을 펼친 줄. 종목 칸에 들어가면 열리고 나오면 닫힌다.
+  const [picking, setPicking] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -95,9 +101,11 @@ export function AssetPlanEditor({
     change(rowKey, { name: s.name, code: s.code, market: s.market });
     setFound(null);
   }
-  async function search(row: Row) {
+  // quiet는 보유 종목을 고른 직후 코드만 채우려고 찾을 때다. 정확히 맞는 하나가 없으면 묻지 않고 이름만 둔다.
+  async function search(row: Row, quiet = false) {
     const q = row.name.trim();
     if (!q || searching) return;
+    setPicking(null);
     setSearching(row.key);
     setFound(null);
     try {
@@ -115,7 +123,7 @@ export function AssetPlanEditor({
           normalize(s.name) === normalize(q),
       );
       if (exact.length === 1) apply(row.key, exact[0]);
-      else
+      else if (!quiet)
         setFound({
           row: row.key,
           items,
@@ -124,10 +132,30 @@ export function AssetPlanEditor({
             : "찾은 종목이 없습니다. 이름은 앞부분부터 정확히(예: RISE 미국나스닥100) 적거나 티커·코드로 찾아보세요. 적은 이름 그대로 저장할 수도 있습니다.",
         });
     } catch (e) {
-      setFound({ row: row.key, items: [], message: (e as Error).message });
+      if (!quiet)
+        setFound({ row: row.key, items: [], message: (e as Error).message });
     } finally {
       setSearching(null);
     }
+  }
+  // 자산 기록에는 종목 코드가 없으므로 이름을 채운 뒤 네이버 증권에서 같은 이름을 찾아 코드를 붙인다.
+  function pickHolding(row: Row, h: AssetPlanHolding) {
+    change(row.key, { name: h.name, code: "", market: "" });
+    setPicking(null);
+    setFound(null);
+    search({ ...row, name: h.name }, true);
+  }
+  // 적은 글자가 들어간 보유 종목. 이 구성원이 가진 종목을 먼저, 그다음 금액이 큰 순서로 둔다.
+  function holdingOptions(row: Row) {
+    const q = normalize(row.name);
+    return holdings
+      .filter((h) => !q || normalize(h.name).includes(q))
+      .sort(
+        (a, b) =>
+          Number(b.owner_ids.includes(ownerId)) -
+            Number(a.owner_ids.includes(ownerId)) || b.amount - a.amount,
+      )
+      .slice(0, 50);
   }
   const total = Number(amount || 0);
   const monthCount = Number(months || 0);
@@ -261,7 +289,7 @@ export function AssetPlanEditor({
             className="asset-plan-row asset-plan-row-head"
             aria-hidden="true"
           >
-            <span>종목 (티커·이름 입력 후 찾기)</span>
+            <span>종목 (보유 종목에서 고르거나 티커·이름 입력 후 찾기)</span>
             <span>비중</span>
             <span>ISA</span>
             <span />
@@ -275,14 +303,28 @@ export function AssetPlanEditor({
                     disabled={busy}
                     placeholder="예: VOO, 360750, TIGER 미국S&P500"
                     aria-label="종목"
-                    onChange={(e) =>
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-controls={`holdings-${row.key}`}
+                    aria-expanded={picking === row.key}
+                    autoComplete="off"
+                    onFocus={() => setPicking(row.key)}
+                    onBlur={() => setPicking(null)}
+                    onChange={(e) => {
                       change(row.key, {
                         name: e.target.value,
                         code: "",
                         market: "",
-                      })
-                    }
+                      });
+                      setPicking(row.key);
+                    }}
                     onKeyDown={(e) => {
+                      if (e.key === "Escape" && picking === row.key) {
+                        // 창 닫기보다 목록 닫기가 먼저다.
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setPicking(null);
+                      }
                       if (e.key === "Enter" && !e.nativeEvent.isComposing) {
                         e.preventDefault();
                         search(row);
@@ -353,6 +395,38 @@ export function AssetPlanEditor({
                   ? `${row.code || row.market ? " · " : ""}월 ${assetMoney(itemAmount(monthly, Number(row.weight)))}`
                   : ""}
               </small>
+              {picking === row.key &&
+                found?.row !== row.key &&
+                holdingOptions(row).length > 0 && (
+                  <div
+                    id={`holdings-${row.key}`}
+                    className="asset-plan-holdings"
+                    role="listbox"
+                    aria-label="보유 종목"
+                  >
+                    <p>보유 종목 · 가장 최근 자산 기록 기준</p>
+                    {holdingOptions(row).map((h) => (
+                      <button
+                        key={h.name}
+                        type="button"
+                        role="option"
+                        aria-selected={h.name === row.name}
+                        // 누르는 순간 입력 칸이 blur되어 목록이 사라지지 않게 한다.
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => pickHolding(row, h)}
+                      >
+                        <b>{h.name}</b>
+                        <span>
+                          {h.owner_ids.includes(ownerId) && (
+                            <em>{ownerName}</em>
+                          )}
+                          {assetGroupName(h.group_key)} ·{" "}
+                          {assetCompact(h.amount)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               {found?.row === row.key && (
                 <div className="asset-plan-found" role="listbox">
                   <p className="muted small">{found.message}</p>

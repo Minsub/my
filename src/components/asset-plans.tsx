@@ -432,6 +432,7 @@ export function AssetPlans({
           ownerId={current.id}
           ownerName={current.name}
           plan={editingPlan}
+          holdings={data.holdings}
           onClose={() => setEditing(null)}
           onSave={save}
         />

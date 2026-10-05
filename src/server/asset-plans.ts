@@ -1,11 +1,13 @@
 import type { PoolClient } from "pg";
 import { query, transaction } from "./db";
 import { AppError, requireScope } from "./security";
-import type {
-  AssetPlan,
-  AssetPlanItem,
-  AssetPlanKind,
-  AssetPlansView,
+import {
+  assetPlanHoldingGroups,
+  type AssetPlan,
+  type AssetPlanHolding,
+  type AssetPlanItem,
+  type AssetPlanKind,
+  type AssetPlansView,
 } from "@/lib/asset-plans";
 import type { Actor } from "@/lib/types";
 
@@ -59,7 +61,23 @@ export async function readAssetBuyPlans(actor: Actor): Promise<AssetPlansView> {
           isa,
         })),
     }));
-    return { owners, plans };
+    // 구성원마다 가장 최근 기록 한 건의 주식 종목. 기록 주기가 달라도 각자의 지금 보유를 쓴다.
+    const holdings = await query<AssetPlanHolding>(
+      `WITH latest AS (
+         SELECT DISTINCT ON (s.owner_id) s.id, s.owner_id
+         FROM asset_snapshots s JOIN asset_owners o ON o.household_id=s.household_id AND o.id=s.owner_id
+         WHERE s.household_id=$1 AND o.active
+         ORDER BY s.owner_id, s.as_of DESC
+       )
+       SELECT i.name, min(i.group_key) AS group_key, sum(i.amount)::float8 AS amount,
+              array_agg(DISTINCT l.owner_id::text) AS owner_ids
+       FROM asset_snapshot_items i JOIN latest l ON l.id=i.snapshot_id
+       WHERE i.household_id=$1 AND i.group_key=ANY($2::text[])
+       GROUP BY i.name ORDER BY amount DESC LIMIT 300`,
+      [actor.householdId, assetPlanHoldingGroups],
+      client,
+    );
+    return { owners, plans, holdings };
   });
 }
 

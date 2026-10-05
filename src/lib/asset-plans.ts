@@ -26,10 +26,25 @@ export type AssetPlan = {
   updated_at: string;
   items: AssetPlanItem[];
 };
+// 전략에 넣을 종목을 고를 때 보여주는 보유 종목. 구성원마다 가장 최근 자산 기록의 주식 종목이다.
+// 같은 이름은 구성원이 달라도 한 줄로 합친다. 자산 기록에는 종목 코드가 없다.
+export type AssetPlanHolding = {
+  name: string;
+  group_key: string;
+  amount: number;
+  owner_ids: string[];
+};
 export type AssetPlansView = {
   owners: { id: string; name: string }[];
   plans: AssetPlan[];
+  holdings: AssetPlanHolding[];
 };
+// 보유 종목으로 보여줄 자산 그룹. 국내상장 해외주식(미국 ETF 등)도 사고파는 종목이라 넣는다.
+export const assetPlanHoldingGroups = [
+  "kr_stock",
+  "foreign_equity",
+  "kr_listed_foreign_equity",
+];
 export const assetPlanKinds: {
   key: AssetPlanKind;
   title: string;
