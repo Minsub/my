@@ -268,7 +268,7 @@ test("wine photo upload and expanded filters work on both platforms", async ({
   await page.getByLabel("와인 정렬").selectOption("price_desc");
   await page.getByText("상세 필터", { exact: true }).click();
   await page.getByLabel("최소 구입가", { exact: true }).fill("30000");
-  await expect(page.locator(".cellar-row").first()).toBeVisible();
+  await expect(page.locator(".cellar-card").first()).toBeVisible();
   await page.reload();
   await expect(page.getByLabel("최소 구입가", { exact: true })).toHaveValue(
     "30000",
@@ -280,12 +280,12 @@ test("wine photo upload and expanded filters work on both platforms", async ({
     ),
   ).toBe(true);
   await expect(page.getByRole("heading", { name: /와인 셀러/ })).toBeVisible();
-  await expect(page.locator(".cellar-row").first()).toBeVisible();
+  await expect(page.locator(".cellar-card").first()).toBeVisible();
   await page.screenshot({
     path: `test-results/visual/${info.project.name}-cellar.png`,
     fullPage: true,
   });
-  await page.locator(".cellar-product").first().click();
+  await page.locator(".cellar-card-info").first().click();
   const sharp = (await import("sharp")).default;
   const buffer = await sharp({
     create: { width: 240, height: 360, channels: 3, background: "#a34e67" },

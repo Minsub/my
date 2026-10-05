@@ -3184,11 +3184,13 @@ input[type="checkbox"] {
 .cellar-filters summary {
   font-size: 13px;
   cursor: pointer;
+}
+.cellar-filters[open] summary {
   margin-bottom: 12px;
 }
 .cellar-filter-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 .cellar-filter-grid label {
@@ -3205,8 +3207,22 @@ input[type="checkbox"] {
   margin: 18px 0;
   font-size: 12px;
 }
-.cellar-results strong {
+.cellar-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
   margin-right: auto;
+}
+.cellar-total strong {
+  font-size: 13px;
+}
+.cellar-total span {
+  color: #716b64;
+}
+.cellar-total b {
+  color: #7f3a50;
+  font-weight: 600;
 }
 .cellar-list {
   display: grid;
@@ -3281,7 +3297,8 @@ input[type="checkbox"] {
 }
 .cellar-viewer img {
   max-width: 100%;
-  max-height: 100%;
+  /* 그리드 행 높이가 정해지지 않아 100%가 풀리지 않는다. 세로 사진이 넘치지 않게 패딩을 뺀 화면 높이로 묶는다. */
+  max-height: calc(100dvh - 80px - env(safe-area-inset-bottom));
   border-radius: 8px;
   object-fit: contain;
 }
@@ -3410,7 +3427,7 @@ input[type="checkbox"] {
   .cellar-results {
     gap: 14px;
   }
-  .cellar-results > strong {
+  .cellar-total {
     flex-basis: 100%;
   }
   .wine-photo-upload input {
@@ -3433,6 +3450,396 @@ input[type="checkbox"] {
   padding: 8px 12px;
   font-size: 12px;
   cursor: pointer;
+}
+/* Wine cellar gallery: portrait label photos as large as the column allows. */
+.cellar-view {
+  display: flex;
+  border: 1px solid #dfd9d1;
+  border-radius: 9px;
+  overflow: hidden;
+}
+.cellar-view button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 34px;
+  border: 0;
+  background: #fffdf9;
+  color: #8b7b72;
+  cursor: pointer;
+}
+.cellar-view button[aria-pressed="true"] {
+  background: #7f3a50;
+  color: #fff;
+}
+.cellar-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 18px;
+}
+.cellar-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #fffdf9;
+  border: 1px solid #e6dfd6;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.cellar-card-photo {
+  position: relative;
+}
+.cellar-card-photo > a {
+  display: block;
+}
+.cellar-card .product-art {
+  height: auto;
+  aspect-ratio: 3 / 4;
+  background: #f1ede6;
+}
+.cellar-card .product-art > img {
+  padding: 0;
+  transition: transform 0.3s;
+}
+.cellar-card:hover .product-art > img {
+  transform: scale(1.02);
+}
+.cellar-card .product-art > svg {
+  height: 70%;
+}
+.cellar-card.is-empty .product-art {
+  filter: grayscale(0.85);
+  opacity: 0.6;
+}
+.cellar-card-stock {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 4px 9px;
+  border-radius: 20px;
+  background: rgba(255, 253, 249, 0.92);
+  color: #4a3a35;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.cellar-card.is-empty .cellar-card-stock {
+  color: #8b7b72;
+  font-weight: 500;
+}
+.cellar-card-zoom {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(30, 24, 22, 0.45);
+  color: #fff;
+  cursor: zoom-in;
+}
+.cellar-card-info {
+  display: block;
+  padding: 14px 14px 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cellar-card-info small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #8b7b72;
+}
+.cellar-card-info small i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.cellar-card-info h3 {
+  font-size: 15px;
+  line-height: 1.45;
+  margin: 6px 0 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.cellar-card-info p,
+.cellar-card-info span {
+  display: block;
+  font-size: 11px;
+  color: #8b7b72;
+  margin: 2px 0 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cellar-card-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 14px 0;
+  margin-top: auto;
+}
+.cellar-card-foot strong {
+  font-size: 16px;
+  color: #7f3a50;
+  white-space: nowrap;
+}
+.cellar-card-foot span {
+  font-size: 11px;
+  color: #80756d;
+  white-space: nowrap;
+}
+.cellar-card-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 12px 14px 14px;
+}
+
+/* Wine detail: sticky portrait photo beside the facts and history. */
+.wine-detail {
+  display: grid;
+  grid-template-columns: minmax(280px, 400px) minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+}
+.wine-detail-side {
+  position: sticky;
+  top: 24px;
+  min-width: 0;
+}
+.wine-detail-photo {
+  position: relative;
+}
+.wine-detail-photo > button {
+  display: block;
+  position: relative;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+.wine-detail-photo .product-art {
+  height: auto;
+  aspect-ratio: 3 / 4;
+  max-height: calc(100dvh - 120px);
+  margin: 0 auto;
+  border-radius: 16px;
+  background: #f1ede6;
+}
+.wine-detail-photo .product-art > img {
+  padding: 0;
+}
+.wine-detail-photo .product-art > svg {
+  height: 60%;
+}
+.wine-detail-photo > button > span {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(30, 24, 22, 0.45);
+  color: #fff;
+}
+.wine-detail-side .wine-photo-upload {
+  margin: 16px 0 0;
+}
+.wine-detail-side .wine-photo-upload label {
+  flex-wrap: wrap;
+  max-width: 100%;
+  white-space: normal;
+}
+.wine-detail-side .wine-photo-upload input {
+  min-width: 0;
+  max-width: 100%;
+}
+.wine-detail-main {
+  min-width: 0;
+}
+.wine-detail-main .detail-copy {
+  margin-bottom: 28px;
+}
+.wine-detail-main .detail-columns {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+@media (max-width: 800px) {
+  .wine-detail {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+  /* 사진 → 이름·정보 → 사진 업로드 순서로 보이게 aside를 풀어 grid에 직접 놓는다. */
+  .wine-detail-side {
+    display: contents;
+  }
+  .wine-detail-side .wine-photo-upload {
+    order: 1;
+    margin: 0;
+  }
+  .wine-detail-photo .product-art {
+    max-height: 72dvh;
+  }
+  .wine-detail-main .detail-columns {
+    grid-template-columns: 1fr;
+  }
+  .wine-detail .button-row .button {
+    font-size: 12px;
+    flex: 1;
+    padding: 11px 10px;
+  }
+}
+@media (max-width: 760px) {
+  .cellar-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .cellar-card-info {
+    padding: 10px 10px 0;
+  }
+  .cellar-card-info h3 {
+    font-size: 14px;
+  }
+  .cellar-card-foot {
+    padding: 8px 10px 0;
+  }
+  .cellar-card-foot strong {
+    font-size: 14px;
+  }
+  .cellar-card-actions {
+    padding: 10px;
+  }
+  .cellar-card-actions .button {
+    padding-inline: 4px;
+  }
+}
+/* Wine cellar quick filters: one horizontally scrolling chip row per facet. */
+.cellar-summary {
+  display: none;
+}
+.cellar-chips {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+.cellar-chips > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.cellar-chips > div > span,
+.cellar-presets > span {
+  flex-shrink: 0;
+  width: 34px;
+  font-size: 11px;
+  color: #8b7b72;
+}
+.cellar-chips > div > div {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px 0;
+}
+.cellar-chips > div > div::-webkit-scrollbar {
+  display: none;
+}
+.cellar-chips button,
+.cellar-presets button {
+  flex-shrink: 0;
+  border: 1px solid #e4ded6;
+  background: #fffdf9;
+  color: inherit;
+  border-radius: 20px;
+  padding: 7px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.cellar-chips button small {
+  margin-left: 2px;
+  color: #a09389;
+  font-size: 11px;
+}
+.cellar-chips button[aria-pressed="true"],
+.cellar-presets button[aria-pressed="true"] {
+  border-color: #7f3a50;
+  background: #7f3a50;
+  color: #fff;
+}
+.cellar-chips button[aria-pressed="true"] small {
+  color: rgba(255, 255, 255, 0.75);
+}
+.cellar-presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.cellar-presets > span {
+  width: auto;
+  margin-right: 4px;
+}
+.cellar-countries button[aria-pressed="true"] span {
+  color: #7f3a50;
+  font-weight: 600;
+}
+@media (max-width: 760px) {
+  .cellar-dashboard {
+    margin: 18px 0;
+  }
+  /* 모바일은 한 줄 요약만 두고 눌러서 펼친다. 목록이 첫 화면에 보이게 한다. */
+  .cellar-summary {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 14px 16px;
+    border: 0;
+    background: #f5f0e9;
+    color: inherit;
+    font-size: 12px;
+    text-align: left;
+    cursor: pointer;
+  }
+  .cellar-summary span {
+    white-space: nowrap;
+    color: #716b64;
+  }
+  .cellar-summary b {
+    color: #2f2a27;
+    font-size: 14px;
+    margin-left: 2px;
+  }
+  .cellar-summary svg {
+    margin-left: auto;
+    flex-shrink: 0;
+    transition: transform 0.2s;
+  }
+  .cellar-dashboard[data-open="true"] .cellar-summary svg {
+    transform: rotate(180deg);
+  }
+  .cellar-dashboard[data-open="false"] .cellar-dashboard-body {
+    display: none;
+  }
+  .cellar-chips > div > div {
+    margin-right: -16px;
+    padding-right: 16px;
+  }
 }
 .mcp-guide {
   border-top: 1px solid var(--border);

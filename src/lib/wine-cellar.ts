@@ -83,7 +83,8 @@ export type WineFilters = Partial<
     | "min_score"
     | "sort"
     | "stock"
-    | "archived",
+    | "archived"
+    | "view",
     string
   >
 >;

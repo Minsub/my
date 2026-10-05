@@ -9,7 +9,7 @@ import { AssetRecords } from "./asset-records";
 import { AssetPlans } from "./asset-plans";
 import { HtmlPageList, HtmlPageView } from "./html-pages";
 import { WorkspaceHome } from "./workspace-home";
-import { WineCellar } from "./wine-cellar";
+import { WineCellar, WineDetailPhoto } from "./wine-cellar";
 import { WinePhotoUpload } from "./wine-photo-upload";
 import { wineFacts } from "@/lib/wine-cellar";
 /* eslint-disable @next/next/no-location-assign-relative-destination -- Full navigation deliberately clears all cached family data when a session ends. */
@@ -49,7 +49,6 @@ import type { Bean, Purchase, Snapshot, Wine } from "@/lib/types";
 import { wineTypes, glassTypes } from "@/lib/types";
 import { money, kgPrice, today, dateLabel, vintageLabel } from "@/lib/format";
 import type { Operation } from "@/lib/contracts";
-import { ProductArt } from "./product-art";
 import { RecordForm, type FormSpec, type Field } from "./record-form";
 import { ConnectionSettings } from "./connections";
 const nav = [
@@ -1138,234 +1137,236 @@ export function AppShell({
           <ChevronLeft size={16} />
           와인 셀러
         </Link>
-        <div className="detail-top wine-detail">
-          <ProductArt
-            name={wine.name}
-            kind="wine"
-            large
-            imageUrl={
-              wine.has_photo
-                ? `/api/wine/${wine.id}/photo?v=${wine.version}`
-                : null
-            }
-          />
-          <div className="detail-copy">
-            <span className="eyebrow">
-              CELLAR NO. {String(wine.display_id).padStart(3, "0")}
-            </span>
-            <h1>{wine.name}</h1>
-            <p>{wine.english_name}</p>
-            <div className="bean-tags">
-              <Tag tone="rose">{wine.type}</Tag>
-              <Tag>{vintageLabel(wine)}</Tag>
-              {wine.country && <Tag>{wine.country}</Tag>}
-            </div>
-            <dl className="detail-facts">
-              <div>
-                <dt>병당 구입가</dt>
-                <dd>{facts.price === null ? "미입력" : money(facts.price)}</dd>
-              </div>
-              <div>
-                <dt>최근 구입일</dt>
-                <dd>{facts.purchased_on || "미입력"}</dd>
-              </div>
-              <div>
-                <dt>현재 보유</dt>
-                <dd>{wine.stock}병</dd>
-              </div>
-              <div>
-                <dt>품종</dt>
-                <dd>{wine.grapes || "미입력"}</dd>
-              </div>
-              <div>
-                <dt>지역</dt>
-                <dd>{wine.region || "미입력"}</dd>
-              </div>
-              <div>
-                <dt>생산자</dt>
-                <dd>{wine.producer || "미입력"}</dd>
-              </div>
-            </dl>
-            <div className="button-row">
-              <button
-                className="button primary"
-                disabled={wine.stock === 0}
-                onClick={() => consumeForm(wine)}
-              >
-                <WineIcon size={16} />한 병 소비하기
-              </button>
-              <button
-                className="button secondary"
-                onClick={() => receiveForm(wine)}
-              >
-                <Plus size={16} />
-                입고
-              </button>
-              <button
-                className="button secondary"
-                onClick={() => tastingForm(wine)}
-              >
-                시음 기록
-              </button>
-            </div>
-            <div className="text-actions">
-              {priceEditable && (
-                <button onClick={() => priceForm(wine, pricePurchase)}>
-                  <Pencil size={13} />
-                  가격 수정
-                </button>
-              )}
-              {editAllowed(wine) && (
-                <>
-                  <button onClick={() => wineForm(wine)}>
-                    <Pencil size={13} />
-                    정보 수정
-                  </button>
-                  <button onClick={() => archiveForm(wine, "wine")}>
-                    <Archive size={13} />
-                    {wine.archived ? "보관 해제" : "보관하기"}
-                  </button>
-                </>
-              )}
-              <a
-                href={`https://www.vivino.com/search/wines?q=${encodeURIComponent(`${wine.english_name || wine.name} ${wine.vintage ?? ""}`)}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Vivino에서 찾기 <ExternalLink size={13} />
-              </a>
-            </div>
-          </div>
-        </div>
-        {editAllowed(wine) && (
-          <WinePhotoUpload wine={wine} onUpdated={reload} demo={demo} />
-        )}
-        <div className="detail-columns">
-          <section className="panel">
-            <div className="section-heading compact">
-              <h2>구매와 소비의 기록</h2>
-              <span className="muted small">{events.length}개</span>
-            </div>
-            {events.map((event) => {
-              return (
-                <div className="event-row" key={event.id}>
-                  <span
-                    className={`event-icon ${event.delta < 0 ? "out" : ""}`}
-                  >
-                    {event.delta > 0 ? (
-                      <Plus size={16} />
-                    ) : (
-                      <ArrowDownLeft size={16} />
-                    )}
-                  </span>
-                  <div>
-                    <strong>
-                      {event.kind === "receive"
-                        ? "입고"
-                        : event.kind === "consume"
-                          ? "소비"
-                          : event.kind === "reverse"
-                            ? "취소"
-                            : "초기 재고"}
-                    </strong>
-                    <p>
-                      {dateLabel(event.occurred_on)} ·{" "}
-                      {memberName(event.created_by)}
-                    </p>
-                    {event.reason && <small>{event.reason}</small>}
-                  </div>
-                  <b>
-                    {event.delta > 0 ? "+" : ""}
-                    {event.delta}병
-                  </b>
-                  {editAllowed(event) &&
-                    !["reverse", "opening_balance"].includes(event.kind) &&
-                    !data.events.some((e) => e.reverses_id === event.id) && (
-                      <button
-                        className="icon-button"
-                        aria-label="이 기록 취소"
-                        onClick={() =>
-                          open({
-                            title: "기록 취소",
-                            description:
-                              "원본 이력은 보존하고 반대 방향의 재고 기록을 남깁니다.",
-                            operation: "wine_reverse_event",
-                            extra: { event_id: event.id },
-                            fields: [txt("reason", "취소 사유", "", true)],
-                          })
-                        }
-                      >
-                        <Undo2 size={14} />
-                      </button>
-                    )}
-                </div>
-              );
-            })}
-            {!events.length && (
-              <p className="muted">입고하면 재고가 기록됩니다.</p>
+        <div className="wine-detail">
+          <aside className="wine-detail-side">
+            <WineDetailPhoto wine={wine} />
+            {editAllowed(wine) && (
+              <WinePhotoUpload wine={wine} onUpdated={reload} demo={demo} />
             )}
-            {data.purchases.some((p) => p.wine_id === wine.id) && (
-              <div className="purchase-history">
-                <h3>구매 내역</h3>
-                {data.purchases
-                  .filter((p) => p.wine_id === wine.id)
-                  .map((p) => (
-                    <div key={p.id}>
-                      <span>
-                        {dateLabel(p.purchased_on)} · {p.quantity}병
-                        {receiveOf(p) &&
-                          reversedIds.has(receiveOf(p)!.id) &&
-                          " · 취소됨"}
+          </aside>
+          <div className="wine-detail-main">
+            <div className="detail-copy">
+              <span className="eyebrow">
+                CELLAR NO. {String(wine.display_id).padStart(3, "0")}
+              </span>
+              <h1>{wine.name}</h1>
+              <p>{wine.english_name}</p>
+              <div className="bean-tags">
+                <Tag tone="rose">{wine.type}</Tag>
+                <Tag>{vintageLabel(wine)}</Tag>
+                {wine.country && <Tag>{wine.country}</Tag>}
+              </div>
+              <dl className="detail-facts">
+                <div>
+                  <dt>병당 구입가</dt>
+                  <dd>
+                    {facts.price === null ? "미입력" : money(facts.price)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>최근 구입일</dt>
+                  <dd>{facts.purchased_on || "미입력"}</dd>
+                </div>
+                <div>
+                  <dt>현재 보유</dt>
+                  <dd>{wine.stock}병</dd>
+                </div>
+                <div>
+                  <dt>품종</dt>
+                  <dd>{wine.grapes || "미입력"}</dd>
+                </div>
+                <div>
+                  <dt>지역</dt>
+                  <dd>{wine.region || "미입력"}</dd>
+                </div>
+                <div>
+                  <dt>생산자</dt>
+                  <dd>{wine.producer || "미입력"}</dd>
+                </div>
+              </dl>
+              <div className="button-row">
+                <button
+                  className="button primary"
+                  disabled={wine.stock === 0}
+                  onClick={() => consumeForm(wine)}
+                >
+                  <WineIcon size={16} />한 병 소비하기
+                </button>
+                <button
+                  className="button secondary"
+                  onClick={() => receiveForm(wine)}
+                >
+                  <Plus size={16} />
+                  입고
+                </button>
+                <button
+                  className="button secondary"
+                  onClick={() => tastingForm(wine)}
+                >
+                  시음 기록
+                </button>
+              </div>
+              <div className="text-actions">
+                {priceEditable && (
+                  <button onClick={() => priceForm(wine, pricePurchase)}>
+                    <Pencil size={13} />
+                    가격 수정
+                  </button>
+                )}
+                {editAllowed(wine) && (
+                  <>
+                    <button onClick={() => wineForm(wine)}>
+                      <Pencil size={13} />
+                      정보 수정
+                    </button>
+                    <button onClick={() => archiveForm(wine, "wine")}>
+                      <Archive size={13} />
+                      {wine.archived ? "보관 해제" : "보관하기"}
+                    </button>
+                  </>
+                )}
+                <a
+                  href={`https://www.vivino.com/search/wines?q=${encodeURIComponent(`${wine.english_name || wine.name} ${wine.vintage ?? ""}`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Vivino에서 찾기 <ExternalLink size={13} />
+                </a>
+              </div>
+            </div>
+            <div className="detail-columns">
+              <section className="panel">
+                <div className="section-heading compact">
+                  <h2>구매와 소비의 기록</h2>
+                  <span className="muted small">{events.length}개</span>
+                </div>
+                {events.map((event) => {
+                  return (
+                    <div className="event-row" key={event.id}>
+                      <span
+                        className={`event-icon ${event.delta < 0 ? "out" : ""}`}
+                      >
+                        {event.delta > 0 ? (
+                          <Plus size={16} />
+                        ) : (
+                          <ArrowDownLeft size={16} />
+                        )}
                       </span>
-                      <strong>
-                        {money(p.unit_price)} / 병
-                        {purchaseEditable(p) && (
+                      <div>
+                        <strong>
+                          {event.kind === "receive"
+                            ? "입고"
+                            : event.kind === "consume"
+                              ? "소비"
+                              : event.kind === "reverse"
+                                ? "취소"
+                                : "초기 재고"}
+                        </strong>
+                        <p>
+                          {dateLabel(event.occurred_on)} ·{" "}
+                          {memberName(event.created_by)}
+                        </p>
+                        {event.reason && <small>{event.reason}</small>}
+                      </div>
+                      <b>
+                        {event.delta > 0 ? "+" : ""}
+                        {event.delta}병
+                      </b>
+                      {editAllowed(event) &&
+                        !["reverse", "opening_balance"].includes(event.kind) &&
+                        !data.events.some(
+                          (e) => e.reverses_id === event.id,
+                        ) && (
                           <button
                             className="icon-button"
-                            aria-label="이 입고의 가격 수정"
-                            onClick={() => priceForm(wine, p)}
+                            aria-label="이 기록 취소"
+                            onClick={() =>
+                              open({
+                                title: "기록 취소",
+                                description:
+                                  "원본 이력은 보존하고 반대 방향의 재고 기록을 남깁니다.",
+                                operation: "wine_reverse_event",
+                                extra: { event_id: event.id },
+                                fields: [txt("reason", "취소 사유", "", true)],
+                              })
+                            }
                           >
-                            <Pencil size={12} />
+                            <Undo2 size={14} />
                           </button>
                         )}
-                      </strong>
+                    </div>
+                  );
+                })}
+                {!events.length && (
+                  <p className="muted">입고하면 재고가 기록됩니다.</p>
+                )}
+                {data.purchases.some((p) => p.wine_id === wine.id) && (
+                  <div className="purchase-history">
+                    <h3>구매 내역</h3>
+                    {data.purchases
+                      .filter((p) => p.wine_id === wine.id)
+                      .map((p) => (
+                        <div key={p.id}>
+                          <span>
+                            {dateLabel(p.purchased_on)} · {p.quantity}병
+                            {receiveOf(p) &&
+                              reversedIds.has(receiveOf(p)!.id) &&
+                              " · 취소됨"}
+                          </span>
+                          <strong>
+                            {money(p.unit_price)} / 병
+                            {purchaseEditable(p) && (
+                              <button
+                                className="icon-button"
+                                aria-label="이 입고의 가격 수정"
+                                onClick={() => priceForm(wine, p)}
+                              >
+                                <Pencil size={12} />
+                              </button>
+                            )}
+                          </strong>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </section>
+              <section className="panel">
+                <div className="section-heading compact">
+                  <h2>사용자별 시음 노트</h2>
+                  <button
+                    className="text-button"
+                    onClick={() => tastingForm(wine)}
+                  >
+                    <Plus size={15} />
+                    추가
+                  </button>
+                </div>
+                {data.tastings
+                  .filter((t) => t.wine_id === wine.id)
+                  .map((t) => (
+                    <div className="note-card" key={t.id}>
+                      <div>
+                        <strong>{memberName(t.user_id)}</strong>
+                        {t.score !== null && <Tag>{t.score} / 100</Tag>}
+                        {t.repurchase !== null && (
+                          <Tag tone={t.repurchase ? "green" : ""}>
+                            {t.repurchase ? "재구매 희망" : "재구매 안 함"}
+                          </Tag>
+                        )}
+                      </div>
+                      <p>{t.note || "평점만 남긴 시음이에요."}</p>
+                      <time>{dateLabel(t.tasted_on)}</time>
                     </div>
                   ))}
-              </div>
-            )}
-          </section>
-          <section className="panel">
-            <div className="section-heading compact">
-              <h2>사용자별 시음 노트</h2>
-              <button className="text-button" onClick={() => tastingForm(wine)}>
-                <Plus size={15} />
-                추가
-              </button>
-            </div>
-            {data.tastings
-              .filter((t) => t.wine_id === wine.id)
-              .map((t) => (
-                <div className="note-card" key={t.id}>
-                  <div>
-                    <strong>{memberName(t.user_id)}</strong>
-                    {t.score !== null && <Tag>{t.score} / 100</Tag>}
-                    {t.repurchase !== null && (
-                      <Tag tone={t.repurchase ? "green" : ""}>
-                        {t.repurchase ? "재구매 희망" : "재구매 안 함"}
-                      </Tag>
-                    )}
+                {!data.tastings.some((t) => t.wine_id === wine.id) && (
+                  <div className="quiet-empty">
+                    <BookOpen size={25} />
+                    <p>첫 모금의 인상을 남겨보세요.</p>
                   </div>
-                  <p>{t.note || "평점만 남긴 시음이에요."}</p>
-                  <time>{dateLabel(t.tasted_on)}</time>
-                </div>
-              ))}
-            {!data.tastings.some((t) => t.wine_id === wine.id) && (
-              <div className="quiet-empty">
-                <BookOpen size={25} />
-                <p>첫 모금의 인상을 남겨보세요.</p>
-              </div>
-            )}
-          </section>
+                )}
+              </section>
+            </div>
+          </div>
         </div>
       </>
     );
