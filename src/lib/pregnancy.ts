@@ -74,6 +74,9 @@ export const memoLimit = (k: PregnancyKind) => (k === "checkup" ? 2000 : 500);
 export const CERVIX_MAX_CM = 8;
 export const FETAL_HR_MIN = 50;
 export const FETAL_HR_MAX = 250;
+// 아기 몸무게(초음파 추정 체중)는 g 정수.
+export const FETAL_WEIGHT_MIN_G = 1;
+export const FETAL_WEIGHT_MAX_G = 7000;
 export const TERM_WEEKS = 37;
 // 산모 기록 입력 범위(DB CHECK와 같은 값). 소수 한 자리까지 저장한다.
 export const WEIGHT_MIN_KG = 30;
@@ -92,6 +95,7 @@ export type PregnancyEvent = {
   cervix_length_cm: number | null;
   amniotic_fluid: AmnioticFluid | null;
   fetal_heart_rate: number | null;
+  fetal_weight_g: number | null;
   weight_kg: number | null;
   belly_cm: number | null;
   memo: string;
@@ -248,6 +252,11 @@ export function checkupFacts(e: PregnancyEvent) {
     facts.push({ label: "양수량", value: amnioticLabel[e.amniotic_fluid] });
   if (e.fetal_heart_rate !== null)
     facts.push({ label: "아기 심박수", value: `${e.fetal_heart_rate}bpm` });
+  if (e.fetal_weight_g !== null)
+    facts.push({
+      label: "아기 몸무게",
+      value: `${e.fetal_weight_g.toLocaleString("ko-KR")}g`,
+    });
   return facts;
 }
 
@@ -265,11 +274,18 @@ export function bodyFacts(e: PregnancyEvent) {
 // 참고 범위는 진단 기준이 아니라 눈으로 비교할 선이다:
 // 자궁경부 2.5cm 미만은 짧은 경부로 보는 흔한 기준, 태아 심박 110~160bpm은 정상 범위로 쓰는 값.
 export type TrendMetric = {
-  key: "weight_kg" | "belly_cm" | "cervix_length_cm" | "fetal_heart_rate";
+  key:
+    | "weight_kg"
+    | "belly_cm"
+    | "cervix_length_cm"
+    | "fetal_heart_rate"
+    | "fetal_weight_g";
   label: string;
   unit: string;
   kind: "body" | "checkup";
   digits: number;
+  // 세로축을 0에서 시작한다. 주수에 따라 값이 수십 배로 커져 여백이 음수까지 내려가는 항목.
+  zero?: boolean;
   line?: { value: number; label: string };
   band?: { from: number; to: number; label: string };
 };
@@ -291,6 +307,14 @@ export const trendMetrics: TrendMetric[] = [
     kind: "checkup",
     digits: 0,
     band: { from: 110, to: 160, label: "참고 110~160" },
+  },
+  {
+    key: "fetal_weight_g",
+    label: "아기 몸무게",
+    unit: "g",
+    kind: "checkup",
+    digits: 0,
+    zero: true,
   },
 ];
 export const isMeasure = (k: PregnancyKind) => k === "checkup" || k === "body";

@@ -14,6 +14,8 @@ import {
   CERVIX_MAX_CM,
   FETAL_HR_MAX,
   FETAL_HR_MIN,
+  FETAL_WEIGHT_MAX_G,
+  FETAL_WEIGHT_MIN_G,
   hasPhotos,
   isTimed,
   MAX_DURATION_MIN,
@@ -48,7 +50,7 @@ const canEdit = (role: string, actor: Actor, createdBy: string) =>
   role === "owner" || createdBy === actor.userId;
 
 const EVENT_COLUMNS = `e.id, e.kind, e.started_at, e.ended_at, e.intensity, e.bleeding, e.bleeding_color,
-  e.cervix_length_cm::float8 AS cervix_length_cm, e.amniotic_fluid, e.fetal_heart_rate,
+  e.cervix_length_cm::float8 AS cervix_length_cm, e.amniotic_fluid, e.fetal_heart_rate, e.fetal_weight_g,
   e.weight_kg::float8 AS weight_kg, e.belly_cm::float8 AS belly_cm, e.memo, e.version, e.created_by, coalesce(u.name,'') AS created_by_name,
   coalesce((SELECT array_agg(p.id::text ORDER BY p.position, p.created_at) FROM pregnancy_photos p
     WHERE p.household_id=e.household_id AND p.event_id=e.id), '{}') AS photo_ids`;
@@ -129,6 +131,13 @@ const fields = {
     .max(FETAL_HR_MAX)
     .nullable()
     .optional(),
+  fetal_weight_g: z
+    .number()
+    .int()
+    .min(FETAL_WEIGHT_MIN_G)
+    .max(FETAL_WEIGHT_MAX_G)
+    .nullable()
+    .optional(),
   weight_kg: z
     .number()
     .min(WEIGHT_MIN_KG)
@@ -201,6 +210,7 @@ function normalize(input: Pick<Fields, keyof typeof fields>) {
     cervix_length_cm: null,
     amniotic_fluid: null,
     fetal_heart_rate: null,
+    fetal_weight_g: null,
   };
   const noBody = { weight_kg: null, belly_cm: null };
   const tenth = (v: number | null | undefined) =>
@@ -237,6 +247,7 @@ function normalize(input: Pick<Fields, keyof typeof fields>) {
           : Math.round(input.cervix_length_cm * 100) / 100,
       amniotic_fluid: input.amniotic_fluid ?? null,
       fetal_heart_rate: input.fetal_heart_rate ?? null,
+      fetal_weight_g: input.fetal_weight_g ?? null,
       ...noBody,
       memo,
     };
@@ -378,8 +389,8 @@ export async function runPregnancyCommand(actor: Actor, raw: unknown) {
       const v = normalize(input);
       const [created] = await query(
         `INSERT INTO pregnancy_events(household_id,kind,started_at,ended_at,intensity,bleeding,bleeding_color,
-           cervix_length_cm,amniotic_fluid,fetal_heart_rate,weight_kg,belly_cm,memo,request_key,created_by,updated_by)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$15)
+           cervix_length_cm,amniotic_fluid,fetal_heart_rate,fetal_weight_g,weight_kg,belly_cm,memo,request_key,created_by,updated_by)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$16)
          ON CONFLICT(household_id,request_key) DO NOTHING RETURNING id`,
         [
           actor.householdId,
@@ -392,6 +403,7 @@ export async function runPregnancyCommand(actor: Actor, raw: unknown) {
           v.cervix_length_cm,
           v.amniotic_fluid,
           v.fetal_heart_rate,
+          v.fetal_weight_g,
           v.weight_kg,
           v.belly_cm,
           v.memo,
@@ -447,8 +459,8 @@ export async function runPregnancyCommand(actor: Actor, raw: unknown) {
       );
     await query(
       `UPDATE pregnancy_events SET kind=$3, started_at=$4, ended_at=$5, intensity=$6, bleeding=$7, bleeding_color=$8,
-       cervix_length_cm=$9, amniotic_fluid=$10, fetal_heart_rate=$11, weight_kg=$12, belly_cm=$13,
-       memo=$14, version=version+1, updated_by=$15, updated_at=now() WHERE household_id=$1 AND id=$2`,
+       cervix_length_cm=$9, amniotic_fluid=$10, fetal_heart_rate=$11, fetal_weight_g=$12, weight_kg=$13, belly_cm=$14,
+       memo=$15, version=version+1, updated_by=$16, updated_at=now() WHERE household_id=$1 AND id=$2`,
       [
         actor.householdId,
         input.id,
@@ -461,6 +473,7 @@ export async function runPregnancyCommand(actor: Actor, raw: unknown) {
         v.cervix_length_cm,
         v.amniotic_fluid,
         v.fetal_heart_rate,
+        v.fetal_weight_g,
         v.weight_kg,
         v.belly_cm,
         v.memo,

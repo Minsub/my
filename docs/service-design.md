@@ -23,7 +23,7 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | `/assets/records` | 등록 이력, 원본 항목 목록, 항목 한 줄의 자산그룹·금액 수정, 전체 CSV 내보내기 | asset-records.tsx |
 | `/assets/strategy` | 구성원별 분할매수 전략. 연금저축·IRP 고정 비중, 월급·현금 분할매수 그룹의 금액·개월·종목 비중·ISA 여부(티커·이름으로 네이버 증권 검색), 한 달 매수 합계·12개월 누적·ISA 몫, 저장하지 않는 금액·기간 바꿔 보기. 자산현황과 머리말 버튼으로 오감 | asset-plans.tsx, asset-plan-editor.tsx |
 | `/baby` | 꼬미(아이 태명) 하위 화면 목록. 항목은 menu-hub.tsx의 kkomiMenus | menu-hub.tsx |
-| `/baby/pregnancy` | 임신 기록: 배뭉침·통증 시작·종료 타이머, 최근 1시간 상태, 출혈(출혈 없음 포함)·사진, 진료·검사(경부길이·양수량·심박수·사진·메모, 상세 복사), 산모(몸무게·배둘레), 타입별 타임라인, 추이(항목별 그래프·날짜 상세) | pregnancy-log.tsx |
+| `/baby/pregnancy` | 임신 기록: 배뭉침·통증 시작·종료 타이머, 최근 1시간 상태, 출혈(출혈 없음 포함)·사진, 진료·검사(경부길이·양수량·심박수·아기 몸무게·사진·메모, 상세 복사), 산모(몸무게·배둘레), 타입별 타임라인, 추이(항목별 그래프·날짜 상세) | pregnancy-log.tsx |
 | `/cash` | 연·월별 흐름·항목별 평균/비중·거래 조회·파일 관리 | cash-dashboard.tsx, cash-analysis.tsx, cash-files.tsx |
 | `/cash/old` | 원본 단일 HTML 분석 + 엑셀 API 자동 연결 | cash-old.tsx, single-html-page.tsx |
 | `/etc/html` | 등록된 단일 HTML 도구의 제목·설명·원본 파일 목록 | html-pages.tsx, lib/html-pages.ts |

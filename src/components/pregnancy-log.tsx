@@ -36,6 +36,8 @@ import {
   durationSec,
   FETAL_HR_MAX,
   FETAL_HR_MIN,
+  FETAL_WEIGHT_MAX_G,
+  FETAL_WEIGHT_MIN_G,
   intensityLabel,
   isMeasure,
   kindLabel,
@@ -2565,6 +2567,9 @@ function CheckupSheet({
   const [heart, setHeart] = useState(
     event?.fetal_heart_rate != null ? String(event.fetal_heart_rate) : "",
   );
+  const [fetalWeight, setFetalWeight] = useState(
+    event?.fetal_weight_g != null ? String(event.fetal_weight_g) : "",
+  );
   const [memo, setMemo] = useState(event?.memo ?? "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -2595,6 +2600,18 @@ function CheckupSheet({
       return setError(
         `아기 심박수는 ${FETAL_HR_MIN}~${FETAL_HR_MAX} 사이 정수로 입력해주세요.`,
       );
+    const grams = parseNumber(fetalWeight);
+    if (
+      grams !== null &&
+      !(
+        Number.isInteger(grams) &&
+        grams >= FETAL_WEIGHT_MIN_G &&
+        grams <= FETAL_WEIGHT_MAX_G
+      )
+    )
+      return setError(
+        `아기 몸무게는 g 단위 정수(${FETAL_WEIGHT_MIN_G}~${FETAL_WEIGHT_MAX_G.toLocaleString("ko-KR")})로 입력해주세요.`,
+      );
     setBusy(true);
     setError("");
     const fields = {
@@ -2604,6 +2621,7 @@ function CheckupSheet({
       cervix_length_cm: cervixCm,
       amniotic_fluid: fluid,
       fetal_heart_rate: bpm,
+      fetal_weight_g: grams,
       memo: memo.trim(),
       photos: photos.added.map((p) => p.data),
     };
@@ -2660,6 +2678,17 @@ function CheckupSheet({
             onChange={(e) => setHeart(e.target.value)}
           />
         </div>
+      </div>
+      <div className="pg-field">
+        <label htmlFor="pg-fetal-weight">아기 몸무게 (g)</label>
+        <input
+          id="pg-fetal-weight"
+          type="text"
+          inputMode="numeric"
+          placeholder="예: 1850"
+          value={fetalWeight}
+          onChange={(e) => setFetalWeight(e.target.value.replace(/,/g, ""))}
+        />
       </div>
       <Options
         label="양수량"
@@ -3243,10 +3272,12 @@ const periodDays: Record<Period, number | null> = {
 const metricColor = { body: "#2f7d6d", checkup: "#3d6f8e" } as const;
 const CHART_INK = "#7d8577";
 const CHART_GRID = "#eef0ea";
+const metricNumber = (m: TrendMetric, v: number) =>
+  v.toLocaleString("ko-KR", { maximumFractionDigits: m.digits });
 const metricValue = (m: TrendMetric, v: number) =>
-  `${Number(v.toFixed(m.digits))}${m.unit}`;
+  `${metricNumber(m, v)}${m.unit}`;
 const metricChange = (m: TrendMetric, d: number) =>
-  `${d > 0 ? "+" : d < 0 ? "−" : "±"}${Number(Math.abs(d).toFixed(m.digits))}${m.unit}`;
+  `${d > 0 ? "+" : d < 0 ? "−" : "±"}${metricNumber(m, Math.abs(d))}${m.unit}`;
 type TrendPoint = { t: number; v: number; day: string };
 type AxisTick = { value: number; label: string | string[] };
 
@@ -3650,6 +3681,7 @@ function TrendChart({
           },
           y: {
             grace: "12%",
+            min: metric.zero ? 0 : undefined,
             suggestedMin: refValues.length ? Math.min(...refValues) : undefined,
             suggestedMax: refValues.length ? Math.max(...refValues) : undefined,
             grid: { color: CHART_GRID },

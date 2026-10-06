@@ -23,6 +23,7 @@ export function demoPregnancy(now: number): PregnancyData {
       cervix_length_cm: null,
       amniotic_fluid: null,
       fetal_heart_rate: null,
+      fetal_weight_g: null,
       weight_kg: null,
       belly_cm: null,
       memo: "",
@@ -46,18 +47,19 @@ export function demoPregnancy(now: number): PregnancyData {
     });
   });
   const visits = [
-    [140, 4.1, 158, "1차 정밀 초음파"],
-    [112, 3.9, 152, ""],
-    [84, 3.6, 150, "2차 정밀 초음파. 아기 크기 주수에 맞음"],
-    [56, 3.4, 148, "임신성 당뇨 검사"],
-    [28, 3.3, 144, ""],
-    [14, 3.0, 149, "경부길이 조금 줄어서 무리하지 말라고 함"],
+    [140, 4.1, 158, 14, "1차 정밀 초음파"],
+    [112, 3.9, 152, 100, ""],
+    [84, 3.6, 150, 330, "2차 정밀 초음파. 아기 크기 주수에 맞음"],
+    [56, 3.4, 148, 640, "임신성 당뇨 검사"],
+    [28, 3.3, 144, 1080, ""],
+    [14, 3.0, 149, 1390, "경부길이 조금 줄어서 무리하지 말라고 함"],
   ] as const;
-  const checkups = visits.map(([daysAgo, cervix, hr, memo]) =>
+  const checkups = visits.map(([daysAgo, cervix, hr, grams, memo]) =>
     ev("checkup", daysAgo * DAY_MIN + 10 * 60, 0, {
       cervix_length_cm: cervix,
       amniotic_fluid: "enough",
       fetal_heart_rate: hr,
+      fetal_weight_g: grams,
       memo,
     }),
   );
@@ -74,6 +76,7 @@ export function demoPregnancy(now: number): PregnancyData {
         cervix_length_cm: 3.1,
         amniotic_fluid: "enough",
         fetal_heart_rate: 146,
+        fetal_weight_g: 1720,
         memo: "정기 진료. NST 40분 · 규칙적인 수축 없음\n배뭉침 잦으면 다시 오라고 함. 다음 진료 2주 뒤",
       }),
       ev("tightening", 26 * 60 + 10, 22),
