@@ -1,9 +1,10 @@
-// 꼬미 / 임신 중 통증 기록의 공통 규칙. 화면과 서버가 같은 정의를 쓴다.
+// 꼬미 / 임신 기록의 공통 규칙. 화면과 서버가 같은 정의를 쓴다.
 export const pregnancyKinds = [
   "tightening",
   "pain",
   "bleeding",
   "checkup",
+  "body",
 ] as const;
 export type PregnancyKind = (typeof pregnancyKinds)[number];
 export const timedKinds = ["tightening", "pain"] as const;
@@ -29,6 +30,8 @@ export const kindLabel: Record<PregnancyKind, string> = {
   bleeding: "출혈",
   // 진료·NST처럼 형식이 없는 병원 기록. 이름은 이 한 곳에서 바꾼다.
   checkup: "진료·검사",
+  // 산모의 몸무게·배둘레. 집에서 자주 재는 값이라 병원 기록과 따로 둔다.
+  body: "산모",
 };
 export const bleedingLabel: Record<BleedingAmount, string> = {
   none: "출혈 없음",
@@ -72,6 +75,11 @@ export const CERVIX_MAX_CM = 8;
 export const FETAL_HR_MIN = 50;
 export const FETAL_HR_MAX = 250;
 export const TERM_WEEKS = 37;
+// 산모 기록 입력 범위(DB CHECK와 같은 값). 소수 한 자리까지 저장한다.
+export const WEIGHT_MIN_KG = 30;
+export const WEIGHT_MAX_KG = 200;
+export const BELLY_MIN_CM = 40;
+export const BELLY_MAX_CM = 200;
 
 export type PregnancyEvent = {
   id: string;
@@ -84,6 +92,8 @@ export type PregnancyEvent = {
   cervix_length_cm: number | null;
   amniotic_fluid: AmnioticFluid | null;
   fetal_heart_rate: number | null;
+  weight_kg: number | null;
+  belly_cm: number | null;
   memo: string;
   version: number;
   created_by: string;
@@ -91,7 +101,11 @@ export type PregnancyEvent = {
   photo_ids: string[];
   can_edit: boolean;
 };
-export type PregnancySettings = { due_date: string | null; version: number };
+export type PregnancySettings = {
+  due_date: string | null;
+  pre_weight_kg: number | null;
+  version: number;
+};
 export type PregnancyData = {
   settings: PregnancySettings;
   events: PregnancyEvent[];
@@ -236,3 +250,47 @@ export function checkupFacts(e: PregnancyEvent) {
     facts.push({ label: "아기 심박수", value: `${e.fetal_heart_rate}bpm` });
   return facts;
 }
+
+// 산모 기록의 값. 목록·상세가 같은 표기를 쓴다.
+export function bodyFacts(e: PregnancyEvent) {
+  const facts: { label: string; value: string }[] = [];
+  if (e.weight_kg !== null)
+    facts.push({ label: "몸무게", value: `${e.weight_kg}kg` });
+  if (e.belly_cm !== null)
+    facts.push({ label: "배둘레", value: `${e.belly_cm}cm` });
+  return facts;
+}
+
+// 추이 그래프의 항목. 값은 기록의 한 칸에서 읽는다.
+// 참고 범위는 진단 기준이 아니라 눈으로 비교할 선이다:
+// 자궁경부 2.5cm 미만은 짧은 경부로 보는 흔한 기준, 태아 심박 110~160bpm은 정상 범위로 쓰는 값.
+export type TrendMetric = {
+  key: "weight_kg" | "belly_cm" | "cervix_length_cm" | "fetal_heart_rate";
+  label: string;
+  unit: string;
+  kind: "body" | "checkup";
+  digits: number;
+  line?: { value: number; label: string };
+  band?: { from: number; to: number; label: string };
+};
+export const trendMetrics: TrendMetric[] = [
+  { key: "weight_kg", label: "몸무게", unit: "kg", kind: "body", digits: 1 },
+  { key: "belly_cm", label: "배둘레", unit: "cm", kind: "body", digits: 1 },
+  {
+    key: "cervix_length_cm",
+    label: "자궁경부길이",
+    unit: "cm",
+    kind: "checkup",
+    digits: 2,
+    line: { value: 2.5, label: "참고 2.5cm" },
+  },
+  {
+    key: "fetal_heart_rate",
+    label: "아기 심박수",
+    unit: "bpm",
+    kind: "checkup",
+    digits: 0,
+    band: { from: 110, to: 160, label: "참고 110~160" },
+  },
+];
+export const isMeasure = (k: PregnancyKind) => k === "checkup" || k === "body";

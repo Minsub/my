@@ -7,6 +7,8 @@ import { normalizePhoto } from "./wine-photos";
 import type { Actor } from "@/lib/types";
 import {
   amnioticLevels,
+  BELLY_MAX_CM,
+  BELLY_MIN_CM,
   bleedingAmounts,
   bleedingColors,
   CERVIX_MAX_CM,
@@ -22,6 +24,8 @@ import {
   type PregnancyData,
   type PregnancyEvent,
   type PregnancyKind,
+  WEIGHT_MAX_KG,
+  WEIGHT_MIN_KG,
 } from "@/lib/pregnancy";
 
 // 꼬미 기록은 웹 전용이다. MCP에는 공개하지 않는다.
@@ -44,7 +48,8 @@ const canEdit = (role: string, actor: Actor, createdBy: string) =>
   role === "owner" || createdBy === actor.userId;
 
 const EVENT_COLUMNS = `e.id, e.kind, e.started_at, e.ended_at, e.intensity, e.bleeding, e.bleeding_color,
-  e.cervix_length_cm::float8 AS cervix_length_cm, e.amniotic_fluid, e.fetal_heart_rate, e.memo, e.version, e.created_by, coalesce(u.name,'') AS created_by_name,
+  e.cervix_length_cm::float8 AS cervix_length_cm, e.amniotic_fluid, e.fetal_heart_rate,
+  e.weight_kg::float8 AS weight_kg, e.belly_cm::float8 AS belly_cm, e.memo, e.version, e.created_by, coalesce(u.name,'') AS created_by_name,
   coalesce((SELECT array_agg(p.id::text ORDER BY p.position, p.created_at) FROM pregnancy_photos p
     WHERE p.household_id=e.household_id AND p.event_id=e.id), '{}') AS photo_ids`;
 type EventRow = Omit<PregnancyEvent, "started_at" | "ended_at" | "can_edit"> & {
@@ -76,18 +81,28 @@ async function eventById(
 export async function readPregnancy(actor: Actor): Promise<PregnancyData> {
   const role = await access(actor);
   const [settings] = await query(
-    "SELECT due_date, version FROM pregnancy_settings WHERE household_id=$1",
+    "SELECT due_date, pre_weight_kg::float8 AS pre_weight_kg, version FROM pregnancy_settings WHERE household_id=$1",
     [actor.householdId],
   );
+  // 배뭉침·통증·출혈은 최근 5000건만 읽는다. 진료·검사와 산모 기록은 추이 그래프에 쓰이고
+  // 건수가 적으므로 배뭉침이 많이 쌓여도 빠지지 않게 모두 읽는다.
   const rows = await query<EventRow>(
-    `SELECT ${EVENT_COLUMNS} FROM pregnancy_events e LEFT JOIN "user" u ON u.id=e.created_by
-     WHERE e.household_id=$1 ORDER BY e.started_at DESC LIMIT 5000`,
+    `(SELECT ${EVENT_COLUMNS} FROM pregnancy_events e LEFT JOIN "user" u ON u.id=e.created_by
+      WHERE e.household_id=$1 AND e.kind NOT IN ('checkup','body') ORDER BY e.started_at DESC LIMIT 5000)
+     UNION ALL
+     (SELECT ${EVENT_COLUMNS} FROM pregnancy_events e LEFT JOIN "user" u ON u.id=e.created_by
+      WHERE e.household_id=$1 AND e.kind IN ('checkup','body'))
+     ORDER BY started_at DESC`,
     [actor.householdId],
   );
   return {
     settings: settings
-      ? { due_date: settings.due_date, version: settings.version }
-      : { due_date: null, version: 0 },
+      ? {
+          due_date: settings.due_date,
+          pre_weight_kg: settings.pre_weight_kg,
+          version: settings.version,
+        }
+      : { due_date: null, pre_weight_kg: null, version: 0 },
     events: rows.map((r) => toEvent(r, role, actor)),
   };
 }
@@ -114,6 +129,13 @@ const fields = {
     .max(FETAL_HR_MAX)
     .nullable()
     .optional(),
+  weight_kg: z
+    .number()
+    .min(WEIGHT_MIN_KG)
+    .max(WEIGHT_MAX_KG)
+    .nullable()
+    .optional(),
+  belly_cm: z.number().min(BELLY_MIN_CM).max(BELLY_MAX_CM).nullable().optional(),
   memo: z.string().max(memoLimit("checkup")).optional(),
 };
 const createSchema = z
@@ -148,6 +170,11 @@ const settingsSchema = z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .nullable(),
+    pre_weight_kg: z
+      .number()
+      .min(WEIGHT_MIN_KG)
+      .max(WEIGHT_MAX_KG)
+      .nullable(),
     expected_version: z.number().int().min(0),
   })
   .strict();
@@ -175,6 +202,27 @@ function normalize(input: Pick<Fields, keyof typeof fields>) {
     amniotic_fluid: null,
     fetal_heart_rate: null,
   };
+  const noBody = { weight_kg: null, belly_cm: null };
+  const tenth = (v: number | null | undefined) =>
+    v == null ? null : Math.round(v * 10) / 10;
+  if (input.kind === "body") {
+    const weight = tenth(input.weight_kg),
+      belly = tenth(input.belly_cm);
+    if (weight === null && belly === null)
+      throw new AppError("INVALID_INPUT", "몸무게나 배둘레를 입력해주세요.");
+    return {
+      kind: input.kind,
+      started_at: new Date(start),
+      ended_at: null,
+      intensity: null,
+      bleeding: null,
+      bleeding_color: null,
+      ...noCheckup,
+      weight_kg: weight,
+      belly_cm: belly,
+      memo,
+    };
+  }
   if (input.kind === "checkup")
     return {
       kind: input.kind,
@@ -189,6 +237,7 @@ function normalize(input: Pick<Fields, keyof typeof fields>) {
           : Math.round(input.cervix_length_cm * 100) / 100,
       amniotic_fluid: input.amniotic_fluid ?? null,
       fetal_heart_rate: input.fetal_heart_rate ?? null,
+      ...noBody,
       memo,
     };
   if (input.kind === "bleeding") {
@@ -203,6 +252,7 @@ function normalize(input: Pick<Fields, keyof typeof fields>) {
       bleeding_color:
         input.bleeding === "none" ? null : (input.bleeding_color ?? null),
       ...noCheckup,
+      ...noBody,
       memo,
     };
   }
@@ -226,10 +276,11 @@ function normalize(input: Pick<Fields, keyof typeof fields>) {
     bleeding: null,
     bleeding_color: null,
     ...noCheckup,
+    ...noBody,
     memo,
   };
 }
-// 타입은 같은 묶음 안에서만 바꾼다(배뭉침↔통증). 출혈·진료는 다른 타입과 바꾸지 않는다.
+// 타입은 같은 묶음 안에서만 바꾼다(배뭉침↔통증). 출혈·진료·산모는 다른 타입과 바꾸지 않는다.
 const kindGroup = (k: PregnancyKind) => (isTimed(k) ? "timed" : k);
 async function insertPhotos(
   client: PoolClient,
@@ -301,20 +352,34 @@ export async function runPregnancyCommand(actor: Actor, raw: unknown) {
           409,
         );
       const [row] = await query(
-        `INSERT INTO pregnancy_settings(household_id,due_date,updated_by) VALUES($1,$2,$3)
-         ON CONFLICT(household_id) DO UPDATE SET due_date=excluded.due_date, updated_by=excluded.updated_by,
-         version=pregnancy_settings.version+1, updated_at=now() RETURNING due_date, version`,
-        [actor.householdId, input.due_date, actor.userId],
+        `INSERT INTO pregnancy_settings(household_id,due_date,pre_weight_kg,updated_by) VALUES($1,$2,$3,$4)
+         ON CONFLICT(household_id) DO UPDATE SET due_date=excluded.due_date, pre_weight_kg=excluded.pre_weight_kg,
+         updated_by=excluded.updated_by, version=pregnancy_settings.version+1, updated_at=now()
+         RETURNING due_date, pre_weight_kg::float8 AS pre_weight_kg, version`,
+        [
+          actor.householdId,
+          input.due_date,
+          input.pre_weight_kg === null
+            ? null
+            : Math.round(input.pre_weight_kg * 10) / 10,
+          actor.userId,
+        ],
         client,
       );
-      return { settings: { due_date: row.due_date, version: row.version } };
+      return {
+        settings: {
+          due_date: row.due_date,
+          pre_weight_kg: row.pre_weight_kg,
+          version: row.version,
+        },
+      };
     }
     if (input.action === "create") {
       const v = normalize(input);
       const [created] = await query(
         `INSERT INTO pregnancy_events(household_id,kind,started_at,ended_at,intensity,bleeding,bleeding_color,
-           cervix_length_cm,amniotic_fluid,fetal_heart_rate,memo,request_key,created_by,updated_by)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13)
+           cervix_length_cm,amniotic_fluid,fetal_heart_rate,weight_kg,belly_cm,memo,request_key,created_by,updated_by)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$15)
          ON CONFLICT(household_id,request_key) DO NOTHING RETURNING id`,
         [
           actor.householdId,
@@ -327,6 +392,8 @@ export async function runPregnancyCommand(actor: Actor, raw: unknown) {
           v.cervix_length_cm,
           v.amniotic_fluid,
           v.fetal_heart_rate,
+          v.weight_kg,
+          v.belly_cm,
           v.memo,
           input.request_key,
           actor.userId,
@@ -380,8 +447,8 @@ export async function runPregnancyCommand(actor: Actor, raw: unknown) {
       );
     await query(
       `UPDATE pregnancy_events SET kind=$3, started_at=$4, ended_at=$5, intensity=$6, bleeding=$7, bleeding_color=$8,
-       cervix_length_cm=$9, amniotic_fluid=$10, fetal_heart_rate=$11,
-       memo=$12, version=version+1, updated_by=$13, updated_at=now() WHERE household_id=$1 AND id=$2`,
+       cervix_length_cm=$9, amniotic_fluid=$10, fetal_heart_rate=$11, weight_kg=$12, belly_cm=$13,
+       memo=$14, version=version+1, updated_by=$15, updated_at=now() WHERE household_id=$1 AND id=$2`,
       [
         actor.householdId,
         input.id,
@@ -394,6 +461,8 @@ export async function runPregnancyCommand(actor: Actor, raw: unknown) {
         v.cervix_length_cm,
         v.amniotic_fluid,
         v.fetal_heart_rate,
+        v.weight_kg,
+        v.belly_cm,
         v.memo,
         actor.userId,
       ],

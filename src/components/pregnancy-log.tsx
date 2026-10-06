@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Chart } from "chart.js/auto";
 import {
   Camera,
   Check,
@@ -9,18 +10,24 @@ import {
   Copy,
   Droplet,
   Pencil,
+  Plus,
   RefreshCw,
   SlidersHorizontal,
   Stethoscope,
+  StickyNote,
+  Weight,
   X,
   Zap,
 } from "lucide-react";
 import {
   amnioticLabel,
   amnioticLevels,
+  BELLY_MAX_CM,
+  BELLY_MIN_CM,
   bleedingAmounts,
   bleedingColors,
   bleedingLabel,
+  bodyFacts,
   CALL_PER_20_MIN,
   CALL_PER_HOUR,
   CERVIX_MAX_CM,
@@ -30,6 +37,7 @@ import {
   FETAL_HR_MAX,
   FETAL_HR_MIN,
   intensityLabel,
+  isMeasure,
   kindLabel,
   kindStats,
   MAX_DURATION_MIN,
@@ -44,7 +52,10 @@ import {
   TERM_WEEKS,
   timedKinds,
   isTimed,
+  trendMetrics,
   WATCH_PER_HOUR,
+  WEIGHT_MAX_KG,
+  WEIGHT_MIN_KG,
   withIntervals,
   type AmnioticFluid,
   type BleedingAmount,
@@ -52,7 +63,9 @@ import {
   type PregnancyData,
   type PregnancyEvent,
   type PregnancyKind,
+  type PregnancySettings,
   type TimedKind,
+  type TrendMetric,
 } from "@/lib/pregnancy";
 import { demoPregnancy } from "@/lib/demo-pregnancy";
 import { copyText } from "@/lib/clipboard";
@@ -70,8 +83,14 @@ type Pending = {
   memo: string;
 };
 type Range = "hour" | "today" | "all";
+type Tab = "now" | "type" | "trend";
+// 추이 그래프의 기간.
+type Period = "3m" | "6m" | "all";
+// 타입별 보기에 나오는 타입. 산모 기록은 추이 탭에서 본다.
+type TypeKind = Exclude<PregnancyKind, "body">;
+const typeKinds = pregnancyKinds.filter((k): k is TypeKind => k !== "body");
 // 타입별 보기의 선택. "both"는 배뭉침·통증을 한 타임라인에 모아 본다(출혈 제외).
-type ViewKind = PregnancyKind | "both";
+type ViewKind = TypeKind | "both";
 type Sheet =
   | {
       type: "stop";
@@ -91,7 +110,11 @@ type Sheet =
     }
   | { type: "bleeding"; event?: PregnancyEvent }
   | { type: "checkup"; event?: PregnancyEvent }
-  | { type: "checkupDetail"; event: PregnancyEvent }
+  // back: 닫으면 돌아갈 시트(추이의 날짜 상세에서 연 경우).
+  | { type: "checkupDetail"; event: PregnancyEvent; back?: Sheet }
+  | { type: "body"; event?: PregnancyEvent; back?: Sheet }
+  // 추이에서 고른 날짜(YYYY-MM-DD, 기기 시간대)의 진료·검사와 산모 기록.
+  | { type: "day"; day: string }
   | { type: "settings" }
   // back: 사진을 닫으면 돌아갈 시트(진료 상세에서 연 경우).
   | { type: "photos"; ids: string[]; index: number; back?: Sheet };
@@ -136,6 +159,16 @@ const quietText = (sec: number) => {
   return h ? (m % 60 ? `${h}시간 ${m % 60}분` : `${h}시간`) : `${m}분`;
 };
 const dayKey = (iso: string) => new Date(iso).toDateString();
+// 기기 시간대의 날짜. 추이 그래프의 점과 날짜 상세를 잇는 키다.
+const localDay = (v: string | number) => {
+  const d = new Date(v);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+const dayStart = (day: string) => new Date(`${day}T00:00:00`).getTime();
+const weekText = (due: string | null, at: number) => {
+  const w = pregnancyWeek(due, at);
+  return w ? `${w.weeks}주 ${w.days}일` : "";
+};
 const dayLabel = (iso: string) => {
   const d = new Date(iso);
   return `${d.getMonth() + 1}월 ${d.getDate()}일 (${"일월화수목금토"[d.getDay()]})`;
@@ -162,6 +195,7 @@ const kindColor = (k: PregnancyKind) =>
     pain: "var(--pg-pain)",
     bleeding: "var(--pg-blood)",
     checkup: "var(--pg-visit)",
+    body: "var(--pg-body)",
   })[k];
 
 // 서버가 1000px로 줄이므로 같은 크기로 보낸다. 사진 10장이 요청 한도(4MB)에 들어가도록
@@ -244,13 +278,20 @@ export function PregnancyLog({
   const [now, setNow] = useState(() => Date.now());
   const [running, setRunning] = useState<RunningMap>({});
   const [pending, setPending] = useState<Pending[]>([]);
-  const [tab, setTab] = useState<"now" | "type">(
-    initialQuery.tab === "type" ? "type" : "now",
+  const [tab, setTab] = useState<Tab>(
+    initialQuery.tab === "type" || initialQuery.tab === "trend"
+      ? initialQuery.tab
+      : "now",
   );
   const [kind, setKind] = useState<ViewKind>(
-    pregnancyKinds.includes(initialQuery.kind as PregnancyKind)
-      ? (initialQuery.kind as PregnancyKind)
+    typeKinds.includes(initialQuery.kind as TypeKind)
+      ? (initialQuery.kind as TypeKind)
       : "both",
+  );
+  const [period, setPeriod] = useState<Period>(
+    initialQuery.period === "3m" || initialQuery.period === "all"
+      ? initialQuery.period
+      : "6m",
   );
   const [range, setRange] = useState<Range>(
     initialQuery.range === "hour" || initialQuery.range === "all"
@@ -591,6 +632,7 @@ export function PregnancyLog({
           [
             ["now", "지금 기록"],
             ["type", "타입별 보기"],
+            ["trend", "추이"],
           ] as const
         ).map(([value, label]) => (
           <button
@@ -618,6 +660,7 @@ export function PregnancyLog({
           onRetry={() => flush()}
           onBleeding={() => setSheet({ type: "bleeding" })}
           onCheckup={() => setSheet({ type: "checkup" })}
+          onBody={() => setSheet({ type: "body" })}
           onManual={() => {
             const end = Date.now() - 5 * MIN;
             setSheet({
@@ -628,6 +671,20 @@ export function PregnancyLog({
             });
           }}
           onEdit={(e) => openEdit(e)}
+        />
+      ) : tab === "trend" ? (
+        <TrendView
+          events={events}
+          settings={data.settings}
+          now={now}
+          period={period}
+          onPeriod={(p) => {
+            setPeriod(p);
+            setQuery("period", p, "6m");
+          }}
+          onDay={(day) => setSheet({ type: "day", day })}
+          onBody={() => setSheet({ type: "body" })}
+          onCheckup={() => setSheet({ type: "checkup" })}
         />
       ) : (
         <TypeView
@@ -736,6 +793,55 @@ export function PregnancyLog({
               back: sheet,
             })
           }
+          onClose={() => setSheet(sheet.back ?? null)}
+        />
+      )}
+      {sheet?.type === "body" && (
+        <BodySheet
+          key={sheet.event?.id ?? "new"}
+          event={sheet.event}
+          last={{
+            weight:
+              events.find((e) => e.kind === "body" && e.weight_kg !== null)
+                ?.weight_kg ?? null,
+            belly:
+              events.find((e) => e.kind === "body" && e.belly_cm !== null)
+                ?.belly_cm ?? null,
+          }}
+          demo={demo}
+          onSaved={(e) => {
+            upsert(e);
+            setSheet(sheet.back ?? null);
+            inform(
+              `${kindLabel.body} ${bodyFacts(e)
+                .map((f) => f.value)
+                .join(" · ")} 저장`,
+            );
+          }}
+          onDelete={
+            sheet.event
+              ? async () => {
+                  await removeEvent(sheet.event!);
+                  if (sheet.back) setSheet(sheet.back);
+                }
+              : undefined
+          }
+          onClose={() => setSheet(sheet.back ?? null)}
+        />
+      )}
+      {sheet?.type === "day" && (
+        <DayDetail
+          day={sheet.day}
+          events={events}
+          dueDate={data.settings.due_date}
+          demo={demo}
+          onCheckup={(e) =>
+            setSheet({ type: "checkupDetail", event: e, back: sheet })
+          }
+          onEditBody={(e) => setSheet({ type: "body", event: e, back: sheet })}
+          onPhoto={(ids, index) =>
+            setSheet({ type: "photos", ids, index, back: sheet })
+          }
           onClose={() => setSheet(null)}
         />
       )}
@@ -746,7 +852,7 @@ export function PregnancyLog({
           onSaved={(settings) => {
             setData((d) => d && { ...d, settings });
             setSheet(null);
-            inform("출산예정일을 저장했습니다.");
+            inform("임신 정보를 저장했습니다.");
           }}
           onConflict={() => load()}
           onClose={() => setSheet(null)}
@@ -795,6 +901,7 @@ export function PregnancyLog({
       return;
     }
     if (e.kind === "bleeding") setSheet({ type: "bleeding", event: e });
+    else if (e.kind === "body") setSheet({ type: "body", event: e });
     else if (isTimed(e.kind))
       setSheet({
         type: "timed",
@@ -821,7 +928,7 @@ function Heading({
       <div>
         <span className="eyebrow">MONO / KKOMI</span>
         <h1>
-          임신 중 통증 기록<span className="heading-dot">.</span>
+          임신 기록<span className="heading-dot">.</span>
         </h1>
       </div>
       {data && (
@@ -832,7 +939,7 @@ function Heading({
           <button
             type="button"
             className="icon-button"
-            aria-label="출산예정일 설정"
+            aria-label="출산예정일·임신 전 몸무게 설정"
             onClick={onSettings}
           >
             <SlidersHorizontal size={17} />
@@ -859,6 +966,7 @@ function NowView({
   onRetry,
   onBleeding,
   onCheckup,
+  onBody,
   onManual,
   onEdit,
 }: {
@@ -871,6 +979,7 @@ function NowView({
   onRetry: () => void;
   onBleeding: () => void;
   onCheckup: () => void;
+  onBody: () => void;
   onManual: () => void;
   onEdit: (e: PregnancyEvent) => void;
 }) {
@@ -984,6 +1093,10 @@ function NowView({
             <Stethoscope size={18} />
             {kindLabel.checkup}
           </button>
+          <button type="button" className="pg-quick-body" onClick={onBody}>
+            <Weight size={18} />
+            {kindLabel.body} 기록
+          </button>
           <button type="button" onClick={onManual}>
             <Pencil size={17} />
             직접 입력
@@ -1000,7 +1113,7 @@ function NowView({
           </div>
           <Strip events={events} now={now} running={running} />
           <div className="pg-legend">
-            {pregnancyKinds.map((k) => (
+            {typeKinds.map((k) => (
               <span key={k}>
                 <i className={`pg-dot ${k}`} />
                 {kindLabel[k]}
@@ -1056,6 +1169,7 @@ function EventRow({
 }) {
   const d = durationSec(e);
   const facts = e.kind === "checkup" ? checkupFacts(e).map((f) => f.value) : [];
+  const body = e.kind === "body" ? bodyFacts(e).map((f) => f.value) : [];
   const sub = [e.created_by_name, ...facts, e.memo].filter(Boolean).join(" · ");
   return (
     <button type="button" className="pg-row" onClick={onClick}>
@@ -1071,7 +1185,12 @@ function EventRow({
         {sub && <em>{sub}</em>}
       </span>
       <span className="pg-row-meta">
-        {e.kind === "checkup" ? (
+        {e.kind === "body" ? (
+          <>
+            <b>{body[0]}</b>
+            {body[1] && <span>{body[1]}</span>}
+          </>
+        ) : e.kind === "checkup" ? (
           <>
             <b>상세</b>
             {e.photo_ids.length > 0 && <span>사진 {e.photo_ids.length}장</span>}
@@ -1106,9 +1225,15 @@ function Strip({
     R = 8,
     span = 180 * MIN;
   const x = (v: number) => L + ((v - (now - span)) / span) * (W - L - R);
-  const lane = { tightening: 20, pain: 44, bleeding: 68, checkup: 92 };
+  const lane: Record<TypeKind, number> = {
+    tightening: 20,
+    pain: 44,
+    bleeding: 68,
+    checkup: 92,
+  };
+  // 산모 기록은 진통 흐름과 관계없어 그리지 않는다.
   const bars = events.filter(
-    (e) => new Date(e.started_at).getTime() >= now - span,
+    (e) => e.kind !== "body" && new Date(e.started_at).getTime() >= now - span,
   );
   return (
     <svg
@@ -1134,13 +1259,14 @@ function Strip({
           </g>
         );
       })}
-      {pregnancyKinds.map((k) => (
+      {typeKinds.map((k) => (
         <text key={k} x={0} y={lane[k] + 4} fontSize={10.5} fill="var(--muted)">
           {kindLabel[k]}
         </text>
       ))}
       {bars.map((e) => {
         const s = new Date(e.started_at).getTime();
+        if (e.kind === "body") return null;
         if (e.kind === "checkup")
           return (
             <rect
@@ -1248,7 +1374,7 @@ function TypeView({
         >
           배뭉침·통증
         </button>
-        {pregnancyKinds.map((k) => (
+        {typeKinds.map((k) => (
           <button
             key={k}
             type="button"
@@ -2410,6 +2536,8 @@ const parseNumber = (v: string) => {
   const t = v.trim().replace(",", ".");
   return t ? Number(t) : null;
 };
+const inRange = (v: number, min: number, max: number) =>
+  Number.isFinite(v) && v >= min && v <= max;
 
 // 진료·NST 같은 병원 기록. 따로 둘 값은 모두 선택이고 나머지는 메모에 쓴다.
 function CheckupSheet({
@@ -2806,15 +2934,26 @@ function SettingsSheet({
   onClose: () => void;
 }) {
   const [due, setDue] = useState(data.settings.due_date ?? "");
+  const [weight, setWeight] = useState(
+    data.settings.pre_weight_kg != null
+      ? String(data.settings.pre_weight_kg)
+      : "",
+  );
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   async function submit() {
     if (demo) return setError("둘러보기에서는 저장하지 않습니다.");
+    const kg = parseNumber(weight);
+    if (kg !== null && !inRange(kg, WEIGHT_MIN_KG, WEIGHT_MAX_KG))
+      return setError(
+        `임신 전 몸무게는 ${WEIGHT_MIN_KG}~${WEIGHT_MAX_KG}kg 사이로 입력해주세요.`,
+      );
     setBusy(true);
     try {
       const r = await post({
         action: "settings",
         due_date: due || null,
+        pre_weight_kg: kg,
         expected_version: data.settings.version,
       });
       onSaved(r.settings);
@@ -2826,17 +2965,30 @@ function SettingsSheet({
   }
   return (
     <SheetFrame
-      title="출산예정일"
-      sub="주수를 표시하고 37주부터는 분만 진통 안내를 함께 보여줍니다. 같은 공간의 구성원 모두에게 적용됩니다."
+      title="임신 정보"
+      sub="출산예정일로 주수를 표시하고 37주부터는 분만 진통 안내를 함께 보여줍니다. 임신 전 몸무게는 몸무게 추이의 기준선이 됩니다. 같은 공간의 구성원 모두에게 적용됩니다."
     >
-      <div className="pg-field">
-        <label htmlFor="pg-due">출산예정일</label>
-        <input
-          id="pg-due"
-          type="date"
-          value={due}
-          onChange={(e) => setDue(e.target.value)}
-        />
+      <div className="pg-field-row">
+        <div className="pg-field">
+          <label htmlFor="pg-due">출산예정일</label>
+          <input
+            id="pg-due"
+            type="date"
+            value={due}
+            onChange={(e) => setDue(e.target.value)}
+          />
+        </div>
+        <div className="pg-field">
+          <label htmlFor="pg-pre-weight">임신 전 몸무게 (kg)</label>
+          <input
+            id="pg-pre-weight"
+            type="text"
+            inputMode="decimal"
+            placeholder="예: 55.0"
+            value={weight}
+            onChange={(e) => setWeight(e.target.value)}
+          />
+        </div>
       </div>
       <p className="pg-note">
         기준은 고정입니다: 최근 1시간 {WATCH_PER_HOUR}회면 “잦아지는 중”, 20분{" "}
@@ -2922,5 +3074,712 @@ function PhotoViewer({
         </div>
       )}
     </div>
+  );
+}
+
+// 산모 기록. 몸무게·배둘레 중 하나만 재도 저장한다. 사진은 없다.
+function BodySheet({
+  event,
+  last,
+  demo,
+  onSaved,
+  onDelete,
+  onClose,
+}: {
+  event?: PregnancyEvent;
+  last: { weight: number | null; belly: number | null };
+  demo: boolean;
+  onSaved: (e: PregnancyEvent) => void;
+  onDelete?: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const [at, setAt] = useState(
+    toLocalInput(event?.started_at ?? new Date().toISOString(), false),
+  );
+  const [weight, setWeight] = useState(
+    event?.weight_kg != null ? String(event.weight_kg) : "",
+  );
+  const [belly, setBelly] = useState(
+    event?.belly_cm != null ? String(event.belly_cm) : "",
+  );
+  const [memo, setMemo] = useState(event?.memo ?? "");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [requestKey] = useState(() => crypto.randomUUID());
+  async function submit() {
+    if (demo) return setError("둘러보기에서는 저장하지 않습니다.");
+    const startedAt = fromLocalInput(at);
+    if (!startedAt) return setError("시각을 입력해주세요.");
+    const kg = parseNumber(weight),
+      cm = parseNumber(belly);
+    if (kg === null && cm === null)
+      return setError("몸무게나 배둘레를 입력해주세요.");
+    if (kg !== null && !inRange(kg, WEIGHT_MIN_KG, WEIGHT_MAX_KG))
+      return setError(
+        `몸무게는 ${WEIGHT_MIN_KG}~${WEIGHT_MAX_KG}kg 사이로 입력해주세요.`,
+      );
+    if (cm !== null && !inRange(cm, BELLY_MIN_CM, BELLY_MAX_CM))
+      return setError(
+        `배둘레는 ${BELLY_MIN_CM}~${BELLY_MAX_CM}cm 사이로 입력해주세요.`,
+      );
+    setBusy(true);
+    setError("");
+    const fields = {
+      kind: "body",
+      started_at: startedAt,
+      ended_at: null,
+      weight_kg: kg,
+      belly_cm: cm,
+      memo: memo.trim(),
+    };
+    try {
+      const r = event
+        ? await post({
+            action: "update",
+            id: event.id,
+            expected_version: event.version,
+            ...fields,
+          })
+        : await post({ action: "create", request_key: requestKey, ...fields });
+      onSaved(r.event);
+    } catch (e) {
+      setError((e as Error).message);
+      setBusy(false);
+    }
+  }
+  return (
+    <SheetFrame
+      title={event ? `${kindLabel.body} 기록 수정` : `${kindLabel.body} 기록`}
+      sub={
+        event
+          ? `기록한 사람: ${event.created_by_name || "구성원"}`
+          : "몸무게와 배둘레 중 잰 것만 입력하세요. 소수 한 자리까지 저장합니다."
+      }
+    >
+      <div className="pg-field">
+        <label htmlFor="pg-body-at">시각</label>
+        <input
+          id="pg-body-at"
+          type="datetime-local"
+          value={at}
+          onChange={(e) => setAt(e.target.value)}
+        />
+      </div>
+      <div className="pg-field-row">
+        <div className="pg-field">
+          <label htmlFor="pg-weight">몸무게 (kg)</label>
+          <input
+            id="pg-weight"
+            type="text"
+            inputMode="decimal"
+            placeholder={
+              last.weight !== null ? `지난번 ${last.weight}` : "예: 62.4"
+            }
+            value={weight}
+            onChange={(e) => setWeight(e.target.value)}
+          />
+        </div>
+        <div className="pg-field">
+          <label htmlFor="pg-belly">배둘레 (cm)</label>
+          <input
+            id="pg-belly"
+            type="text"
+            inputMode="decimal"
+            placeholder={
+              last.belly !== null ? `지난번 ${last.belly}` : "예: 92.5"
+            }
+            value={belly}
+            onChange={(e) => setBelly(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="pg-field">
+        <label htmlFor="pg-body-memo">메모</label>
+        <textarea
+          id="pg-body-memo"
+          maxLength={memoLimit("body")}
+          value={memo}
+          placeholder="예: 아침 공복, 병원 체중계"
+          onChange={(e) => setMemo(e.target.value)}
+        />
+      </div>
+      {error && (
+        <p className="pg-error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="pg-actions">
+        {onDelete ? (
+          <DeleteButton onDelete={onDelete} onError={setError} />
+        ) : (
+          <button
+            type="button"
+            className="pg-btn ghost muted"
+            onClick={onClose}
+          >
+            닫기
+          </button>
+        )}
+        <button
+          type="button"
+          className="pg-btn primary"
+          disabled={busy}
+          onClick={submit}
+        >
+          {busy ? "저장 중…" : "저장"}
+        </button>
+      </div>
+    </SheetFrame>
+  );
+}
+
+const DAY = 86400000;
+const periodDays: Record<Period, number | null> = {
+  "3m": 91,
+  "6m": 183,
+  all: null,
+};
+// pregnancy.css의 --pg-body·--pg-visit와 같은 값. 캔버스는 CSS 변수를 읽지 못한다.
+const metricColor = { body: "#2f7d6d", checkup: "#3d6f8e" } as const;
+const CHART_INK = "#7d8577";
+const CHART_GRID = "#eef0ea";
+const metricValue = (m: TrendMetric, v: number) =>
+  `${Number(v.toFixed(m.digits))}${m.unit}`;
+const metricChange = (m: TrendMetric, d: number) =>
+  `${d > 0 ? "+" : d < 0 ? "−" : "±"}${Number(Math.abs(d).toFixed(m.digits))}${m.unit}`;
+type TrendPoint = { t: number; v: number; day: string };
+type AxisTick = { value: number; label: string | string[] };
+
+// 가로축 눈금. 출산예정일이 있으면 임신 주 시작일에 맞춰 "24주"와 날짜를 함께 쓴다.
+function axisTicks(xMin: number, xMax: number, due: string | null) {
+  const span = (xMax - xMin) / DAY;
+  const step = (span <= 50 ? 7 : span <= 120 ? 14 : span <= 250 ? 28 : 56) * DAY;
+  // 예정일이 없으면 월요일(2024-01-01)에 맞춘다.
+  const anchor = due ? dayStart(due) - 280 * DAY : dayStart("2024-01-01");
+  const ticks: AxisTick[] = [];
+  for (
+    let t = anchor + Math.ceil((xMin - anchor) / step) * step;
+    t <= xMax;
+    t += step
+  ) {
+    const d = new Date(t);
+    const date = `${d.getMonth() + 1}/${d.getDate()}`;
+    const w = Math.round((t - anchor) / DAY / 7);
+    ticks.push({
+      value: t,
+      label: due && w >= 0 && w <= 44 ? [`${w}주`, date] : date,
+    });
+  }
+  return ticks;
+}
+
+// 몸무게·배둘레·자궁경부길이·아기 심박수를 항목마다 하나의 그래프로 본다.
+// 네 그래프는 같은 가로축 범위를 써서 위아래로 날짜가 맞는다.
+function TrendView({
+  events,
+  settings,
+  now,
+  period,
+  onPeriod,
+  onDay,
+  onBody,
+  onCheckup,
+}: {
+  events: PregnancyEvent[];
+  settings: PregnancySettings;
+  now: number;
+  period: Period;
+  onPeriod: (p: Period) => void;
+  onDay: (day: string) => void;
+  onBody: () => void;
+  onCheckup: () => void;
+}) {
+  // 하루 안에서는 축이 바뀌지 않게 오늘 0시를 기준으로 잡는다.
+  const today = dayStart(localDay(now));
+  const days = periodDays[period];
+  const from = days === null ? 0 : today - days * DAY;
+  const measures = events.filter(
+    (e) => isMeasure(e.kind) && new Date(e.started_at).getTime() >= from,
+  );
+  const series = trendMetrics.map((metric) => ({
+    metric,
+    points: measures
+      .filter((e) => e.kind === metric.kind && e[metric.key] !== null)
+      .map((e) => ({
+        t: new Date(e.started_at).getTime(),
+        v: e[metric.key] as number,
+        day: localDay(e.started_at),
+      }))
+      .sort((a, b) => a.t - b.t),
+  }));
+  const times = series.flatMap((s) => s.points.map((p) => p.t));
+  const xMax = today + 2 * DAY;
+  const xMin = Math.min(
+    times.length ? dayStart(localDay(Math.min(...times))) - 2 * DAY : from,
+    today - 14 * DAY,
+  );
+  const ticks = axisTicks(xMin, xMax, settings.due_date);
+  const byDay = new Map<string, PregnancyEvent[]>();
+  for (const e of measures) {
+    const d = localDay(e.started_at);
+    byDay.set(d, [...(byDay.get(d) ?? []), e]);
+  }
+  const dayList = [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  return (
+    <div className="pg-trend">
+      <div className="pg-trend-bar">
+        <div className="pg-range" role="group" aria-label="기간">
+          {(
+            [
+              ["3m", "3개월"],
+              ["6m", "6개월"],
+              ["all", "전체"],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={period === value}
+              onClick={() => onPeriod(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <button type="button" className="pg-add body" onClick={onBody}>
+          <Plus size={15} />
+          {kindLabel.body} 기록
+        </button>
+      </div>
+      <div className="pg-trend-grid">
+        {series.map(({ metric, points }) => (
+          <TrendCard
+            key={metric.key}
+            metric={metric}
+            points={points}
+            base={metric.key === "weight_kg" ? settings.pre_weight_kg : null}
+            xMin={xMin}
+            xMax={xMax}
+            ticks={ticks}
+            onDay={onDay}
+            onAdd={metric.kind === "body" ? onBody : onCheckup}
+          />
+        ))}
+      </div>
+      <section className="pg-card">
+        <div className="pg-sec-title">
+          날짜별 기록<small>누르면 메모·사진까지 보기</small>
+        </div>
+        {dayList.length ? (
+          <div className="pg-rows">
+            {dayList.map(([day, list]) => {
+              const facts = list.flatMap((e) =>
+                e.kind === "body" ? bodyFacts(e) : checkupFacts(e),
+              );
+              const memos = list.filter((e) => e.memo).length;
+              const photos = list.reduce((n, e) => n + e.photo_ids.length, 0);
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  className="pg-dl"
+                  onClick={() => onDay(day)}
+                >
+                  <span className="pg-dl-date">
+                    <b>{dayLabel(`${day}T00:00:00`)}</b>
+                    <small>
+                      {[
+                        weekText(settings.due_date, dayStart(day)),
+                        ...new Set(list.map((e) => kindLabel[e.kind])),
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </small>
+                  </span>
+                  <span className="pg-chips">
+                    {facts.length ? (
+                      facts.map((f, i) => (
+                        <span className="pg-chip" key={`${f.label}-${i}`}>
+                          {f.label} {f.value}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="pg-chip">메모만</span>
+                    )}
+                  </span>
+                  <span className="pg-dl-meta">
+                    {memos > 0 && (
+                      <StickyNote size={14} aria-label={`메모 ${memos}건`} />
+                    )}
+                    {photos > 0 && <span>사진 {photos}</span>}
+                    <ChevronRight size={16} />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="pg-empty">
+            이 기간에 {kindLabel.checkup}·{kindLabel.body} 기록이 없습니다.
+          </p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function TrendCard({
+  metric,
+  points,
+  base,
+  xMin,
+  xMax,
+  ticks,
+  onDay,
+  onAdd,
+}: {
+  metric: TrendMetric;
+  points: TrendPoint[];
+  base: number | null;
+  xMin: number;
+  xMax: number;
+  ticks: AxisTick[];
+  onDay: (day: string) => void;
+  onAdd: () => void;
+}) {
+  const first = points[0],
+    last = points[points.length - 1];
+  const sub = last
+    ? [
+        base !== null ? `임신 전보다 ${metricChange(metric, last.v - base)}` : "",
+        points.length > 1
+          ? `기간 첫 기록보다 ${metricChange(metric, last.v - first.v)}`
+          : "",
+        `${points.length}회`,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+  return (
+    <section className="pg-card pg-trend-card">
+      <div className="pg-trend-head">
+        <span>
+          <i className={`pg-dot ${metric.kind}`} />
+          {metric.label}
+        </span>
+        {last && (
+          <button
+            type="button"
+            className="pg-trend-last"
+            onClick={() => onDay(last.day)}
+          >
+            {metricValue(metric, last.v)}
+            <small>{last.day.slice(5).replace("-", "/")}</small>
+          </button>
+        )}
+      </div>
+      {sub && <p className="pg-trend-sub">{sub}</p>}
+      {points.length ? (
+        <TrendChart
+          metric={metric}
+          points={points}
+          base={base}
+          xMin={xMin}
+          xMax={xMax}
+          ticks={ticks}
+          onDay={onDay}
+        />
+      ) : (
+        <div className="pg-trend-empty">
+          <span>이 기간에 기록이 없습니다.</span>
+          <button type="button" onClick={onAdd}>
+            {metric.kind === "body"
+              ? `${kindLabel.body} 기록 추가`
+              : `${kindLabel.checkup}에서 입력`}
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function TrendChart({
+  metric,
+  points,
+  base,
+  xMin,
+  xMax,
+  ticks,
+  onDay,
+}: {
+  metric: TrendMetric;
+  points: TrendPoint[];
+  base: number | null;
+  xMin: number;
+  xMax: number;
+  ticks: AxisTick[];
+  onDay: (day: string) => void;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const onDayRef = useRef(onDay);
+  useEffect(() => {
+    onDayRef.current = onDay;
+  });
+  // 부모가 다시 그려질 때마다 배열이 새로 만들어지므로 내용이 바뀔 때만 차트를 다시 만든다.
+  const input = JSON.stringify({ points, base, xMin, xMax, ticks });
+  useEffect(() => {
+    if (!ref.current) return;
+    const v = JSON.parse(input) as {
+      points: TrendPoint[];
+      base: number | null;
+      xMin: number;
+      xMax: number;
+      ticks: AxisTick[];
+    };
+    const color = metricColor[metric.kind];
+    const labels = new Map(v.ticks.map((t) => [t.value, t.label]));
+    const lines = [
+      ...(metric.line ? [metric.line] : []),
+      ...(v.base !== null
+        ? [{ value: v.base, label: `임신 전 ${v.base}kg` }]
+        : []),
+    ];
+    const refValues = [
+      ...lines.map((l) => l.value),
+      ...(metric.band ? [metric.band.from, metric.band.to] : []),
+    ];
+    // 참고 범위(띠)와 기준선(점선). 진단 기준이 아니라 비교용이다.
+    const references = {
+      id: "pgReferences",
+      beforeDatasetsDraw(chart: Chart) {
+        const { ctx, chartArea: a } = chart;
+        const y = chart.scales.y;
+        ctx.save();
+        ctx.font = "10px system-ui, sans-serif";
+        // 이름표는 오른쪽 끝에 둔다. 왼쪽은 첫 기록 점과 겹치기 쉽다.
+        ctx.textAlign = "right";
+        if (metric.band) {
+          const top = Math.max(a.top, y.getPixelForValue(metric.band.to));
+          const bottom = Math.min(
+            a.bottom,
+            y.getPixelForValue(metric.band.from),
+          );
+          if (bottom > top) {
+            ctx.fillStyle = color + "14";
+            ctx.fillRect(a.left, top, a.right - a.left, bottom - top);
+            ctx.fillStyle = CHART_INK;
+            ctx.fillText(metric.band.label, a.right - 4, top + 11);
+          }
+        }
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = "#b5bbae";
+        for (const l of lines) {
+          const py = y.getPixelForValue(l.value);
+          if (py < a.top || py > a.bottom) continue;
+          ctx.beginPath();
+          ctx.moveTo(a.left, py);
+          ctx.lineTo(a.right, py);
+          ctx.stroke();
+          ctx.fillStyle = CHART_INK;
+          ctx.fillText(l.label, a.right - 4, py - 4);
+        }
+        ctx.restore();
+      },
+    };
+    const many = v.points.length > 40;
+    const chart = new Chart(ref.current, {
+      type: "line",
+      data: {
+        datasets: [
+          {
+            data: v.points.map((p) => ({ x: p.t, y: p.v })),
+            borderColor: color,
+            backgroundColor: color,
+            borderWidth: 2,
+            pointRadius: many ? 2 : 3.5,
+            pointHoverRadius: 6,
+            pointHitRadius: 12,
+            tension: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        // 점을 정확히 누르지 않아도 가장 가까운 날짜를 고른다.
+        interaction: { mode: "nearest", axis: "x", intersect: false },
+        onClick: (_, hits) => {
+          const hit = hits[0];
+          if (hit) onDayRef.current(v.points[hit.index].day);
+        },
+        onHover: (event, hits) => {
+          const target = event.native?.target as HTMLElement | undefined;
+          if (target) target.style.cursor = hits.length ? "pointer" : "";
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            displayColors: false,
+            callbacks: {
+              title: (items) => {
+                const d = new Date(v.points[items[0].dataIndex].t);
+                return `${d.getMonth() + 1}월 ${d.getDate()}일 ${hm(d.getTime())}`;
+              },
+              label: (ctx) => metricValue(metric, ctx.parsed.y ?? 0),
+            },
+          },
+        },
+        scales: {
+          x: {
+            type: "linear",
+            min: v.xMin,
+            max: v.xMax,
+            grid: { color: CHART_GRID },
+            border: { display: false },
+            afterBuildTicks: (axis) => {
+              axis.ticks = v.ticks.map((t) => ({ value: t.value }));
+            },
+            ticks: {
+              maxRotation: 0,
+              autoSkipPadding: 10,
+              color: CHART_INK,
+              font: { size: 10 },
+              callback: (value) => labels.get(Number(value)) ?? "",
+            },
+          },
+          y: {
+            grace: "12%",
+            suggestedMin: refValues.length ? Math.min(...refValues) : undefined,
+            suggestedMax: refValues.length ? Math.max(...refValues) : undefined,
+            grid: { color: CHART_GRID },
+            border: { display: false },
+            ticks: { maxTicksLimit: 5, color: CHART_INK, font: { size: 10 } },
+          },
+        },
+      },
+      plugins: [references],
+    });
+    return () => chart.destroy();
+  }, [input, metric]);
+  return (
+    <div className="pg-trend-chart">
+      <canvas
+        ref={ref}
+        role="img"
+        aria-label={`${metric.label} 추이 그래프. 누르면 그날 기록 상세`}
+      />
+    </div>
+  );
+}
+
+// 추이에서 고른 날짜의 진료·검사와 산모 기록. 값·메모·사진을 한 번에 본다.
+function DayDetail({
+  day,
+  events,
+  dueDate,
+  demo,
+  onCheckup,
+  onEditBody,
+  onPhoto,
+  onClose,
+}: {
+  day: string;
+  events: PregnancyEvent[];
+  dueDate: string | null;
+  demo: boolean;
+  onCheckup: (e: PregnancyEvent) => void;
+  onEditBody: (e: PregnancyEvent) => void;
+  onPhoto: (ids: string[], index: number) => void;
+  onClose: () => void;
+}) {
+  const list = events
+    .filter((e) => isMeasure(e.kind) && localDay(e.started_at) === day)
+    .sort((a, b) => a.started_at.localeCompare(b.started_at));
+  return (
+    <SheetFrame
+      title={dayLabel(`${day}T00:00:00`)}
+      sub={[weekText(dueDate, dayStart(day)), `기록 ${list.length}건`]
+        .filter(Boolean)
+        .join(" · ")}
+    >
+      {list.length ? (
+        list.map((e) => {
+          const facts = e.kind === "body" ? bodyFacts(e) : checkupFacts(e);
+          return (
+            <section className="pg-dd" key={e.id}>
+              <div className="pg-dd-head">
+                <span>
+                  <i className={`pg-dot ${e.kind}`} />
+                  {kindLabel[e.kind]} · {hm(e.started_at)}
+                </span>
+                <small>{e.created_by_name}</small>
+              </div>
+              {facts.length > 0 && (
+                <dl className={`pg-facts ${e.kind}`}>
+                  {facts.map((f) => (
+                    <div key={f.label}>
+                      <dt>{f.label}</dt>
+                      <dd>{f.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              {e.memo ? (
+                <p className="pg-visit-memo">{e.memo}</p>
+              ) : (
+                <p className="pg-dd-none">메모 없음</p>
+              )}
+              {e.photo_ids.length > 0 && (
+                <div className="pg-photos">
+                  {e.photo_ids.map((id, i) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className="pg-photo view"
+                      aria-label={`사진 ${i + 1} 크게 보기`}
+                      onClick={() => onPhoto(e.photo_ids, i)}
+                    >
+                      {!demo && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={photoSrc(id, demo)} alt="" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {e.kind === "checkup" ? (
+                <button
+                  type="button"
+                  className="pg-dd-link"
+                  onClick={() => onCheckup(e)}
+                >
+                  {kindLabel.checkup} 상세 · 복사
+                  <ChevronRight size={15} />
+                </button>
+              ) : (
+                e.can_edit && (
+                  <button
+                    type="button"
+                    className="pg-dd-link"
+                    onClick={() => onEditBody(e)}
+                  >
+                    수정
+                    <ChevronRight size={15} />
+                  </button>
+                )
+              )}
+            </section>
+          );
+        })
+      ) : (
+        <p className="pg-empty">이 날의 기록이 없습니다.</p>
+      )}
+      <div className="pg-actions single">
+        <button type="button" className="pg-btn ghost muted" onClick={onClose}>
+          닫기
+        </button>
+      </div>
+    </SheetFrame>
   );
 }

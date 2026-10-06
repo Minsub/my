@@ -46,9 +46,9 @@ export function WorkspaceHome({
       path: "/baby",
       label: "꼬미",
       eyebrow: "KKOMI",
-      description: "배뭉침·통증의 주기와 출혈을 기록합니다.",
+      description: "배뭉침·통증 주기, 출혈, 진료·검사를 기록합니다.",
       icon: Baby,
-      value: "임신 중 통증 기록",
+      value: "임신 기록",
     },
   ];
   return (

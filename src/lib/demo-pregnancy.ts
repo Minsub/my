@@ -14,7 +14,7 @@ export function demoPregnancy(now: number): PregnancyData {
       kind,
       started_at: new Date(start).toISOString(),
       ended_at:
-        kind === "bleeding" || kind === "checkup"
+        kind === "bleeding" || kind === "checkup" || kind === "body"
           ? null
           : new Date(start + seconds * 1000).toISOString(),
       intensity: null,
@@ -23,6 +23,8 @@ export function demoPregnancy(now: number): PregnancyData {
       cervix_length_cm: null,
       amniotic_fluid: null,
       fetal_heart_rate: null,
+      weight_kg: null,
+      belly_cm: null,
       memo: "",
       version: 1,
       created_by: "demo",
@@ -33,12 +35,41 @@ export function demoPregnancy(now: number): PregnancyData {
     };
   };
   const due = new Date(now + 56 * 86400000);
+  const DAY_MIN = 24 * 60;
+  // 추이 그래프용. 약 5개월 동안 주 1회 산모 기록, 3~4주마다 진료 기록.
+  const body = Array.from({ length: 22 }, (_, i) => {
+    const weeksAgo = 22 - i;
+    return ev("body", weeksAgo * 7 * DAY_MIN + 8 * 60, 0, {
+      weight_kg: Math.round((56.8 + i * 0.38 + (i % 3 === 1 ? 0.3 : 0)) * 10) / 10,
+      belly_cm: i % 2 ? null : Math.round((79 + i * 0.9) * 10) / 10,
+      memo: i === 9 ? "명절 지나고 잼" : i === 16 ? "병원 체중계" : "",
+    });
+  });
+  const visits = [
+    [140, 4.1, 158, "1차 정밀 초음파"],
+    [112, 3.9, 152, ""],
+    [84, 3.6, 150, "2차 정밀 초음파. 아기 크기 주수에 맞음"],
+    [56, 3.4, 148, "임신성 당뇨 검사"],
+    [28, 3.3, 144, ""],
+    [14, 3.0, 149, "경부길이 조금 줄어서 무리하지 말라고 함"],
+  ] as const;
+  const checkups = visits.map(([daysAgo, cervix, hr, memo]) =>
+    ev("checkup", daysAgo * DAY_MIN + 10 * 60, 0, {
+      cervix_length_cm: cervix,
+      amniotic_fluid: "enough",
+      fetal_heart_rate: hr,
+      memo,
+    }),
+  );
   return {
     settings: {
       due_date: `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`,
+      pre_weight_kg: 55.2,
       version: 1,
     },
     events: [
+      ...body,
+      ...checkups,
       ev("checkup", 28 * 60, 0, {
         cervix_length_cm: 3.1,
         amniotic_fluid: "enough",

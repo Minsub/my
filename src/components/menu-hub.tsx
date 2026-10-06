@@ -77,8 +77,8 @@ export const hobbyMenus: HubItem[] = [
 export const kkomiMenus: HubItem[] = [
   {
     path: "/baby/pregnancy",
-    title: "임신 중 통증 기록",
-    description: "배뭉침·통증의 시작과 종료, 출혈을 기록하고 주기를 봅니다.",
+    title: "임신 기록",
+    description: "배뭉침·통증 주기, 출혈, 진료·검사 기록을 한곳에서 봅니다.",
     icon: Timer,
   },
 ];
