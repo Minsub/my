@@ -243,3 +243,43 @@ export type WineShareSummary = {
     updated_at: string;
   }[];
 };
+// 공유 페이지의 외부 정보 링크. 이름의 괄호 설명과 연도를 빼야 검색이 맞는다
+// (예: "뵈브 클리코 브뤼 (옐로우 라벨) 샴페인" → "뵈브 클리코 브뤼 샴페인").
+export const wineSearchName = (name: string) =>
+  name
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\b(19|20)\d{2}\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+// 네이버 지식백과는 한글·영어 이름 모두 찾고 와인21·1001 와인 항목으로 이어진다.
+// Vivino는 한글 이름으로는 찾지 못하므로 영어 이름이 있을 때만 만든다. 영어 이름에 생산자가
+// 빠져 있으면("Gran Reserva 904") 다른 생산자의 같은 이름이 먼저 나오므로 생산자를 앞에 붙인다.
+export function wineInfoLinks(w: {
+  name: string;
+  english_name: string;
+  producer: string;
+}) {
+  const ko = wineSearchName(w.name),
+    producer = w.producer.trim();
+  let en = wineSearchName(w.english_name);
+  // 생산자 이름의 단어(4글자 이상) 하나라도 이미 있으면 붙이지 않는다("Catena Zapata" + "Catena Malbec").
+  const lower = en.toLowerCase();
+  if (
+    en &&
+    producer &&
+    !producer
+      .toLowerCase()
+      .split(/\s+/)
+      .some((word) => word.length >= 4 && lower.includes(word))
+  )
+    en = `${producer} ${en}`;
+  const q = ko || en;
+  return {
+    naver: q
+      ? `https://terms.naver.com/search.naver?query=${encodeURIComponent(q)}`
+      : null,
+    vivino: en
+      ? `https://www.vivino.com/search/wines?q=${encodeURIComponent(en)}`
+      : null,
+  };
+}

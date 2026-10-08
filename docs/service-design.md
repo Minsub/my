@@ -19,7 +19,7 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | `/wine/{uuid}` | 왼쪽 세로 사진(PC 고정)과 정보·입고·소비·취소·시음·사진 | app-shell.tsx, wine-cellar.tsx WineDetailPhoto, wine-photo-upload.tsx |
 | `/wine/glasses` | 와인잔 등록·수정 | app-shell.tsx |
 | `/wine/shares` | 공유한 와인 목록: 상태(D-n·끝남·꺼짐)·링크 복사·끄기, 와인별 득표 순위와 받은 이름·선택·한마디 | wine-share.tsx WineShares |
-| `/share/wine/{token}` | **로그인 없이** 여는 공유 목록. 번호 붙은 세로 사진 카드, 고르기(최대 N개)·이름·한마디 보내기, 설정에 따라 가격대/정확한 가격/숨김, 결과 공개 시 와인별 선택 수 | share/wine/[token]/page.tsx, wine-share-view.tsx |
+| `/share/wine/{token}` | **로그인 없이** 여는 공유 목록. 번호 붙은 세로 사진 카드, 고르기(최대 N개)·이름·한마디 보내기, 설정에 따라 가격대/정확한 가격/숨김, 결과 공개 시 와인별 선택 수, 와인별 네이버 지식백과·Vivino 검색 링크 | share/wine/[token]/page.tsx, wine-share-view.tsx |
 | `/assets` | 자산관리 하위 화면 목록. 항목은 lib/assets.ts의 assetSubMenus에서 관리 | asset-hub.tsx |
 | `/assets/status` | 구성원·기간 범위 필터, 총자산(추이 선·구성원별 내역 포함, 왼쪽 큰 카드)·CAGR·통화비율, 자산 추이(누적 막대·기간별 합계 표시)와 구성(도넛·가운데 총자산), 위험·안전 구성, 주식/해외 주식 TOP 5(전체 종목·비중 팝업), 기간별 금액·증감 표, CSV 업로드, 묶음 클릭 시 오른쪽 상세, 금액 가리기, 현재 자산 글 복사 | asset-status.tsx, asset-chart.tsx, asset-detail.tsx |
 | `/assets/records` | 등록 이력, 원본 항목 목록, 항목 한 줄의 자산그룹·금액 수정, 전체 CSV 내보내기 | asset-records.tsx |

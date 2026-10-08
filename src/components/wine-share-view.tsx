@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Check, Heart, Maximize2, X } from "lucide-react";
+import { Check, ExternalLink, Heart, Maximize2, X } from "lucide-react";
 import { ProductArt } from "./product-art";
 import {
+  wineInfoLinks,
   wineTypeColor,
   type PublicShare,
   type PublicShareWine,
@@ -74,6 +75,35 @@ function PhotoViewer({
       {/* eslint-disable-next-line @next/next/no-img-element -- 공유 토큰으로 검사하는 사진 라우트를 그대로 표시한다. */}
       <img src={wine.photo!} alt={`${wine.name} 사진`} />
     </dialog>
+  );
+}
+// 와인을 잘 모르는 사람이 설명을 읽으러 가는 링크. 새 탭으로 열고 공유 주소(토큰)는 넘기지 않는다.
+function WineLinks({ wine }: { wine: PublicShareWine }) {
+  const links = wineInfoLinks(wine);
+  if (!links.naver && !links.vivino) return null;
+  return (
+    <div className="share-links">
+      {links.naver && (
+        <a
+          href={links.naver}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`${wine.name} 네이버 지식백과에서 보기`}
+        >
+          지식백과 <ExternalLink size={11} aria-hidden />
+        </a>
+      )}
+      {links.vivino && (
+        <a
+          href={links.vivino}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`${wine.name} Vivino에서 보기`}
+        >
+          Vivino <ExternalLink size={11} aria-hidden />
+        </a>
+      )}
+    </div>
   );
 }
 function SendSheet({
@@ -383,6 +413,7 @@ export function WineShareView({
                     </div>
                   )}
                 </dl>
+                <WineLinks wine={w} />
               </div>
               <button
                 type="button"
