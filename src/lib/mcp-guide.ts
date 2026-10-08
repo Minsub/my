@@ -153,7 +153,7 @@ export const commandGuide = {
     result: "삭제 여부와 대상 날짜.",
     example: "어제 잘못 등록한 자산 기록을 지워줘.",
   },
-  // asset_save_owner·asset_save_buy_plan은 웹 전용이라 MCP 도구 목록에 없다(contracts.ts의 webOnlyCommands).
+  // asset_save_owner·asset_save_buy_plan·wine_share_*는 웹 전용이라 MCP 도구 목록에 없다(contracts.ts의 webOnlyCommands).
 } satisfies Record<
   Exclude<
     Operation,
@@ -161,6 +161,8 @@ export const commandGuide = {
     | "archive_item"
     | "asset_save_owner"
     | "asset_save_buy_plan"
+    | "wine_share_create"
+    | "wine_share_revoke"
   >,
   Entry
 >;

@@ -14,6 +14,9 @@ const config: NextConfig = {
     ],
   },
   serverExternalPackages: ["pg"],
+  // 링크 미리보기 봇은 <head>의 og 태그만 읽는다. 공유 페이지 메타데이터를 스트리밍하지 않도록 카카오톡 스크래퍼를 더한다.
+  htmlLimitedBots:
+    /kakaotalk-scrap|facebookexternalhit|Twitterbot|Slackbot|Discordbot|WhatsApp|TelegramBot|LinkedInBot|Yeti|[\w-]+-Google|Google-[\w-]+|Bingbot/i,
   async headers() {
     return [
       {
@@ -30,6 +33,21 @@ const config: NextConfig = {
             key: "Content-Security-Policy",
             value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'",
           },
+        ],
+      },
+      // 로그인 없이 여는 공유 페이지. 링크(토큰)가 다른 사이트로 새거나 검색에 걸리지 않게 한다.
+      {
+        source: "/share/:path*",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+        ],
+      },
+      {
+        source: "/api/share/:path*",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
         ],
       },
     ];

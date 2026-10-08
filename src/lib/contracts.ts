@@ -7,6 +7,7 @@ import {
   weightsComplete,
 } from "./asset-plans";
 import type { Scope } from "./types";
+import { WINE_SHARE_MAX_WINES } from "./wine-cellar";
 const id = z.uuid();
 const text = z.string().trim().max(5000);
 const name = z.string().trim().min(1).max(200);
@@ -283,6 +284,32 @@ export const commandSchemas = {
       (d) => !d.items.length || weightsComplete(d.items),
       "종목 비중의 합계가 100%여야 합니다.",
     ),
+  // 셀러에서 추린 와인 목록을 로그인 없이 볼 수 있는 링크로 공유한다. 유효기간은 14일 고정이다.
+  // wine_ids는 화면에 보이던 순서 그대로 보내며 같은 공간의 와인이어야 한다.
+  wine_share_create: z
+    .object({
+      ...key,
+      title: z.string().trim().min(1).max(80),
+      note: z.string().trim().max(500).default(""),
+      wine_ids: z
+        .array(id)
+        .min(1)
+        .max(WINE_SHARE_MAX_WINES)
+        .refine(
+          (ids) => new Set(ids).size === ids.length,
+          "같은 와인이 두 번 들어 있습니다.",
+        ),
+      // none: 가격 숨김, band: 가격대(3–5만), exact: 병당 최근 구입가
+      price_display: z.enum(["none", "band", "exact"]).default("band"),
+      max_picks: z.number().int().min(1).max(10).default(3),
+      show_results: z.boolean().default(false),
+    })
+    .strict()
+    .refine(
+      (d) => d.max_picks <= d.wine_ids.length,
+      "고를 수 있는 개수가 와인 수보다 많습니다.",
+    ),
+  wine_share_revoke: z.object({ ...key, id }).strict(),
   family_invite: z
     .object({
       ...key,
@@ -314,6 +341,8 @@ export const commandScopes: Record<Operation, Scope | null> = {
   wine_log_tasting: "wine:write",
   wine_reverse_event: "wine:write",
   wine_save_glass: "wine:write",
+  wine_share_create: "wine:write",
+  wine_share_revoke: "wine:write",
   asset_save_owner: "asset:write",
   asset_record_snapshot: "asset:write",
   asset_update_item: "asset:write",
@@ -328,9 +357,12 @@ export const commandScopes: Record<Operation, Scope | null> = {
 // 자산 소유자는 공간 안의 라벨이라 AI가 임의로 만들면 같은 사람이 두 이름으로 갈린다.
 // 웹의 "소유자 추가"에서만 만들고, MCP는 없는 이름을 만나면 그 화면을 안내한다.
 // 분할매수 전략은 사람이 화면에서 비중을 맞춰 정하는 값이라 AI 도구로 열지 않는다.
+// 와인 목록 공유는 공개 링크를 만드는 일이라 사람이 화면에서 목록을 보고 정한다.
 export const webOnlyCommands = new Set<Operation>([
   "asset_save_owner",
   "asset_save_buy_plan",
+  "wine_share_create",
+  "wine_share_revoke",
 ]);
 export type Command = {
   [K in Operation]: {

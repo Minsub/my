@@ -1,39 +1,34 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, LayoutGrid, List, Maximize2, X } from "lucide-react";
+import {
+  ChevronDown,
+  LayoutGrid,
+  List,
+  Maximize2,
+  Share2,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { ProductArt } from "./product-art";
+import { WineShareCreate } from "./wine-share";
 import {
   wineFacts,
   filterWines,
   champagne,
   grapeList,
+  priceBands,
+  wineTypeColor as typeColor,
   type WineFilters,
 } from "@/lib/wine-cellar";
 import { wineTypes, type Snapshot, type Wine } from "@/lib/types";
 import { money, vintageLabel, today } from "@/lib/format";
 // 목록 썸네일과 같은 주소라 이미 받은 사진은 브라우저 캐시에서 연다.
 const photoUrl = (w: Wine) => `/api/wine/${w.id}/photo?v=${w.version}`;
-const typeColor: Record<string, string> = {
-  레드: "#8c2f45",
-  화이트: "#d6b85a",
-  로제: "#e597a4",
-  스파클링: "#a9b86b",
-  디저트: "#c98a3c",
-  주정강화: "#6b3a2a",
-};
 // 결과 줄 합계는 정확한 원 단위, 모바일 대시보드 요약 한 줄은 만원 단위로 줄인다.
 const manwon = (n: number) =>
   n >= 10000
     ? `${(n / 10000).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}만원`
     : money(n);
-// 가격 구간 칩. 필터의 최소·최대가 모두 포함(이상·이하)이라 경계 값이 두 칸에 겹치지 않게 1원 아래로 끊는다.
-const priceBands = [
-  { label: "3만 미만", min: "", max: "29999" },
-  { label: "3–5만", min: "30000", max: "49999" },
-  { label: "5–10만", min: "50000", max: "99999" },
-  { label: "10만 이상", min: "100000", max: "" },
-];
 const shiftMonths = (date: string, n: number) => {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCMonth(d.getUTCMonth() + n);
@@ -127,12 +122,15 @@ export function WineCellar({
   data,
   initialQuery,
   href,
+  demo = false,
 }: {
   data: Snapshot;
   initialQuery: WineFilters;
   href: (url: string) => string;
+  demo?: boolean;
 }) {
   const [filters, setFilters] = useState<WineFilters>(initialQuery);
+  const [sharing, setSharing] = useState(false);
   const [photo, setPhoto] = useState<Wine | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const view = filters.view === "list" ? "list" : "grid";
@@ -616,6 +614,14 @@ export function WineCellar({
           >
             필터 초기화
           </button>
+          <button
+            type="button"
+            className="button secondary small-button cellar-share"
+            disabled={!rows.length}
+            onClick={() => setSharing(true)}
+          >
+            <Share2 size={14} /> 공유
+          </button>
           <div className="cellar-view" role="group" aria-label="보기 방식">
             <button
               type="button"
@@ -723,6 +729,14 @@ export function WineCellar({
         </div>
       )}
       {photo && <WinePhotoViewer wine={photo} onClose={() => setPhoto(null)} />}
+      {sharing && (
+        <WineShareCreate
+          wines={rows}
+          demo={demo}
+          href={href}
+          onClose={() => setSharing(false)}
+        />
+      )}
       {!rows.length && (
         <div className="panel empty-state">
           <h2>조건에 맞는 와인이 없어요</h2>

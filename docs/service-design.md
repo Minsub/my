@@ -15,9 +15,11 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | `/coffee` | 정보형 원두 목록, 가격 정렬·브랜드·상태·추천(사용자 기준/누군가 추천)·사용자·검색·보관함, 행마다 추천 인원 집계 | app-shell.tsx renderCoffee |
 | `/coffee/brands` | 브랜드 목록·등록·수정·브랜드별 원두 바로가기 | app-shell.tsx |
 | `/coffee/beans/{uuid}` | 상품·kg 환산 가격·사용자별 평가·추출 설정 | app-shell.tsx |
-| `/wine` | 보유량 대시보드(모바일은 한 줄 요약), 종류·국가·가격 구간 칩과 상세 필터·정렬, 결과 합계·평균, 세로 사진 카드(기본)/촘촘한 목록 전환(`view=list`). 입고·소비는 상세에서 | wine-cellar.tsx |
+| `/wine` | 보유량 대시보드(모바일은 한 줄 요약), 종류·국가·가격 구간 칩과 상세 필터·정렬, 결과 합계·평균, 세로 사진 카드(기본)/촘촘한 목록 전환(`view=list`), 결과 줄의 "공유"로 지금 목록의 공개 링크 만들기. 입고·소비는 상세에서 | wine-cellar.tsx, wine-share.tsx WineShareCreate |
 | `/wine/{uuid}` | 왼쪽 세로 사진(PC 고정)과 정보·입고·소비·취소·시음·사진 | app-shell.tsx, wine-cellar.tsx WineDetailPhoto, wine-photo-upload.tsx |
 | `/wine/glasses` | 와인잔 등록·수정 | app-shell.tsx |
+| `/wine/shares` | 공유한 와인 목록: 상태(D-n·끝남·꺼짐)·링크 복사·끄기, 와인별 득표 순위와 받은 이름·선택·한마디 | wine-share.tsx WineShares |
+| `/share/wine/{token}` | **로그인 없이** 여는 공유 목록. 번호 붙은 세로 사진 카드, 고르기(최대 N개)·이름·한마디 보내기, 설정에 따라 가격대/정확한 가격/숨김, 결과 공개 시 와인별 선택 수 | share/wine/[token]/page.tsx, wine-share-view.tsx |
 | `/assets` | 자산관리 하위 화면 목록. 항목은 lib/assets.ts의 assetSubMenus에서 관리 | asset-hub.tsx |
 | `/assets/status` | 구성원·기간 범위 필터, 총자산(추이 선·구성원별 내역 포함, 왼쪽 큰 카드)·CAGR·통화비율, 자산 추이(누적 막대·기간별 합계 표시)와 구성(도넛·가운데 총자산), 위험·안전 구성, 주식/해외 주식 TOP 5(전체 종목·비중 팝업), 기간별 금액·증감 표, CSV 업로드, 묶음 클릭 시 오른쪽 상세, 금액 가리기, 현재 자산 글 복사 | asset-status.tsx, asset-chart.tsx, asset-detail.tsx |
 | `/assets/records` | 등록 이력, 원본 항목 목록, 항목 한 줄의 자산그룹·금액 수정, 전체 CSV 내보내기 | asset-records.tsx |
@@ -55,6 +57,8 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 `wines`, `wine_purchases`, `wine_stock_events`, `wine_tastings`, `wine_glasses`, `wine_photos`를 사용한다. 제품 등록과 입고는 별개다. UUID로 작업하며 display_id는 표시 전용이다. `vintage_kind`의 year/non_vintage/unknown을 구분한다.
 
 재고는 이벤트 합계이며 취소 이력을 보존한다. 최신 유효 구매(구입일, 같은 날은 생성시각) 또는 더 최근인 이관 참조일의 가격을 사용한다. 최신 구매가 공란이면 과거 가격으로 덮지 않는다. 현재 재고×최근 구입가는 추정 가치이고 실제 구매 로트 원가가 아니다. 가족 구성원별 시음이 있지만 UI에서는 사용자 평점으로 표시한다. 평점은 0~100이며 Vivino 평점이 아니다.
+
+와인 목록 공유는 `wine_shares`(고정한 와인 id 목록·가격 표시·고를 수·결과 공개·14일 만료·끄기)와 `wine_share_votes`(받은 사람의 이름·선택·한마디, 브라우저별 voter_key로 덮어씀)를 쓴다. 공개 페이지에는 사진·이름·영어 이름·생산자·종류·빈티지·용량·산지·품종과 고른 방식의 가격만 내보내고 재고·구입일·평점·메모·작성자·관리 번호는 내보내지 않는다.
 
 [상세 기능](wine-celler/cellar-features.md), [현재 AI 작업 지침](wine-celler/skill.md), [이관 보고서](wine-celler/migration-report.md)를 함께 읽는다. 이관 시 64종·62병·잔 5종이었으며 이후 작업으로 수량은 달라질 수 있다. Airtable은 현재 실시간 DB가 아니다.
 

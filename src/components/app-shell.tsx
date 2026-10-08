@@ -10,6 +10,7 @@ import { AssetPlans } from "./asset-plans";
 import { HtmlPageList, HtmlPageView } from "./html-pages";
 import { WorkspaceHome } from "./workspace-home";
 import { WineCellar, WineDetailPhoto } from "./wine-cellar";
+import { WineShares } from "./wine-share";
 import { WinePhotoUpload } from "./wine-photo-upload";
 import { wineFacts } from "@/lib/wine-cellar";
 /* eslint-disable @next/next/no-location-assign-relative-destination -- Full navigation deliberately clears all cached family data when a session ends. */
@@ -706,6 +707,14 @@ export function AppShell({
         >
           {domain === "coffee" ? "브랜드 스토어" : "와인잔"}
         </Link>
+        {domain === "wine" && (
+          <Link
+            className={path === "/wine/shares" ? "selected" : ""}
+            href={href("/wine/shares")}
+          >
+            공유한 목록
+          </Link>
+        )}
       </div>
     );
   }
@@ -1108,7 +1117,21 @@ export function AppShell({
           data={data}
           initialQuery={{ ...initialQuery, stock: stockOnly ? "" : "all" }}
           href={href}
+          demo={demo}
         />
+      </>
+    );
+  }
+  function renderWineShares() {
+    return (
+      <>
+        {pageHeading(
+          "WINE CELLAR",
+          "공유한 목록",
+          "로그인 없이 볼 수 있게 공유한 와인 목록과 받은 선택입니다.",
+        )}
+        {tabs("wine")}
+        <WineShares data={data} demo={demo} href={href} />
       </>
     );
   }
@@ -1557,7 +1580,9 @@ export function AppShell({
     ? data.beans.find((b) => b.id === path.split("/")[3])
     : undefined;
   const selectedWine =
-    path.startsWith("/wine/") && !path.endsWith("glasses")
+    path.startsWith("/wine/") &&
+    !path.endsWith("glasses") &&
+    path !== "/wine/shares"
       ? data.wines.find((w) => w.id === path.split("/")[2])
       : undefined;
   let content: React.ReactNode;
@@ -1567,6 +1592,7 @@ export function AppShell({
   else if (selectedBean) content = renderBean(selectedBean);
   else if (path === "/wine") content = renderWine();
   else if (path === "/wine/glasses") content = renderGlasses();
+  else if (path === "/wine/shares") content = renderWineShares();
   else if (selectedWine) content = renderWineDetail(selectedWine);
   else if (path === "/hobby")
     content = (

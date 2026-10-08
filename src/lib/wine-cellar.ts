@@ -146,3 +146,82 @@ export function filterWines(rows: CellarWine[], f: WineFilters) {
     return (direction === "asc" ? cmp : -cmp) || a.id.localeCompare(b.id);
   });
 }
+// 가격 구간. 필터의 최소·최대가 모두 포함(이상·이하)이라 경계 값이 두 칸에 겹치지 않게 1원 아래로 끊는다.
+// 셀러의 가격 칩과 공유 페이지의 가격대 표시가 같은 구간을 쓴다.
+export const priceBands = [
+  { label: "3만 미만", min: "", max: "29999" },
+  { label: "3–5만", min: "30000", max: "49999" },
+  { label: "5–10만", min: "50000", max: "99999" },
+  { label: "10만 이상", min: "100000", max: "" },
+];
+export const priceBandLabel = (price: number) =>
+  priceBands.find(
+    (b) =>
+      (!b.min || price >= Number(b.min)) && (!b.max || price <= Number(b.max)),
+  )!.label;
+export const wineTypeColor: Record<string, string> = {
+  레드: "#8c2f45",
+  화이트: "#d6b85a",
+  로제: "#e597a4",
+  스파클링: "#a9b86b",
+  디저트: "#c98a3c",
+  주정강화: "#6b3a2a",
+};
+// 공유 링크 하나에 담는 와인 수 상한. 공개 페이지가 한 번에 그리는 사진 수이기도 하다.
+export const WINE_SHARE_MAX_WINES = 60;
+export const WINE_SHARE_DAYS = 14;
+export type WineSharePriceDisplay = "none" | "band" | "exact";
+// 공개 페이지에 내보내는 와인 정보. 재고·구입일·작성자·평점·관리 번호는 넣지 않는다.
+export type PublicShareWine = {
+  id: string;
+  no: number;
+  name: string;
+  english_name: string;
+  producer: string;
+  type: string;
+  country: string;
+  region: string;
+  grapes: string;
+  vintage_kind: string;
+  vintage: number | null;
+  volume_ml: number | null;
+  photo: string | null;
+  price: string | null;
+};
+export type PublicShare = {
+  title: string;
+  note: string;
+  created_at: string;
+  expires_at: string;
+  max_picks: number;
+  show_results: boolean;
+  price_display: WineSharePriceDisplay;
+  wines: PublicShareWine[];
+  voters: number;
+  // show_results일 때만 채운다. 와인 id별 선택 수.
+  tally: Record<string, number> | null;
+};
+// 셀러의 "공유한 목록" 화면 한 줄. 받은 선택을 함께 담는다.
+export type WineShareSummary = {
+  id: string;
+  token: string;
+  title: string;
+  note: string;
+  wine_ids: string[];
+  price_display: WineSharePriceDisplay;
+  max_picks: number;
+  show_results: boolean;
+  created_by: string;
+  created_by_name: string | null;
+  created_at: string;
+  expires_at: string;
+  revoked_at: string | null;
+  active: boolean;
+  votes: {
+    share_id: string;
+    name: string;
+    picks: string[];
+    comment: string;
+    updated_at: string;
+  }[];
+};

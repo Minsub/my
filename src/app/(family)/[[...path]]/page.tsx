@@ -25,6 +25,7 @@ export default async function Page({
       "/coffee/brands",
       "/wine",
       "/wine/glasses",
+      "/wine/shares",
       "/settings",
       "/cash",
       "/cash/old",

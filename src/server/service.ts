@@ -15,6 +15,7 @@ import {
   updateAssetSnapshotItem,
 } from "./assets";
 import { saveAssetBuyPlan } from "./asset-plans";
+import { createWineShare, revokeWineShare } from "./wine-shares";
 import type { Actor, Snapshot } from "@/lib/types";
 const tables = {
   brand: "coffee_brands",
@@ -563,6 +564,17 @@ export async function execute(
           client,
         );
         label = row.name;
+        break;
+      }
+      case "wine_share_create": {
+        result = await createWineShare(client, actor, command.input);
+        label = `와인 목록 공유 ${command.input.title}`;
+        break;
+      }
+      case "wine_share_revoke": {
+        const share = await revokeWineShare(client, actor, command.input.id);
+        result = share;
+        label = `와인 목록 공유 끄기 ${share.title}`;
         break;
       }
       case "asset_save_owner": {

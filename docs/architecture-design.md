@@ -48,7 +48,8 @@ flowchart LR
 | `src/server/mcp.ts` | 35개 도구 등록, scope별 노출, 서비스 호출, 결과·오류 변환 |
 | `src/lib/mcp-guide.ts`, `src/components/mcp-guide.tsx` | 설정에서 보여주는 도구 목록과 사용 안내 |
 | `src/server/wine-photos.ts` | 사진 검증·압축·권한·버전·중복 방지·저장 |
-| `src/lib/wine-cellar.ts` | 웹·MCP가 공유하는 최근 구입가/평점 계산, 필터·정렬 |
+| `src/lib/wine-cellar.ts` | 웹·MCP가 공유하는 최근 구입가/평점 계산, 필터·정렬, 가격 구간, 공유 페이지 타입 |
+| `src/server/wine-shares.ts`, `src/app/share/wine/[token]`, `/api/share/wine/*`, `/api/wine/shares` | 와인 목록 공유. 로그인 없는 공개 페이지·사진·투표와 셀러의 공유 목록 |
 | `src/server/cash.ts`, `cash-parser.ts`, `src/lib/cash.ts` | 웹 전용 XLSX 원본 저장·검증·집계. 공통 snapshot과 분리 |
 | `src/lib/pregnancy.ts`, `src/server/pregnancy.ts`, `/api/baby/pregnancy` | 꼬미 임신 기록. 웹 전용, 공통 snapshot·MCP와 분리. 계산 규칙은 lib가 단일 기준 |
 | `src/lib/assets.ts` | 자산 그룹 카탈로그·분류 룰·집계 순수 함수. 웹·서버·MCP가 공유하는 단일 기준 |
@@ -66,6 +67,8 @@ Actor는 `{userId, householdId, role, scopes, channel, clientId?}`다. 입력에
 
 scope는 `coffee:read/write`, `wine:read/write`, `asset:read/write`. 명령별 scope는 `src/lib/contracts.ts`의 `commandScopes`가 단일 기준이며 `Record<Operation, Scope | null>`이라 새 명령을 넣지 않으면 타입 검사가 실패한다. 접두사 추론을 쓰면 새 도메인이 `wine:write`로 공개된다. discovery와 401 challenge는 `allScopes`에서 파생한다. 다만 발급되는 access token의 scope는 `oauthResource` 행의 `allowedScopes`와 교집합으로 좁혀지고, 이 행은 `auth.ts`의 `resources` 설정에서 시드된다. 기본 시드 모드가 `insertOnly`라 한번 만들어진 행은 갱신되지 않으므로 `resourceSeedMode: "merge"`를 유지해야 `allScopes`에 추가한 scope가 실제 토큰까지 전달된다. 교집합이 비지 않으면 조용히 깎이므로 오류가 나지 않는다. scope만으로 소유권을 대체하지 않는다. 관리자는 공용 항목을 수정할 수 있고 구성원은 본인이 만든 항목을 수정한다. 평가·세팅은 본인 기록이다. 본인 AI 연결을 해제하면 저장된 동의와 토큰 및 JWT 발급시각 차단으로 기존 토큰이 무효화된다. 매 요청 활성 멤버십을 확인한다.
 
+**로그인 없이 열리는 예외는 와인 목록 공유뿐이다.** `/share/wine/{token}`과 `/api/share/wine/{token}/*`는 Actor 없이 토큰으로 찾은 `wine_shares` 행의 `household_id`·`wine_ids`·만료·끄기 조건만으로 읽고, 투표 쓰기는 sameOrigin·IP 빈도·크기·공유당 인원 상한을 적용한다. 공유 만들기·끄기와 결과 조회는 일반 인증 경계(웹 전용 명령, `/api/wine/shares`) 안에 있다.
+
 UI 숨김은 보안 검사가 아니다. 쿠키 기반 변경은 sameOrigin, 모든 서버 입구는 인증과 권한 검사를 유지한다. RLS를 쓰고 있다고 가정하지 않는다. 현재는 애플리케이션에서 공간 조건과 관계 검사를 적용하며 일부 관계는 복합 FK가 보강한다. 운영 DB 역할은 현재 owner 역할이므로 최소권한 전용 역할은 후속 운영 개선이다.
 
 ## 변경과 조회
@@ -78,7 +81,7 @@ UI 숨김은 보안 검사가 아니다. 쿠키 기반 변경은 sameOrigin, 모
 
 ## 사진과 영속성
 
-와인 사진은 `wine_photos.content`의 bytea다. 원본 최대 약 2MB를 검증하고 최대 1,000px/300KB WebP로 축소, EXIF/위치정보를 제거한다. 원본은 보관하지 않는다. `wine_photo_requests`로 멱등성을 처리한다. `/api/wine/{id}/photo`는 세션 또는 wine:read 토큰을 검사한다. `?v=version` 요청은 `private, max-age=31536000, immutable`, 그 외는 private/no-store로 반환한다. 목록에는 has_photo만 넣는다.
+와인 사진은 `wine_photos.content`의 bytea다. 원본 최대 약 2MB를 검증하고 최대 1,000px/300KB WebP로 축소, EXIF/위치정보를 제거한다. 원본은 보관하지 않는다. `wine_photo_requests`로 멱등성을 처리한다. `/api/wine/{id}/photo`는 세션 또는 wine:read 토큰을 검사한다. `?v=version` 요청은 `private, max-age=31536000, immutable`, 그 외는 private/no-store로 반환한다. 공유 링크의 사진은 별도 `/api/share/wine/{token}/photo/{id}`가 공유에 든 와인만 private 1시간 캐시로 반환한다. 목록에는 has_photo만 넣는다.
 
 원두 image_url은 외부 HTTPS 주소다. 와인 사진과 혼동하지 않는다. Vercel Blob/S3는 현재 필요 없으며 서버리스 파일시스템에는 영구 데이터를 저장하지 않는다. 사진 저장 방식을 바꿀 기준과 절차는 [사진 저장 방식](image-storage.md)에 있다. `db:export`는 사진 base64도 포함하지만 인증·이관 원본까지 복원하는 도구는 아니다.
 

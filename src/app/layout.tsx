@@ -3,6 +3,7 @@ import "./globals.css";
 import "./cash.css";
 import "./assets.css";
 import "./pregnancy.css";
+import "./share.css";
 export const metadata: Metadata = {
   title: "MONO — Personal Workspace",
   description: "데이터, 도구, AI를 하나로 연결하는 개인 워크스페이스.",
