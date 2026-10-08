@@ -16,7 +16,10 @@ import {
   filterWines,
   champagne,
   grapeList,
+  filterValues,
   priceBands,
+  vintageValue,
+  type MultiFilterKey,
   wineTypeColor as typeColor,
   type WineFilters,
 } from "@/lib/wine-cellar";
@@ -118,6 +121,16 @@ export function WineDetailPhoto({ wine }: { wine: Wine }) {
     </div>
   );
 }
+// 예전 주소는 가격 구간을 최소·최대 구입가로 담았다. 구간과 정확히 같으면 band로 옮긴다.
+function legacyBand(q: WineFilters): WineFilters {
+  if (q.band) return q;
+  const b = priceBands.find(
+    (x) => x.min === (q.min_price || "") && x.max === (q.max_price || ""),
+  );
+  return b && (q.min_price || q.max_price)
+    ? { ...q, band: b.key, min_price: "", max_price: "" }
+    : q;
+}
 export function WineCellar({
   data,
   initialQuery,
@@ -129,29 +142,55 @@ export function WineCellar({
   href: (url: string) => string;
   demo?: boolean;
 }) {
-  const [filters, setFilters] = useState<WineFilters>(initialQuery);
+  const [filters, setFilters] = useState<WineFilters>(() =>
+    legacyBand(initialQuery),
+  );
   const [sharing, setSharing] = useState(false);
   const [photo, setPhoto] = useState<Wine | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const view = filters.view === "list" ? "list" : "grid";
+  const all = data.wines.map((w) => wineFacts(w, data));
   function update(patch: WineFilters) {
-    const next = {
-      ...filters,
-      ...patch,
-      ...("country" in patch ? { region: "" } : {}),
-    };
+    const next = { ...filters, ...patch };
+    // 국가를 바꾸면 남은 국가에 없는 지역 선택은 버린다.
+    if ("country" in patch) {
+      const countries = filterValues(next.country);
+      next.region = filterValues(next.region)
+        .filter((r) =>
+          all.some(
+            (w) =>
+              w.region === r &&
+              (!countries.length || countries.includes(w.country)),
+          ),
+        )
+        .join(",");
+    }
     setFilters(next);
     const url = new URL(location.href);
     Object.entries(next).forEach(([k, v]) =>
       v ? url.searchParams.set(k, v) : url.searchParams.delete(k),
     );
+    // 예전 주소의 가격 구간(최소·최대가)을 band로 옮겼으면 주소에서도 지운다.
+    if (!next.min_price) url.searchParams.delete("min_price");
+    if (!next.max_price) url.searchParams.delete("max_price");
     history.replaceState(null, "", url);
   }
   const change = (key: keyof WineFilters, value: string) =>
     update({ [key]: value });
-  const all = data.wines.map((w) => wineFacts(w, data));
+  const selected = (key: MultiFilterKey) => filterValues(filters[key]);
+  // 같은 항목 안에서 값을 더하거나 뺀다. 같은 칩을 다시 누르면 해제된다.
+  const toggle = (key: MultiFilterKey, value: string) => {
+    const current = selected(key);
+    change(
+      key,
+      (current.includes(value)
+        ? current.filter((v) => v !== value)
+        : [...current, value]
+      ).join(","),
+    );
+  };
   const rows = filterWines(all, filters);
-  // 칩 옆 숫자: 다른 조건은 그대로 두고 그 칩만 바꿨을 때 남는 와인 종 수.
+  // 칩 옆 숫자: 다른 항목은 그대로 두고 이 항목에서 그 값만 골랐을 때 남는 와인 종 수.
   const facet = (patch: WineFilters) =>
     filterWines(all, { ...filters, ...patch }).length;
   const resultBottles = rows.reduce((s, w) => s + w.stock, 0);
@@ -159,11 +198,6 @@ export function WineCellar({
     resultPricedBottles = resultPriced.reduce((s, w) => s + w.stock, 0),
     resultValue = resultPriced.reduce((s, w) => s + w.price! * w.stock, 0);
   const presets = datePresets();
-  const priceBand = priceBands.find(
-    (b) =>
-      b.min === (filters.min_price || "") &&
-      b.max === (filters.max_price || ""),
-  );
   const datePreset = presets.find(
     (p) => p.from === (filters.from || "") && p.to === (filters.to || ""),
   );
@@ -179,24 +213,21 @@ export function WineCellar({
     }, {}),
   ).sort((a, b) => b[1] - a[1]);
   type OptionKey = "country" | "region" | "vintage" | "grape";
-  const options = (key: OptionKey) =>
-    Array.from(
+  const options = (key: OptionKey) => {
+    const countries = selected("country");
+    const list = Array.from(
       new Set(
         all
           .filter(
             (w) =>
               !w.archived &&
               (key !== "region" ||
-                !filters.country ||
-                w.country === filters.country),
+                !countries.length ||
+                countries.includes(w.country)),
           )
           .flatMap((w) =>
             key === "vintage"
-              ? w.vintage_kind === "non_vintage"
-                ? "NV"
-                : w.vintage
-                  ? String(w.vintage)
-                  : ""
+              ? vintageValue(w)
               : key === "grape"
                 ? grapeList(w.grapes)
                 : w[key],
@@ -204,25 +235,47 @@ export function WineCellar({
           .filter(Boolean),
       ),
     ).sort();
-  const select = (key: OptionKey, label: string) => {
-    const current = filters[key] || "",
-      list = options(key);
+    // URL에 목록 밖의 값이 있으면 그 값도 칩으로 보여 해제할 수 있게 한다.
+    return [...selected(key).filter((v) => !list.includes(v)), ...list];
+  };
+  // 상세 필터의 지역·빈티지·품종. 고른 값이 앞에 오고 개수가 0인 칩은 숨긴다.
+  const chipGroup = (key: OptionKey, label: string) => {
+    const current = selected(key);
+    const list = options(key)
+      .map((v) => [v, facet({ [key]: v })] as const)
+      .filter(([v, n]) => n || current.includes(v))
+      .sort(
+        (a, b) =>
+          Number(current.includes(b[0])) - Number(current.includes(a[0])),
+      );
+    if (!list.length) return null;
     return (
-      <label>
-        {label}
-        <select
-          aria-label={label}
-          value={current}
-          onChange={(e) => change(key, e.target.value)}
-        >
-          <option value="">전체</option>
-          {(current && !list.includes(current) ? [current, ...list] : list).map(
-            (v) => (
-              <option key={v}>{v}</option>
-            ),
+      <div role="group" aria-label={label} className="cellar-filter-chips">
+        <span>
+          {label}
+          {current.length > 0 && (
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => change(key, "")}
+            >
+              해제
+            </button>
           )}
-        </select>
-      </label>
+        </span>
+        <div>
+          {list.map(([v, n]) => (
+            <button
+              type="button"
+              key={v}
+              aria-pressed={current.includes(v)}
+              onClick={() => toggle(key, v)}
+            >
+              {v} <small>{n}</small>
+            </button>
+          ))}
+        </div>
+      </div>
     );
   };
   const reversed = new Set(data.events.map((e) => e.reverses_id));
@@ -308,15 +361,14 @@ export function WineCellar({
                     <button
                       key={type}
                       onClick={() =>
-                        change(
+                        toggle(
                           "type",
                           type === "스파클링" ? "기타 스파클링" : type,
                         )
                       }
-                      aria-pressed={
-                        filters.type ===
-                        (type === "스파클링" ? "기타 스파클링" : type)
-                      }
+                      aria-pressed={selected("type").includes(
+                        type === "스파클링" ? "기타 스파클링" : type,
+                      )}
                     >
                       <span>
                         {type === "스파클링" ? "기타 스파클링" : type}
@@ -340,15 +392,9 @@ export function WineCellar({
                   countries.map(([country, n]) => (
                     <button
                       key={country}
-                      aria-pressed={
-                        !!filters.country && filters.country === country
-                      }
-                      onClick={() =>
-                        change(
-                          "country",
-                          country === "나라 미입력" ? "" : country,
-                        )
-                      }
+                      aria-pressed={selected("country").includes(country)}
+                      disabled={country === "나라 미입력"}
+                      onClick={() => toggle("country", country)}
                     >
                       <span>{country}</span>
                       <i style={{ width: `${(n / bottles) * 100}%` }} />
@@ -412,13 +458,13 @@ export function WineCellar({
                   t === "스파클링" ? ["샴페인", "기타 스파클링"] : t,
                 )
                 .map((t) => [t, facet({ type: t })] as const)
-                .filter(([t, n]) => n || filters.type === t)
+                .filter(([t, n]) => n || selected("type").includes(t))
                 .map(([t, n]) => (
                   <button
                     type="button"
                     key={t}
-                    aria-pressed={filters.type === t}
-                    onClick={() => change("type", filters.type === t ? "" : t)}
+                    aria-pressed={selected("type").includes(t)}
+                    onClick={() => toggle("type", t)}
                   >
                     {t} <small>{n}</small>
                   </button>
@@ -437,16 +483,19 @@ export function WineCellar({
               </button>
               {options("country")
                 .map((c) => [c, facet({ country: c, region: "" })] as const)
-                .filter(([c, n]) => n || filters.country === c)
-                .sort((a, b) => b[1] - a[1])
+                .filter(([c, n]) => n || selected("country").includes(c))
+                // 고른 국가를 앞에 둔다. 모바일은 가로 스크롤이라 뒤로 밀리면 보이지 않는다.
+                .sort(
+                  (a, b) =>
+                    Number(selected("country").includes(b[0])) -
+                      Number(selected("country").includes(a[0])) || b[1] - a[1],
+                )
                 .map(([c, n]) => (
                   <button
                     type="button"
                     key={c}
-                    aria-pressed={filters.country === c}
-                    onClick={() =>
-                      change("country", filters.country === c ? "" : c)
-                    }
+                    aria-pressed={selected("country").includes(c)}
+                    onClick={() => toggle("country", c)}
                   >
                     {c} <small>{n}</small>
                   </button>
@@ -458,24 +507,19 @@ export function WineCellar({
             <div>
               <button
                 type="button"
-                aria-pressed={!filters.min_price && !filters.max_price}
-                onClick={() => update({ min_price: "", max_price: "" })}
+                aria-pressed={!filters.band}
+                onClick={() => change("band", "")}
               >
                 전체
               </button>
               {priceBands.map((b) => (
                 <button
                   type="button"
-                  key={b.label}
-                  aria-pressed={priceBand === b}
-                  onClick={() =>
-                    priceBand === b
-                      ? update({ min_price: "", max_price: "" })
-                      : update({ min_price: b.min, max_price: b.max })
-                  }
+                  key={b.key}
+                  aria-pressed={selected("band").includes(b.key)}
+                  onClick={() => toggle("band", b.key)}
                 >
-                  {b.label}{" "}
-                  <small>{facet({ min_price: b.min, max_price: b.max })}</small>
+                  {b.label} <small>{facet({ band: b.key })}</small>
                 </button>
               ))}
             </div>
@@ -500,10 +544,10 @@ export function WineCellar({
               </button>
             ))}
           </div>
+          {chipGroup("region", "지역")}
+          {chipGroup("vintage", "빈티지")}
+          {chipGroup("grape", "품종")}
           <div className="cellar-filter-grid">
-            {select("region", "지역")}
-            {select("vintage", "빈티지")}
-            {select("grape", "품종")}
             {(
               [
                 ["min_price", "최소 구입가", "number"],
@@ -527,22 +571,44 @@ export function WineCellar({
           </div>
         </details>
         <div className="cellar-active-filters" aria-label="적용된 필터">
-          {priceBand && (
-            <button onClick={() => update({ min_price: "", max_price: "" })}>
-              가격: {priceBand.label} ×
-            </button>
-          )}
           {datePreset && (
             <button onClick={() => update({ from: "", to: "" })}>
               구입: {datePreset.label} ×
             </button>
           )}
+          {/* 여러 값을 고른 항목은 값마다 칩 하나. 누르면 그 값만 뺀다. */}
+          {(
+            [
+              ["type", "종류"],
+              ["country", "국가"],
+              ["region", "지역"],
+              ["vintage", "빈티지"],
+              ["grape", "품종"],
+              ["band", "가격"],
+            ] as const
+          ).flatMap(([k, label]) =>
+            selected(k).map((v) => (
+              <button key={k + v} onClick={() => toggle(k, v)}>
+                {label}:{" "}
+                {k === "band"
+                  ? (priceBands.find((b) => b.key === v)?.label ?? v)
+                  : v}{" "}
+                ×
+              </button>
+            )),
+          )}
           {Object.entries(filters)
             .filter(
               ([k, v]) =>
                 v &&
-                !["sort", "stock", "archived", "view"].includes(k) &&
-                !(priceBand && ["min_price", "max_price"].includes(k)) &&
+                [
+                  "q",
+                  "min_price",
+                  "max_price",
+                  "from",
+                  "to",
+                  "min_score",
+                ].includes(k) &&
                 !(datePreset && ["from", "to"].includes(k)),
             )
             .map(([k, v]) => (
@@ -554,11 +620,6 @@ export function WineCellar({
                   (
                     {
                       q: "검색",
-                      type: "종류",
-                      country: "국가",
-                      region: "지역",
-                      grape: "품종",
-                      vintage: "빈티지",
                       min_price: "최소 가격",
                       max_price: "최대 가격",
                       from: "구입 시작",

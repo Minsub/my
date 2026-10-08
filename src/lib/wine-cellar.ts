@@ -76,6 +76,7 @@ export type WineFilters = Partial<
     | "region"
     | "grape"
     | "vintage"
+    | "band"
     | "min_price"
     | "max_price"
     | "from"
@@ -88,8 +89,32 @@ export type WineFilters = Partial<
     string
   >
 >;
+// 종류·국가·지역·품종·빈티지·가격 구간은 쉼표로 여러 값을 담는다. 같은 항목 안에서는 하나라도 맞으면 포함하고,
+// 항목끼리는 모두 맞아야 한다. 값 자체에는 쉼표가 들어가지 않는다(품종도 grapeList가 쉼표로 나눈 이름이다).
+export type MultiFilterKey =
+  "type" | "country" | "region" | "grape" | "vintage" | "band";
+export const filterValues = (value?: string) =>
+  (value ?? "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+const typeMatches = (w: Wine, type: string) =>
+  type === "샴페인"
+    ? champagne(w)
+    : type === "기타 스파클링"
+      ? w.type === "스파클링" && !champagne(w)
+      : w.type === type;
+export const vintageValue = (w: Wine) =>
+  w.vintage_kind === "non_vintage" ? "NV" : w.vintage ? String(w.vintage) : "";
+const inBand = (price: number, b: (typeof priceBands)[number]) =>
+  (!b.min || price >= Number(b.min)) && (!b.max || price <= Number(b.max));
 export function filterWines(rows: CellarWine[], f: WineFilters) {
-  const grape = f.grape?.trim().toLowerCase();
+  const types = filterValues(f.type),
+    countries = filterValues(f.country),
+    regions = filterValues(f.region),
+    grapes = filterValues(f.grape).map((g) => g.toLowerCase()),
+    vintages = filterValues(f.vintage),
+    bands = priceBands.filter((b) => filterValues(f.band).includes(b.key));
   const result = rows.filter(
     (w) =>
       w.archived === (f.archived === "true") &&
@@ -99,20 +124,16 @@ export function filterWines(rows: CellarWine[], f: WineFilters) {
           .join(" ")
           .toLowerCase()
           .includes(f.q.toLowerCase())) &&
-      (!f.type ||
-        (f.type === "샴페인"
-          ? champagne(w)
-          : f.type === "기타 스파클링"
-            ? w.type === "스파클링" && !champagne(w)
-            : w.type === f.type)) &&
-      (!f.country || w.country === f.country) &&
-      (!f.region || w.region === f.region) &&
-      (!grape ||
-        grapeList(w.grapes).some((g) => g.toLowerCase().includes(grape))) &&
-      (!f.vintage ||
-        (f.vintage === "NV"
-          ? w.vintage_kind === "non_vintage"
-          : String(w.vintage) === f.vintage)) &&
+      (!types.length || types.some((t) => typeMatches(w, t))) &&
+      (!countries.length || countries.includes(w.country)) &&
+      (!regions.length || regions.includes(w.region)) &&
+      (!grapes.length ||
+        grapeList(w.grapes).some((g) =>
+          grapes.some((x) => g.toLowerCase().includes(x)),
+        )) &&
+      (!vintages.length || vintages.includes(vintageValue(w))) &&
+      (!bands.length ||
+        (w.price !== null && bands.some((b) => inBand(w.price!, b)))) &&
       (!f.min_price || (w.price !== null && w.price >= Number(f.min_price))) &&
       (!f.max_price || (w.price !== null && w.price <= Number(f.max_price))) &&
       (!f.from || (w.purchased_on !== null && w.purchased_on >= f.from)) &&
@@ -149,16 +170,13 @@ export function filterWines(rows: CellarWine[], f: WineFilters) {
 // 가격 구간. 필터의 최소·최대가 모두 포함(이상·이하)이라 경계 값이 두 칸에 겹치지 않게 1원 아래로 끊는다.
 // 셀러의 가격 칩과 공유 페이지의 가격대 표시가 같은 구간을 쓴다.
 export const priceBands = [
-  { label: "3만 미만", min: "", max: "29999" },
-  { label: "3–5만", min: "30000", max: "49999" },
-  { label: "5–10만", min: "50000", max: "99999" },
-  { label: "10만 이상", min: "100000", max: "" },
+  { key: "u3", label: "3만 미만", min: "", max: "29999" },
+  { key: "3-5", label: "3–5만", min: "30000", max: "49999" },
+  { key: "5-10", label: "5–10만", min: "50000", max: "99999" },
+  { key: "10u", label: "10만 이상", min: "100000", max: "" },
 ];
 export const priceBandLabel = (price: number) =>
-  priceBands.find(
-    (b) =>
-      (!b.min || price >= Number(b.min)) && (!b.max || price <= Number(b.max)),
-  )!.label;
+  priceBands.find((b) => inBand(price, b))!.label;
 export const wineTypeColor: Record<string, string> = {
   레드: "#8c2f45",
   화이트: "#d6b85a",

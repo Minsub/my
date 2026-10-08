@@ -118,7 +118,9 @@ describe("wine cellar facts", () => {
     for (const grape of ["피노 누아", "샤르도네", "피노 뮤니에"])
       expect(filterWines([blend], { grape })).toHaveLength(1);
     expect(filterWines([blend], { grape: "메를로" })).toHaveLength(0);
-    expect(filterWines([blend], { grape: "누아, 샤르도네" })).toHaveLength(0);
+    // 쉼표는 여러 품종 중 하나라도 맞으면 포함한다.
+    expect(filterWines([blend], { grape: "메를로,샤르도네" })).toHaveLength(1);
+    expect(filterWines([blend], { grape: "메를로,말벡" })).toHaveLength(0);
   });
   it("distinguishes Champagne from other sparkling wine", () => {
     expect(champagne(w)).toBe(true);

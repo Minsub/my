@@ -166,6 +166,8 @@ export function mcpHandler(actor: Actor) {
         wine_list: "wines",
         wine_list_glasses: "glasses",
       } as const;
+      const multi =
+        "와인 목록 전용. 쉼표로 여러 값을 넣으면 하나라도 맞는 와인을 찾습니다. 예: 프랑스,이탈리아";
       for (const [name, collection] of Object.entries(collections)) {
         const scope: Scope = name.startsWith("coffee")
           ? "coffee:read"
@@ -177,10 +179,11 @@ export function mcpHandler(actor: Actor) {
             description:
               "가족 목록을 조회합니다. next_cursor가 있으면 다음 페이지를 조회하세요.",
             inputSchema: listSchema.extend({
-              country: z.string().max(100).optional(),
-              region: z.string().max(200).optional(),
-              grape: z.string().max(200).optional(),
-              vintage: z.string().max(10).optional(),
+              // 와인 목록은 type·country·region·grape·vintage에 쉼표로 여러 값을 받는다(하나라도 맞으면 포함).
+              country: z.string().max(200).optional().describe(multi),
+              region: z.string().max(400).optional().describe(multi),
+              grape: z.string().max(400).optional().describe(multi),
+              vintage: z.string().max(100).optional().describe(multi),
               min_price: z.number().nonnegative().optional(),
               max_price: z.number().nonnegative().optional(),
               from: z.iso.date().optional(),
