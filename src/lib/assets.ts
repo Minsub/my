@@ -704,6 +704,9 @@ export type AssetHolding = {
   detail: string;
   amount: number;
   quantity: number | null;
+  // 구성원·계좌를 합친 수익. 수익 정보가 한 줄도 없으면 null이다.
+  profit: number | null;
+  profit_rate: number | null;
 };
 // 수익은 알 수 있는 종목만 더한다. rate는 그 종목들의 매입 원금 대비 수익금이다.
 // 수익금·수익률이 모두 없는 종목은 원금을 모르므로 빼고 missing에 센다.
@@ -755,6 +758,9 @@ export function buildAssetStockBoards(
         owners: Set<string>;
         amount: number;
         quantity: number | null;
+        profit: number;
+        cost: number;
+        known: boolean;
         missing: boolean;
       }
     >();
@@ -769,6 +775,9 @@ export function buildAssetStockBoards(
         owners: new Set<string>(),
         amount: 0,
         quantity: null,
+        profit: 0,
+        cost: 0,
+        known: false,
         missing: false,
       };
       acc.amount += row.amount;
@@ -781,6 +790,9 @@ export function buildAssetStockBoards(
       const p = rowProfit(row);
       if (p === null) acc.missing = true;
       else {
+        acc.known = true;
+        acc.profit += p;
+        acc.cost += row.amount - p;
         profit += p;
         cost += row.amount - p;
       }
@@ -808,6 +820,8 @@ export function buildAssetStockBoards(
         detail: [...h.tags, ...h.brokers, ...h.owners].join(" · "),
         amount: h.amount,
         quantity: h.quantity,
+        profit: h.known ? h.profit : null,
+        profit_rate: h.known && h.cost > 0 ? h.profit / h.cost : null,
       })),
     };
   });

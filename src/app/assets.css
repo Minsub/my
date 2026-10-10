@@ -1307,6 +1307,12 @@
   display: block;
   font-size: 13.5px;
 }
+.asset-stock-figure em {
+  display: block;
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 600;
+}
 .asset-stock-list .asset-bar {
   grid-column: 2 / -1;
   height: 4px;

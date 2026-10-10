@@ -1173,16 +1173,22 @@ function StockProfitLine({
     </p>
   );
 }
+// 종목 수익률은 원본 항목 서랍과 같이 소수 둘째 자리까지 적는다.
+const holdingRate = (n: number | null) =>
+  n === null ? "—" : `${n >= 0 ? "+" : ""}${(n * 100).toFixed(2)}%`;
 // 카드와 팝업이 같은 줄 모양을 쓴다. 막대는 그 그룹의 1위 종목을 가득 찬 길이로 그린다.
 function AssetHoldingList({
   board,
   holdings,
   hide,
   stockHref,
+  profit = false,
 }: {
   board: AssetStockBoard;
   holdings: AssetStockBoard["holdings"];
   hide: boolean;
+  // 종목별 수익은 자리가 넉넉한 팝업에서만 적는다.
+  profit?: boolean;
   stockHref: (name: string) => string;
 }) {
   const max = board.holdings[0]?.amount ?? 0;
@@ -1224,6 +1230,13 @@ function AssetHoldingList({
                     ` · ${shares(holding.quantity)}`}
                 </small>
               </>
+            )}
+            {profit && holding.profit !== null && (
+              <em className={changeTone(holding.profit)}>
+                {hide
+                  ? holdingRate(holding.profit_rate)
+                  : `${assetSignedMoney(holding.profit)}${holding.profit_rate === null ? "" : ` (${holdingRate(holding.profit_rate)})`}`}
+              </em>
             )}
           </div>
           <i className="asset-bar">
@@ -1309,6 +1322,7 @@ function AssetStockDialog({
           holdings={board.holdings}
           hide={hide}
           stockHref={stockHref}
+          profit
         />
       </div>
     </dialog>
