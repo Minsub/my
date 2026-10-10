@@ -330,6 +330,8 @@ export function demoAssetOverview(params: URLSearchParams) {
         owner_name: snapshot!.owner,
         amount: i.amount,
         quantity: i.quantity,
+        profit: i.profit,
+        profit_rate: i.profit_rate,
       }));
     }),
   );

@@ -27,6 +27,8 @@ import {
   assetSignedPct,
   assetRanges,
   assetStatusText,
+  assetStockBoardDefs,
+  assetStockProfitTotal,
   assetTimelineSeries,
   findAssetGroup,
   naverStockSearchUrl,
@@ -36,6 +38,7 @@ import {
   type AssetRange,
   type AssetRisk,
   type AssetStockBoard,
+  type AssetStockProfit,
   type AssetSummary,
 } from "@/lib/assets";
 import type { AssetOverview } from "@/server/assets";
@@ -415,8 +418,13 @@ export function AssetStatus({
   const drillGroup = (bucket: string, label: string) =>
     groupSummary &&
     setDetail({ at: groupSummary.period, axis: "group", bucket, label });
-  const stockBoard = (key: string | null) =>
-    data.stocks.find((b) => b.key === key && b.count > 0);
+  // 카드 키와 카드에 담긴 자산그룹 키(도넛 조각) 어느 쪽으로도 카드를 찾는다.
+  const stockBoard = (key: string | null) => {
+    const def = assetStockBoardDefs.find(
+      (d) => d.key === key || d.groups.includes(key ?? ""),
+    );
+    return data.stocks.find((b) => b.key === def?.key && b.count > 0);
+  };
   const openStock = stockBoard(stockKey);
   // 종목 이름은 네이버 증권을 새 창으로 연다. 서버가 이름으로 종목 코드를 찾아 보낸다.
   // 둘러보기는 로그인이 없어 서버 조회를 거치지 않고 바로 "종목명 주가" 검색을 연다.
@@ -675,9 +683,10 @@ export function AssetStatus({
                     total={summary?.total ?? 0}
                     hide={hide}
                     onSlice={(key) => {
-                      // 주식 두 그룹은 카드의 전체 보기와 같은 종목 팝업을 연다. 원본 항목 서랍은
+                      // 주식 그룹은 카드의 전체 보기와 같은 종목 팝업을 연다. 원본 항목 서랍은
                       // 계좌·구성원별로 쪼개져 있어 종목 규모와 비중을 읽기 어렵다.
-                      if (axis === "group" && stockBoard(key)) setStockKey(key);
+                      const board = axis === "group" && stockBoard(key);
+                      if (board) setStockKey(board.key);
                       else if (summary) drill(summary.period, key);
                     }}
                   />
@@ -709,6 +718,12 @@ export function AssetStatus({
                     · 금액 상위 5종목
                   </span>
                 </div>
+                <StockProfitLine
+                  label="전체 수익"
+                  profit={assetStockProfitTotal(data.stocks)}
+                  hide={hide}
+                  className="asset-stock-total"
+                />
                 <div className="asset-stock-grid">
                   {data.stocks.map((board) => (
                     <AssetStockCard
@@ -1108,6 +1123,7 @@ function AssetStockCard({
           board.quantity !== null &&
           ` · 보유 ${shares(board.quantity)}`}
       </p>
+      <StockProfitLine label="수익" profit={board.profit} hide={hide} />
       {top.length ? (
         <>
           <AssetHoldingList
@@ -1124,6 +1140,37 @@ function AssetStockCard({
         <p className="muted small">기록된 종목이 없습니다.</p>
       )}
     </article>
+  );
+}
+// 매입 원금 대비 수익. 금액을 가리면 수익률만 적는다.
+// 수익금·수익률이 없는 종목은 원금을 몰라 빼므로 몇 종목을 뺐는지 함께 적는다.
+function StockProfitLine({
+  label,
+  profit,
+  hide,
+  className = "asset-stock-profit",
+}: {
+  label: string;
+  profit: AssetStockProfit;
+  hide: boolean;
+  className?: string;
+}) {
+  if (profit.rate === null) {
+    if (!profit.missing) return null;
+    return <p className={className}>{label} 정보 없음</p>;
+  }
+  return (
+    <p className={className}>
+      {label}{" "}
+      <b className={changeTone(profit.profit)}>
+        {hide
+          ? assetSignedPct(profit.rate)
+          : `${assetSignedMoney(profit.profit)} (${assetSignedPct(profit.rate)})`}
+      </b>
+      {profit.missing > 0 && (
+        <small> · 수익 정보 없는 {profit.missing}종목 제외</small>
+      )}
+    </p>
   );
 }
 // 카드와 팝업이 같은 줄 모양을 쓴다. 막대는 그 그룹의 1위 종목을 가득 찬 길이로 그린다.
@@ -1246,6 +1293,11 @@ function AssetStockDialog({
               ` · 보유 ${shares(board.quantity)}`}{" "}
             · 비중은 그룹 합계 대비
           </p>
+          <StockProfitLine
+            label="전체 수익"
+            profit={board.profit}
+            hide={hide}
+          />
         </div>
         <button className="icon-button" aria-label="닫기" onClick={onClose}>
           <X size={18} />

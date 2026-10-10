@@ -678,7 +678,17 @@ export function assetTimelineSeries(timeline: AssetTimelinePoint[]) {
 // 주식 요약 카드가 쓰는 집계. 최신 기간에 유효한 스냅샷의 원본 항목만 받는다.
 // 같은 종목을 여러 구성원이 들고 있으면 한 줄로 합친다. TOP 5는 사람별이 아니라 종목별 규모를 본다.
 // 카드는 앞 5줄만 그리고, 전체 보기 팝업이 같은 목록 전체를 쓴다.
-export const assetStockBoardGroups = ["kr_stock", "foreign_equity"] as const;
+// 국내상장 해외주식은 원화로 사지만 해외 지수를 따르므로 해외 주식 카드에 함께 담는다.
+export const assetStockBoardDefs: { key: string; groups: string[] }[] = [
+  { key: "kr_stock", groups: ["kr_stock"] },
+  {
+    key: "foreign_equity",
+    groups: ["foreign_equity", "kr_listed_foreign_equity"],
+  },
+];
+export const assetStockBoardGroups = assetStockBoardDefs.flatMap(
+  (b) => b.groups,
+);
 export type AssetHoldingRow = {
   group_key: string;
   name: string;
@@ -686,12 +696,22 @@ export type AssetHoldingRow = {
   owner_name: string;
   amount: number;
   quantity: number | null;
+  profit: number | null;
+  profit_rate: number | null;
 };
 export type AssetHolding = {
   name: string;
   detail: string;
   amount: number;
   quantity: number | null;
+};
+// 수익은 알 수 있는 종목만 더한다. rate는 그 종목들의 매입 원금 대비 수익금이다.
+// 수익금·수익률이 모두 없는 종목은 원금을 모르므로 빼고 missing에 센다.
+export type AssetStockProfit = {
+  profit: number;
+  cost: number;
+  rate: number | null;
+  missing: number;
 };
 export type AssetStockBoard = {
   key: string;
@@ -700,37 +720,70 @@ export type AssetStockBoard = {
   count: number;
   // 수량이 하나도 기록되지 않은 그룹은 0이 아니라 "모름"이므로 null로 둔다.
   quantity: number | null;
+  profit: AssetStockProfit;
   // 금액 내림차순 전체 종목.
   holdings: AssetHolding[];
 };
+// 원본의 수익금을 쓰고, 없으면 수익률로 되짚는다. 평가액 = 원금 × (1 + 수익률)이다.
+function rowProfit(row: AssetHoldingRow) {
+  if (row.profit !== null) return row.profit;
+  if (row.profit_rate !== null && row.profit_rate > -1)
+    return (row.amount * row.profit_rate) / (1 + row.profit_rate);
+  return null;
+}
+function stockProfit(profit: number, cost: number, missing: number) {
+  return { profit, cost, rate: cost > 0 ? profit / cost : null, missing };
+}
+// 카드 여러 장을 합친 주식 보유 현황 전체의 수익.
+export function assetStockProfitTotal(boards: AssetStockBoard[]) {
+  return stockProfit(
+    boards.reduce((n, b) => n + b.profit.profit, 0),
+    boards.reduce((n, b) => n + b.profit.cost, 0),
+    boards.reduce((n, b) => n + b.profit.missing, 0),
+  );
+}
 export function buildAssetStockBoards(
   rows: AssetHoldingRow[],
 ): AssetStockBoard[] {
-  return assetStockBoardGroups.map((key) => {
+  return assetStockBoardDefs.map(({ key, groups }) => {
     const merged = new Map<
       string,
       {
         name: string;
+        tags: Set<string>;
         brokers: Set<string>;
         owners: Set<string>;
         amount: number;
         quantity: number | null;
+        missing: boolean;
       }
     >();
+    let profit = 0;
+    let cost = 0;
     for (const row of rows) {
-      if (row.group_key !== key) continue;
+      if (!groups.includes(row.group_key)) continue;
       const acc = merged.get(row.name) ?? {
         name: row.name,
+        tags: new Set<string>(),
         brokers: new Set<string>(),
         owners: new Set<string>(),
         amount: 0,
         quantity: null,
+        missing: false,
       };
       acc.amount += row.amount;
       if (row.quantity !== null)
         acc.quantity = (acc.quantity ?? 0) + row.quantity;
+      // 한 카드에 그룹이 둘이면 대표 그룹이 아닌 쪽 종목에 그룹 이름을 붙여 구분한다.
+      if (row.group_key !== key) acc.tags.add(assetGroupName(row.group_key));
       if (row.broker) acc.brokers.add(row.broker);
       if (row.owner_name) acc.owners.add(row.owner_name);
+      const p = rowProfit(row);
+      if (p === null) acc.missing = true;
+      else {
+        profit += p;
+        cost += row.amount - p;
+      }
       merged.set(row.name, acc);
     }
     const holdings = [...merged.values()].sort((a, b) => b.amount - a.amount);
@@ -745,9 +798,14 @@ export function buildAssetStockBoards(
       quantity: quantities.length
         ? quantities.reduce((n, q) => n + q, 0)
         : null,
+      profit: stockProfit(
+        profit,
+        cost,
+        holdings.filter((h) => h.missing).length,
+      ),
       holdings: holdings.map((h) => ({
         name: h.name,
-        detail: [...h.brokers, ...h.owners].join(" · "),
+        detail: [...h.tags, ...h.brokers, ...h.owners].join(" · "),
         amount: h.amount,
         quantity: h.quantity,
       })),
@@ -805,12 +863,19 @@ export function assetStatusText({
     lines.push(
       `- ${row.name} ${share(row.amount, summary.total)}${money(row.amount)}`,
     );
+  // 수익금은 금액이므로 가린 화면에서는 수익률만 적는다.
+  const profit = (p: AssetStockProfit) =>
+    p.rate === null
+      ? ""
+      : ` · 수익 ${hide ? assetSignedPct(p.rate) : `${assetSignedMoney(p.profit)} (${assetSignedPct(p.rate)})`}`;
   const boards = stocks.filter((b) => b.count > 0);
   if (boards.length) {
     lines.push("", "■ 주식 보유 (비중은 그룹 합계 대비)");
+    const total = assetStockProfitTotal(boards);
+    if (total.rate !== null) lines.push(`전체${profit(total)}`);
     for (const board of boards) {
       lines.push(
-        `[${board.name}] 총자산의 ${share(board.total, summary.total)}${money(board.total)} · ${board.count}종목`,
+        `[${board.name}] 총자산의 ${share(board.total, summary.total)}${money(board.total)} · ${board.count}종목${profit(board.profit)}`,
       );
       board.holdings.forEach((h, i) =>
         lines.push(

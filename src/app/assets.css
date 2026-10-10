@@ -1166,6 +1166,27 @@
   font-size: 13px;
   color: var(--muted);
 }
+/* 매입 원금 대비 수익. 전체 줄은 카드 위, 그룹 줄은 카드·팝업 머리말 아래에 둔다. */
+.asset-stock-total,
+.asset-stock-profit {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.asset-stock-total {
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+.asset-stock-total b,
+.asset-stock-profit b {
+  font-variant-numeric: tabular-nums;
+}
+.asset-stock-card .asset-stock-meta {
+  margin-bottom: 2px;
+}
+.asset-stock-dialog .asset-stock-profit {
+  margin: 4px 0 0;
+}
 .asset-stock-more {
   display: flex;
   align-items: center;

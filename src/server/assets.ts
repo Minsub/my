@@ -455,14 +455,15 @@ async function readStockBoards(
   if (!effective.length) return buildAssetStockBoards([]);
   const rows = await query(
     `SELECT s.owner_id::text AS owner_id, i.group_key, i.name, i.broker,
-            i.amount::float8 AS amount, i.quantity::float8 AS quantity
+            i.amount::float8 AS amount, i.quantity::float8 AS quantity,
+            i.profit::float8 AS profit, i.profit_rate::float8 AS profit_rate
      FROM asset_snapshots s
      JOIN asset_snapshot_items i ON i.household_id=s.household_id AND i.snapshot_id=s.id
      WHERE s.household_id=$1 AND i.group_key = ANY($2::text[])
        AND (s.owner_id, s.as_of) IN (SELECT * FROM unnest($3::uuid[], $4::date[]))`,
     [
       actor.householdId,
-      [...assetStockBoardGroups],
+      assetStockBoardGroups,
       effective.map((e) => e.owner_id),
       effective.map((e) => e.as_of),
     ],
@@ -476,6 +477,8 @@ async function readStockBoards(
       owner_name: names.get(r.owner_id as string) ?? "",
       amount: r.amount as number,
       quantity: r.quantity as number | null,
+      profit: r.profit as number | null,
+      profit_rate: r.profit_rate as number | null,
     })),
   );
 }
