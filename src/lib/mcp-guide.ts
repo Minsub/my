@@ -100,6 +100,16 @@ export const commandGuide = {
     result: "소비 이벤트와 감소한 재고. 선택한 시음 기록.",
     example: "이 와인 한 병 마셨어. 91점이고 다시 사고 싶다고 기록해줘.",
   },
+  wine_adjust_stock: {
+    title: "와인 수량 수정",
+    description:
+      "실제 병 수와 기록이 다를 때 보유 수량을 맞춥니다. 차이만큼 조정 기록을 남기며 구매 내역·가격은 바꾸지 않습니다. 새로 산 병은 입고, 마신 병은 소비로 기록합니다.",
+    input:
+      "wine_id, expected_stock(wine_get의 현재 stock), quantity(맞출 병 수 0~1,000). 선택: occurred_on(기본 오늘), reason(사유 200자).",
+    result:
+      "조정 이벤트와 바뀐 재고. 그 사이 재고가 바뀌었거나 같은 수량이면 거부합니다. 보관한 와인은 보관 해제 후 수정합니다.",
+    example: "이 와인 실제로는 3병 있어. 수량을 3병으로 고쳐줘.",
+  },
   wine_log_tasting: {
     title: "와인 시음 기록",
     description:
@@ -110,7 +120,7 @@ export const commandGuide = {
     example: "재고 차감 없이 이 와인 시음 점수를 88점으로 남겨줘.",
   },
   wine_reverse_event: {
-    title: "입고·소비 취소",
+    title: "입고·소비·조정 취소",
     description:
       "잘못된 기록을 삭제하는 대신 반대 재고 기록을 남깁니다. 초기 이관 재고·이미 취소한 기록은 취소할 수 없습니다.",
     input: "event_id(취소할 이벤트 ID), reason(사유).",
@@ -163,6 +173,7 @@ export const commandGuide = {
     | "asset_save_buy_plan"
     | "wine_share_create"
     | "wine_share_revoke"
+    | "wine_delete"
   >,
   Entry
 >;

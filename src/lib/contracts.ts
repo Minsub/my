@@ -134,8 +134,22 @@ export const commandSchemas = {
       tasting: z.object(tasting).optional(),
     })
     .strict(),
+  // 실제 병 수와 기록이 다를 때 보유 수량을 quantity로 맞춘다. 차이만큼 adjust 이벤트를 남겨
+  // 이력과 취소가 유지된다. expected_stock은 화면에서 본 보유 수량이며, 그 사이 재고가 바뀌었으면 거부한다.
+  wine_adjust_stock: z
+    .object({
+      ...key,
+      wine_id: id,
+      expected_stock: z.number().int().min(0).max(100000),
+      quantity: z.number().int().min(0).max(1000),
+      occurred_on: date,
+      reason: text.max(200).default(""),
+    })
+    .strict(),
   wine_log_tasting: z.object({ ...key, wine_id: id, ...tasting }).strict(),
   wine_reverse_event: z.object({ ...key, event_id: id, reason: name }).strict(),
+  // 잘못 등록한 와인을 구매·재고·시음 기록·사진과 함께 지운다. 되돌릴 수 없다.
+  wine_delete: z.object({ ...key, id, expected_version: version }).strict(),
   wine_save_glass: z
     .object({
       ...key,
@@ -338,6 +352,8 @@ export const commandScopes: Record<Operation, Scope | null> = {
   wine_receive_stock: "wine:write",
   wine_update_price: "wine:write",
   wine_consume: "wine:write",
+  wine_adjust_stock: "wine:write",
+  wine_delete: "wine:write",
   wine_log_tasting: "wine:write",
   wine_reverse_event: "wine:write",
   wine_save_glass: "wine:write",
@@ -358,11 +374,13 @@ export const commandScopes: Record<Operation, Scope | null> = {
 // 웹의 "소유자 추가"에서만 만들고, MCP는 없는 이름을 만나면 그 화면을 안내한다.
 // 분할매수 전략은 사람이 화면에서 비중을 맞춰 정하는 값이라 AI 도구로 열지 않는다.
 // 와인 목록 공유는 공개 링크를 만드는 일이라 사람이 화면에서 목록을 보고 정한다.
+// 와인 삭제는 기록까지 지워 되돌릴 수 없으므로 사람이 상세 화면에서 확인하고 실행한다.
 export const webOnlyCommands = new Set<Operation>([
   "asset_save_owner",
   "asset_save_buy_plan",
   "wine_share_create",
   "wine_share_revoke",
+  "wine_delete",
 ]);
 export type Command = {
   [K in Operation]: {

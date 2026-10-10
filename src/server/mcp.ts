@@ -37,6 +37,8 @@ const descriptions: Partial<Record<Operation, string>> = {
     "이미 입고한 와인의 병당 구입가를 고칩니다. 재고는 바꾸지 않습니다. wine_get의 purchases[].id를 purchase_id로, 와인 version을 expected_version으로 보냅니다. 구매 내역이 없는 이관 와인은 purchase_id 없이 보내면 참고 가격을 고칩니다.",
   wine_consume:
     "와인 재고를 소비합니다. 부족하면 거부합니다. 시음도 함께 기록할 수 있습니다.",
+  wine_adjust_stock:
+    "실제 병 수와 기록이 다를 때 보유 수량을 quantity로 맞춥니다. 입고·소비가 아닌 단순 정정에만 씁니다. wine_get의 현재 stock을 expected_stock으로 보내며, 그 사이 재고가 바뀌었으면 거부합니다. 차이만큼 조정 기록이 남고 wine_reverse_event로 취소할 수 있습니다.",
   coffee_save_preference: "인증된 사용자 본인의 원두 취향을 저장합니다.",
   wine_log_tasting: "재고 변화 없이 시음을 기록합니다.",
   asset_record_snapshot:
@@ -65,6 +67,7 @@ export function mcpHandler(actor: Actor) {
               readOnlyHint: false,
               destructiveHint:
                 operation === "wine_consume" ||
+                operation === "wine_adjust_stock" ||
                 operation === "wine_reverse_event" ||
                 operation === "asset_delete_snapshot" ||
                 operation === "asset_record_snapshot",

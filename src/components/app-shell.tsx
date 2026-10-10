@@ -44,7 +44,9 @@ import {
   FileCode2,
   Undo2,
   Pencil,
+  Trash2,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { findHtmlPage } from "@/lib/html-pages";
 import type { Bean, Purchase, Snapshot, Wine } from "@/lib/types";
 import { wineTypes, glassTypes } from "@/lib/types";
@@ -122,6 +124,7 @@ export function AppShell({
   demo?: boolean;
   initialQuery?: Record<string, string>;
 }) {
+  const router = useRouter();
   const [data, setData] = useState(initial),
     [form, setForm] = useState<FormSpec | null>(null),
     [toast, setToast] = useState(""),
@@ -203,6 +206,13 @@ export function AppShell({
     });
     const body = await r.json();
     if (!r.ok) throw Error(body.error?.message ?? "저장하지 못했습니다.");
+    // 지운 와인의 상세에 머물지 않도록 목록으로 먼저 옮긴다.
+    if (operation === "wine_delete") {
+      router.push(href("/wine"));
+      await reload();
+      inform("와인을 삭제했습니다.");
+      return;
+    }
     await reload();
     if (operation === "wine_create") {
       setStockOnly(false);
@@ -440,6 +450,42 @@ export function AppShell({
       fields: [
         { ...number("unit_price", "병당 구매가 (원)", current), min: 0 },
       ],
+    });
+  }
+  function stockForm(wine: Wine) {
+    open({
+      title: "수량 수정",
+      description: `${wine.name} · 기록상 ${wine.stock}병. 실제 병 수로 맞추며 차이만큼 조정 기록이 남습니다. 새로 산 병은 입고, 마신 병은 소비로 기록하세요.`,
+      operation: "wine_adjust_stock",
+      extra: { wine_id: wine.id, expected_stock: wine.stock },
+      fields: [
+        {
+          ...number("quantity", "실제 보유 수량 (병)", wine.stock),
+          required: true,
+          min: 0,
+          max: 1000,
+        },
+        txt("reason", "사유"),
+      ],
+    });
+  }
+  function deleteForm(wine: Wine) {
+    const events = data.events.filter((e) => e.wine_id === wine.id).length;
+    const tastings = data.tastings.filter((t) => t.wine_id === wine.id).length;
+    open({
+      title: "와인 삭제",
+      description: `잘못 등록한 와인을 지웁니다. 구매·재고 기록 ${events}건, 시음 기록 ${tastings}건${wine.has_photo ? ", 사진" : ""}이 함께 지워지며 되돌릴 수 없습니다. 더 이상 갖고 있지 않은 와인이면 보관하기를 쓰세요.`,
+      operation: "wine_delete",
+      submitLabel: "삭제하기",
+      extra: { id: wine.id, expected_version: wine.version },
+      fields: [
+        txt("confirm_name", `확인을 위해 "${wine.name}" 입력`, "", true),
+      ],
+      transform: ({ confirm_name, ...rest }) => {
+        if (String(confirm_name).trim() !== wine.name.trim())
+          throw Error("와인 이름이 일치하지 않습니다.");
+        return rest;
+      },
     });
   }
   function tastingFields(): Field[] {
@@ -1228,6 +1274,12 @@ export function AppShell({
                 </button>
               </div>
               <div className="text-actions">
+                {!wine.archived && (
+                  <button onClick={() => stockForm(wine)}>
+                    <Pencil size={13} />
+                    수량 수정
+                  </button>
+                )}
                 {priceEditable && (
                   <button onClick={() => priceForm(wine, pricePurchase)}>
                     <Pencil size={13} />
@@ -1243,6 +1295,10 @@ export function AppShell({
                     <button onClick={() => archiveForm(wine, "wine")}>
                       <Archive size={13} />
                       {wine.archived ? "보관 해제" : "보관하기"}
+                    </button>
+                    <button onClick={() => deleteForm(wine)}>
+                      <Trash2 size={13} />
+                      삭제
                     </button>
                   </>
                 )}
@@ -1279,9 +1335,11 @@ export function AppShell({
                             ? "입고"
                             : event.kind === "consume"
                               ? "소비"
-                              : event.kind === "reverse"
-                                ? "취소"
-                                : "초기 재고"}
+                              : event.kind === "adjust"
+                                ? "수량 조정"
+                                : event.kind === "reverse"
+                                  ? "취소"
+                                  : "초기 재고"}
                         </strong>
                         <p>
                           {dateLabel(event.occurred_on)} ·{" "}

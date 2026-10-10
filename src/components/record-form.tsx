@@ -21,6 +21,7 @@ export type FormSpec = {
   fields: Field[];
   extra?: Record<string, unknown>;
   transform?: (values: Record<string, unknown>) => Record<string, unknown>;
+  submitLabel?: string;
 };
 export function RecordForm({
   spec,
@@ -75,7 +76,15 @@ export function RecordForm({
                   : Number(value)
                 : value;
           }
-          if (spec.transform) input = spec.transform(input);
+          // transform이 입력 확인에 실패하면 던진 메시지를 폼 오류로 보여준다.
+          try {
+            if (spec.transform) input = spec.transform(input);
+          } catch (err) {
+            setError(
+              err instanceof Error ? err.message : "입력을 확인해주세요.",
+            );
+            return;
+          }
           const fingerprint = JSON.stringify({
             ...input,
             idempotency_key: undefined,
@@ -182,7 +191,7 @@ export function RecordForm({
               <LoaderCircle size={17} className="spin" />
             ) : (
               <>
-                저장하기 <ArrowRight size={16} />
+                {spec.submitLabel ?? "저장하기"} <ArrowRight size={16} />
               </>
             )}
           </button>

@@ -27,7 +27,9 @@
 - `wine_consume`: 실제 마신 수량만 차감한다. 선택적으로 tasting을 함께 남긴다. 부족한 수량은 저장할 수 없다.
 - `wine_log_tasting`: 재고 변화 없이 본인의 시음 기록을 추가한다. 점수는 0~100, 재구매는 true/false/null로 구분한다.
 - `wine_update_price`: 입고한 병의 병당 구입가만 고친다. `wine_get`의 purchases[].id와 와인 version을 사용한다. 구매 내역 없는 이관 와인은 purchase_id 없이 참고 가격을 고친다. 수량이 틀렸으면 입고를 취소하고 다시 입고한다.
-- `wine_reverse_event`: 잘못된 입고/소비를 event_id와 사유로 취소한다. 초기 이관 재고와 이미 취소한 기록은 취소하지 않는다.
+- `wine_adjust_stock`: 셀러를 세어 본 실제 병 수가 기록과 다를 때만 쓴다. `wine_get`의 stock을 expected_stock으로, 실제 병 수를 quantity로 보낸다. 산 병은 입고, 마신 병은 소비로 기록하고 조정으로 대신하지 않는다.
+- `wine_reverse_event`: 잘못된 입고/소비/조정을 event_id와 사유로 취소한다. 초기 이관 재고와 이미 취소한 기록은 취소하지 않는다.
+- 와인 삭제는 MCP 도구가 없다. 잘못 등록한 와인을 지워야 하면 웹 상세의 "삭제"를 안내한다.
 - version 충돌은 최신 항목을 다시 조회해 적용한다. 권한 오류를 우회하거나 DB 재고를 직접 변경하지 않는다.
 
 ## 추천

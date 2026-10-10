@@ -478,6 +478,75 @@ export async function execute(
         label = wine.name;
         break;
       }
+      case "wine_adjust_stock": {
+        const d = command.input;
+        // 와인 행을 잠근 뒤 합계를 읽으므로 동시에 들어온 입고·소비와 섞이지 않는다.
+        const wine = await record(client, actor, "wine", d.wine_id);
+        if (wine.archived)
+          throw new AppError("ARCHIVED", "보관 해제 후 수정해주세요.");
+        const before = await stock(client, actor, d.wine_id);
+        if (before !== d.expected_stock)
+          throw new AppError(
+            "VERSION_CONFLICT",
+            `그 사이 재고가 ${before}병으로 바뀌었습니다. 새로고침 후 다시 시도해주세요.`,
+            409,
+          );
+        if (before === d.quantity)
+          throw new AppError("INVALID_INPUT", `이미 ${before}병입니다.`);
+        const [event] = await query(
+          "INSERT INTO wine_stock_events(household_id,wine_id,kind,delta,occurred_on,created_by,reason) VALUES($1,$2,'adjust',$3,$4,$5,$6) RETURNING *",
+          [
+            actor.householdId,
+            d.wine_id,
+            d.quantity - before,
+            d.occurred_on,
+            actor.userId,
+            d.reason,
+          ],
+          client,
+        );
+        result = { event, stock: d.quantity };
+        label = wine.name;
+        break;
+      }
+      case "wine_delete": {
+        const d = command.input;
+        const wine = await record(client, actor, "wine", d.id);
+        canEdit(actor, wine, d.expected_version);
+        const args = [actor.householdId, d.id];
+        // 시음 → 재고 이벤트 → 구매 순서로 참조를 끊는다. 취소 이벤트와 원본은 한 문장에서 같이 지운다.
+        // 사진은 ON DELETE CASCADE. 공유의 wine_ids 배열은 그대로 두고 읽을 때 없는 와인을 거른다.
+        const tastings = await query(
+          "DELETE FROM wine_tastings WHERE household_id=$1 AND wine_id=$2 RETURNING id",
+          args,
+          client,
+        );
+        const events = await query(
+          "DELETE FROM wine_stock_events WHERE household_id=$1 AND wine_id=$2 RETURNING id",
+          args,
+          client,
+        );
+        const purchases = await query(
+          "DELETE FROM wine_purchases WHERE household_id=$1 AND wine_id=$2 RETURNING id",
+          args,
+          client,
+        );
+        await query(
+          "DELETE FROM wines WHERE household_id=$1 AND id=$2",
+          args,
+          client,
+        );
+        result = {
+          id: d.id,
+          deleted: {
+            tastings: tastings.length,
+            events: events.length,
+            purchases: purchases.length,
+          },
+        };
+        label = wine.name;
+        break;
+      }
       case "wine_log_tasting": {
         const d = command.input;
         const wine = await record(client, actor, "wine", d.wine_id);
