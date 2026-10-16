@@ -41,7 +41,8 @@ export function demoPregnancy(now: number): PregnancyData {
   const body = Array.from({ length: 22 }, (_, i) => {
     const weeksAgo = 22 - i;
     return ev("body", weeksAgo * 7 * DAY_MIN + 8 * 60, 0, {
-      weight_kg: Math.round((56.8 + i * 0.38 + (i % 3 === 1 ? 0.3 : 0)) * 10) / 10,
+      weight_kg:
+        Math.round((56.8 + i * 0.38 + (i % 3 === 1 ? 0.3 : 0)) * 10) / 10,
       belly_cm: i % 2 ? null : Math.round((79 + i * 0.9) * 10) / 10,
       memo: i === 9 ? "명절 지나고 잼" : i === 16 ? "병원 체중계" : "",
     });
@@ -54,6 +55,31 @@ export function demoPregnancy(now: number): PregnancyData {
     [28, 3.3, 144, 1080, ""],
     [14, 3.0, 149, 1390, "경부길이 조금 줄어서 무리하지 말라고 함"],
   ] as const;
+  // 태동: 지난 10일 동안 하루 12~20회, 오늘은 지금 시각까지. 저녁·밤에 더 잦게 둔다.
+  const today0 = new Date(now);
+  today0.setHours(0, 0, 0, 0);
+  const sinceMidnight = (now - today0.getTime()) / 60000;
+  const movementMinutes = [
+    450, 530, 610, 700, 760, 820, 905, 980, 1080, 1130, 1170, 1215, 1250, 1290,
+    1330, 1370, 1400, 1425,
+  ];
+  const movements = Array.from({ length: 11 }, (_, day) =>
+    movementMinutes
+      .filter((m, i) => (i + day) % 5 !== 0 || day === 0)
+      .map((m, i) => ({ minutesAgo: sinceMidnight - m + day * DAY_MIN, i }))
+      .filter(({ minutesAgo }) => minutesAgo > 2)
+      .map(({ minutesAgo, i }) =>
+        ev(
+          "movement",
+          minutesAgo + ((i * 7 + day * 3) % 11),
+          8 + ((i * 13 + day) % 40),
+          {
+            intensity: (((i + day) % 3) + 1) as 1 | 2 | 3,
+            memo: day === 1 && i === 3 ? "점심 먹고 누웠을 때 오른쪽 아래" : "",
+          },
+        ),
+      ),
+  ).flat();
   const checkups = visits.map(([daysAgo, cervix, hr, grams, memo]) =>
     ev("checkup", daysAgo * DAY_MIN + 10 * 60, 0, {
       cervix_length_cm: cervix,
@@ -72,6 +98,7 @@ export function demoPregnancy(now: number): PregnancyData {
     events: [
       ...body,
       ...checkups,
+      ...movements,
       ev("checkup", 28 * 60, 0, {
         cervix_length_cm: 3.1,
         amniotic_fluid: "enough",

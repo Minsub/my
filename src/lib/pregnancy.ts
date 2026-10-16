@@ -5,12 +5,18 @@ export const pregnancyKinds = [
   "bleeding",
   "checkup",
   "body",
+  "movement",
 ] as const;
 export type PregnancyKind = (typeof pregnancyKinds)[number];
 export const timedKinds = ["tightening", "pain"] as const;
 export type TimedKind = (typeof timedKinds)[number];
 export const isTimed = (k: PregnancyKind): k is TimedKind =>
   k === "tightening" || k === "pain";
+// 시작·종료 타이머로 기록하는 타입. 태동은 타이머는 같지만 진통 상태 판정(timedKinds)에는 넣지 않는다.
+export const durationKinds = ["tightening", "pain", "movement"] as const;
+export type DurationKind = (typeof durationKinds)[number];
+export const hasDuration = (k: PregnancyKind): k is DurationKind =>
+  isTimed(k) || k === "movement";
 export const bleedingAmounts = [
   "none",
   "spotting",
@@ -32,6 +38,7 @@ export const kindLabel: Record<PregnancyKind, string> = {
   checkup: "진료·검사",
   // 산모의 몸무게·배둘레. 집에서 자주 재는 값이라 병원 기록과 따로 둔다.
   body: "산모",
+  movement: "태동",
 };
 export const bleedingLabel: Record<BleedingAmount, string> = {
   none: "출혈 없음",
@@ -48,6 +55,10 @@ export const colorLabel: Record<BleedingColor, { label: string; hex: string }> =
     dark: { label: "검붉은", hex: "#6e1420" },
   };
 export const intensityLabel = ["약", "중", "강"] as const;
+// 태동의 강도는 하·중·상으로 부른다. 저장 값은 같은 1~3이다.
+export const movementIntensityLabel = ["하", "중", "상"] as const;
+export const intensityText = (k: PregnancyKind, n: number) =>
+  (k === "movement" ? movementIntensityLabel : intensityLabel)[n - 1];
 export const amnioticLabel: Record<AmnioticFluid, string> = {
   enough: "충분",
   low: "부족",
@@ -318,3 +329,109 @@ export const trendMetrics: TrendMetric[] = [
   },
 ];
 export const isMeasure = (k: PregnancyKind) => k === "checkup" || k === "body";
+
+// ── 태동 ──
+// 태동은 진통 상태(pregnancyLevel)와 따로 하루 단위 횟수로 본다. 한 번 누른 시작·종료가 1회다.
+// 날짜는 입력하는 기기 시간대의 자정 기준이다.
+// 평소 기준은 오늘을 뺀 최근 7일 중 기록이 있는 날만 쓴다. 기록하지 않은 날을 0회로 보면 평소가 낮아진다.
+export const MOVEMENT_BASELINE_DAYS = 7;
+export const MOVEMENT_CHART_DAYS = 14;
+export type MovementDay = {
+  day: string; // YYYY-MM-DD
+  start: number;
+  count: number;
+  // 그날 0시부터 지금과 같은 시각까지의 횟수. 오늘과 지난날을 같은 시간만큼 비교한다.
+  byNow: number;
+};
+const dayId = (ms: number) => {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+// 오늘(0번)부터 지난 days-1일까지 하루별 태동 횟수.
+export function movementDays(
+  events: PregnancyEvent[],
+  now: number,
+  days: number,
+): MovementDay[] {
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const sinceMidnight = now - today.getTime();
+  const list: MovementDay[] = Array.from({ length: days }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    return { day: dayId(d.getTime()), start: d.getTime(), count: 0, byNow: 0 };
+  });
+  const index = new Map(list.map((d, i) => [d.day, i]));
+  for (const e of events) {
+    if (e.kind !== "movement") continue;
+    const s = t(e.started_at);
+    const i = index.get(dayId(s));
+    if (i === undefined || s > now) continue;
+    list[i].count++;
+    if (s - list[i].start <= sinceMidnight) list[i].byNow++;
+  }
+  return list;
+}
+
+// 태동 비교 기준. 의학적 진단 기준이 아니라 앱이 기록을 견주는 참고값이다(2026-10 결정).
+// - 28주 전에는 태동이 불규칙해 비교하지 않는다(규칙적으로 살피기 시작하는 흔한 시점).
+// - 평소 = 오늘을 뺀 최근 7일 중 기록이 있는 날의 "같은 시각까지 횟수" 평균. 그런 날이 4일 이상이어야 견준다.
+// - 오늘 같은 시각까지 횟수가 평소의 절반 미만이면 집중해서 세어 보라고 안내한다.
+//   평소가 4회 미만인 이른 시각에는 견주지 않는다.
+// - 집중해서 셀 때의 참고: 2시간 안에 10회(ACOG 인용 병원 안내). 기관마다 다르다(SOGC 2시간 6회).
+export const MOVEMENT_FROM_WEEKS = 28;
+export const MOVEMENT_NO_FEEL_WEEKS = 24;
+export const MOVEMENT_MIN_BASELINE_DAYS = 4;
+export const MOVEMENT_MIN_USUAL = 4;
+export const MOVEMENT_LOW_RATIO = 0.5;
+export const KICK_TARGET = 10;
+export const KICK_WINDOW_MIN = 120;
+
+export type MovementLevel = "early" | "learning" | "usual" | "low";
+export type MovementStatus = {
+  level: MovementLevel;
+  weeks: number | null;
+  today: number;
+  // 평소 같은 시각까지의 횟수. 비교할 날이 모자라면 null.
+  usual: number | null;
+  baselineDays: number;
+  // 최근 2시간(KICK_WINDOW_MIN) 횟수.
+  recent: number;
+  // 기록이 한 번도 없다.
+  never: boolean;
+};
+export function movementStatus(
+  events: PregnancyEvent[],
+  now: number,
+  weeks: number | null,
+): MovementStatus {
+  const days = movementDays(events, now, MOVEMENT_BASELINE_DAYS + 1);
+  const base = days.slice(1).filter((d) => d.count > 0);
+  const usual =
+    base.length >= MOVEMENT_MIN_BASELINE_DAYS
+      ? base.reduce((a, d) => a + d.byNow, 0) / base.length
+      : null;
+  const recent = events.filter((e) => {
+    if (e.kind !== "movement") return false;
+    const s = t(e.started_at);
+    return s <= now && s >= now - KICK_WINDOW_MIN * MIN;
+  }).length;
+  const today = days[0].byNow;
+  const level: MovementLevel =
+    weeks !== null && weeks < MOVEMENT_FROM_WEEKS
+      ? "early"
+      : usual === null
+        ? "learning"
+        : usual >= MOVEMENT_MIN_USUAL && today < usual * MOVEMENT_LOW_RATIO
+          ? "low"
+          : "usual";
+  return {
+    level,
+    weeks,
+    today,
+    usual,
+    baselineDays: base.length,
+    recent,
+    never: !events.some((e) => e.kind === "movement"),
+  };
+}

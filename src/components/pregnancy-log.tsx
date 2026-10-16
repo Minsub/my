@@ -9,6 +9,7 @@ import {
   CircleDot,
   Copy,
   Droplet,
+  Footprints,
   Pencil,
   Plus,
   RefreshCw,
@@ -33,19 +34,29 @@ import {
   CERVIX_MAX_CM,
   checkupFacts,
   colorLabel,
+  durationKinds,
   durationSec,
   FETAL_HR_MAX,
   FETAL_HR_MIN,
   FETAL_WEIGHT_MAX_G,
   FETAL_WEIGHT_MIN_G,
-  intensityLabel,
+  hasDuration,
+  intensityText,
   isMeasure,
   kindLabel,
   kindStats,
   MAX_DURATION_MIN,
   memoLimit,
+  MOVEMENT_BASELINE_DAYS,
+  MOVEMENT_CHART_DAYS,
+  KICK_TARGET,
+  KICK_WINDOW_MIN,
+  MOVEMENT_FROM_WEEKS,
+  MOVEMENT_MIN_BASELINE_DAYS,
+  MOVEMENT_NO_FEEL_WEEKS,
+  movementDays,
+  movementStatus,
   photoLimit,
-  pregnancyKinds,
   pregnancyLevel,
   pregnancyWeek,
   SESSION_GAP_MIN,
@@ -53,7 +64,6 @@ import {
   symptomStats,
   TERM_WEEKS,
   timedKinds,
-  isTimed,
   trendMetrics,
   WATCH_PER_HOUR,
   WEIGHT_MAX_KG,
@@ -62,6 +72,9 @@ import {
   type AmnioticFluid,
   type BleedingAmount,
   type BleedingColor,
+  type DurationKind,
+  type MovementDay,
+  type MovementStatus,
   type PregnancyData,
   type PregnancyEvent,
   type PregnancyKind,
@@ -74,11 +87,11 @@ import { copyText } from "@/lib/clipboard";
 
 const MIN = 60000;
 type Running = { started_at: string; key: string };
-type RunningMap = Partial<Record<TimedKind, Running>>;
+type RunningMap = Partial<Record<DurationKind, Running>>;
 // 종료했지만 아직 서버에 저장하지 못한 기록. 같은 request_key로 다시 보낸다.
 type Pending = {
   request_key: string;
-  kind: TimedKind;
+  kind: DurationKind;
   started_at: string;
   ended_at: string;
   intensity: number | null;
@@ -90,21 +103,28 @@ type Tab = "now" | "type" | "trend";
 type Period = "3m" | "6m" | "all";
 // 타입별 보기에 나오는 타입. 산모 기록은 추이 탭에서 본다.
 type TypeKind = Exclude<PregnancyKind, "body">;
-const typeKinds = pregnancyKinds.filter((k): k is TypeKind => k !== "body");
+// 태동은 배뭉침·통증 옆에 둔다.
+const typeKinds: TypeKind[] = [
+  "tightening",
+  "pain",
+  "movement",
+  "bleeding",
+  "checkup",
+];
 // 타입별 보기의 선택. "both"는 배뭉침·통증을 한 타임라인에 모아 본다(출혈 제외).
 type ViewKind = TypeKind | "both";
 type Sheet =
   | {
       type: "stop";
       key: string;
-      kind: TimedKind;
+      kind: DurationKind;
       started_at: string;
       ended_at: string;
     }
   | {
       type: "timed";
       event?: PregnancyEvent;
-      kind: TimedKind;
+      kind: DurationKind;
       started_at: string;
       ended_at: string;
       key?: string;
@@ -118,6 +138,8 @@ type Sheet =
   // 추이에서 고른 날짜(YYYY-MM-DD, 기기 시간대)의 진료·검사와 산모 기록.
   | { type: "day"; day: string }
   | { type: "settings" }
+  // 태동이 줄었다고 느낄 때의 안내. 저장하지 않는다.
+  | { type: "movementLess" }
   // back: 사진을 닫으면 돌아갈 시트(진료 상세에서 연 경우).
   | { type: "photos"; ids: string[]; index: number; back?: Sheet };
 
@@ -198,6 +220,7 @@ const kindColor = (k: PregnancyKind) =>
     bleeding: "var(--pg-blood)",
     checkup: "var(--pg-visit)",
     body: "var(--pg-body)",
+    movement: "var(--pg-move)",
   })[k];
 
 // 서버가 1000px로 줄이므로 같은 크기로 보낸다. 사진 10장이 요청 한도(4MB)에 들어가도록
@@ -402,7 +425,7 @@ export function PregnancyLog({
     return () => window.removeEventListener("online", online);
   }, [runningKey, pendingKey, load, flush]);
 
-  const anyRunning = Boolean(running.tightening || running.pain);
+  const anyRunning = durationKinds.some((k) => running[k]);
   useEffect(() => {
     const id = window.setInterval(
       () => setNow(Date.now()),
@@ -441,7 +464,7 @@ export function PregnancyLog({
     setRunning(next);
   };
 
-  function toggle(k: TimedKind) {
+  function toggle(k: DurationKind) {
     if (demo) {
       inform("둘러보기에서는 기록하지 않습니다. 로그인 후 이용해주세요.");
       return;
@@ -565,7 +588,7 @@ export function PregnancyLog({
   async function saveTimed(
     sheetValue: Extract<Sheet, { type: "timed" }>,
     values: {
-      kind: TimedKind;
+      kind: DurationKind;
       started_at: string;
       ended_at: string;
       intensity: number | null;
@@ -658,20 +681,24 @@ export function PregnancyLog({
           running={running}
           pending={pending}
           termWeek={week ? week.weeks >= TERM_WEEKS : false}
+          weeks={week?.weeks ?? null}
           onToggle={toggle}
           onRetry={() => flush()}
           onBleeding={() => setSheet({ type: "bleeding" })}
           onCheckup={() => setSheet({ type: "checkup" })}
           onBody={() => setSheet({ type: "body" })}
-          onManual={() => {
+          onManual={(k) => {
             const end = Date.now() - 5 * MIN;
             setSheet({
               type: "timed",
-              kind: "tightening",
-              started_at: new Date(end - 40000).toISOString(),
+              kind: k,
+              started_at: new Date(
+                end - (k === "movement" ? 15000 : 40000),
+              ).toISOString(),
               ended_at: new Date(end).toISOString(),
             });
           }}
+          onMovementLess={() => setSheet({ type: "movementLess" })}
           onEdit={(e) => openEdit(e)}
         />
       ) : tab === "trend" ? (
@@ -847,6 +874,9 @@ export function PregnancyLog({
           onClose={() => setSheet(null)}
         />
       )}
+      {sheet?.type === "movementLess" && (
+        <MovementLessSheet onClose={() => setSheet(null)} />
+      )}
       {sheet?.type === "settings" && (
         <SettingsSheet
           data={data}
@@ -904,7 +934,7 @@ export function PregnancyLog({
     }
     if (e.kind === "bleeding") setSheet({ type: "bleeding", event: e });
     else if (e.kind === "body") setSheet({ type: "body", event: e });
-    else if (isTimed(e.kind))
+    else if (hasDuration(e.kind))
       setSheet({
         type: "timed",
         event: e,
@@ -964,12 +994,14 @@ function NowView({
   running,
   pending,
   termWeek,
+  weeks,
   onToggle,
   onRetry,
   onBleeding,
   onCheckup,
   onBody,
   onManual,
+  onMovementLess,
   onEdit,
 }: {
   events: PregnancyEvent[];
@@ -977,12 +1009,14 @@ function NowView({
   running: RunningMap;
   pending: Pending[];
   termWeek: boolean;
-  onToggle: (k: TimedKind) => void;
+  weeks: number | null;
+  onToggle: (k: DurationKind) => void;
   onRetry: () => void;
   onBleeding: () => void;
   onCheckup: () => void;
   onBody: () => void;
-  onManual: () => void;
+  onManual: (k: DurationKind) => void;
+  onMovementLess: () => void;
   onEdit: (e: PregnancyEvent) => void;
 }) {
   const level = pregnancyLevel(events, now);
@@ -1086,6 +1120,15 @@ function NowView({
             );
           })}
         </div>
+        <MovementCard
+          events={events}
+          now={now}
+          weeks={weeks}
+          running={running.movement}
+          onToggle={() => onToggle("movement")}
+          onManual={() => onManual("movement")}
+          onLess={onMovementLess}
+        />
         <div className="pg-quick">
           <button type="button" className="pg-quick-blood" onClick={onBleeding}>
             <Droplet size={18} />
@@ -1099,7 +1142,7 @@ function NowView({
             <Weight size={18} />
             {kindLabel.body} 기록
           </button>
-          <button type="button" onClick={onManual}>
+          <button type="button" onClick={() => onManual("tightening")}>
             <Pencil size={17} />
             직접 입력
           </button>
@@ -1149,10 +1192,136 @@ function NowView({
   );
 }
 
-function Bolts({ n }: { n: number | null }) {
-  if (!n) return null;
+// 강도 표시. 태동은 하·중·상 글자, 배뭉침·통증은 번개 개수로 보인다.
+// 태동 상태 표시. "평소와 비슷"처럼 안심시키는 판정은 띄우지 않는다. 숫자가 괜찮아 보여도
+// 엄마가 느끼는 변화가 우선이기 때문이다.
+const movementPill: Partial<
+  Record<MovementStatus["level"], { text: string; tone: string }>
+> = {
+  learning: { text: "평소 패턴 익히는 중", tone: "info" },
+  low: { text: "평소보다 적음", tone: "watch" },
+};
+function movementGuide(m: MovementStatus) {
+  if (m.level === "early")
+    return m.weeks !== null && m.weeks >= MOVEMENT_NO_FEEL_WEEKS && m.never
+      ? `${MOVEMENT_NO_FEEL_WEEKS}주가 지났는데 태동을 느낀 적이 없다면 병원에 연락하세요. 기록하지 않았을 뿐이라면 느낄 때마다 눌러 주세요.`
+      : `${MOVEMENT_FROM_WEEKS}주 전에는 태동이 불규칙할 수 있어 횟수를 견주지 않습니다. 느낄 때마다 기록해 아기의 평소 패턴을 알아두세요.`;
+  if (m.level === "learning")
+    return `기록이 있는 날이 ${MOVEMENT_MIN_BASELINE_DAYS}일 쌓이면 평소 이 시각까지의 횟수와 견줘 보여드립니다(지금 ${m.baselineDays}일). 정해진 정상 횟수는 없고 아기마다 평소 패턴이 기준입니다.`;
+  if (m.level === "low")
+    return `기록한 태동이 평소 이 시각까지의 절반에 못 미칩니다(앱 참고값, 기록을 덜 했다면 적게 보입니다). 옆으로 누워 ${KICK_WINDOW_MIN / 60}시간 동안 태동에 집중해 세어 보세요. ${KICK_TARGET}회가 안 되거나 평소보다 줄었다고 느끼면 내일까지 기다리지 말고 바로 분만실에 연락하세요.`;
+  return m.recent >= KICK_TARGET
+    ? `최근 ${KICK_WINDOW_MIN / 60}시간에 ${KICK_TARGET}회 넘게 기록했습니다. 숫자보다 평소 패턴이 기준이니, 줄거나 약해졌다고 느끼면 바로 병원에 연락하세요.`
+    : "횟수보다 평소 패턴이 기준입니다. 태동은 막달에도 줄지 않습니다. 평소보다 줄거나 약해졌다고 느끼면 숫자와 관계없이 바로 병원에 연락하세요.";
+}
+
+// 지금 기록의 태동 카드. 큰 버튼으로 시작·종료하고 오늘 횟수와 평소 같은 시각까지의 횟수를 견준다.
+function MovementCard({
+  events,
+  now,
+  weeks,
+  running,
+  onToggle,
+  onManual,
+  onLess,
+}: {
+  events: PregnancyEvent[];
+  now: number;
+  weeks: number | null;
+  running: Running | undefined;
+  onToggle: () => void;
+  onManual: () => void;
+  onLess: () => void;
+}) {
+  const m = movementStatus(events, now, weeks);
+  const last = events.find((e) => e.kind === "movement");
   return (
-    <span className="pg-bolts" aria-label={`강도 ${intensityLabel[n - 1]}`}>
+    <section className="pg-card pg-move" aria-label="오늘 태동">
+      <div className="pg-status-top">
+        <span>오늘 태동</span>
+        {movementPill[m.level] && (
+          <span className={`pg-pill ${movementPill[m.level]!.tone}`}>
+            {movementPill[m.level]!.text}
+          </span>
+        )}
+      </div>
+      <button
+        type="button"
+        className={`pg-tile movement pg-move-tile${running ? " running" : ""}`}
+        onClick={onToggle}
+        aria-label={`태동 ${running ? "종료" : "시작"}`}
+      >
+        <span className="pg-tile-icon">
+          <Footprints size={22} />
+        </span>
+        {running ? (
+          <span>
+            <span className="pg-tile-name">태동 중</span>
+            <span className="pg-tile-cta">
+              탭해서 종료 · {hm(running.started_at)} 시작
+            </span>
+          </span>
+        ) : (
+          <span>
+            <span className="pg-tile-name">태동</span>
+            <span className="pg-tile-cta">느껴지면 탭해서 시작</span>
+            <span className="pg-tile-last">
+              {last ? `마지막 ${agoText(last.started_at, now)}` : "기록 없음"}
+            </span>
+          </span>
+        )}
+        <span className="pg-move-count">
+          {running ? (
+            <span className="pg-elapsed">
+              {clock(
+                Math.max(
+                  0,
+                  (now - new Date(running.started_at).getTime()) / 1000,
+                ),
+              )}
+            </span>
+          ) : (
+            <>
+              <b>{m.today}</b>
+              <small>회</small>
+            </>
+          )}
+        </span>
+      </button>
+      <div className="pg-move-facts">
+        <span>
+          평소 이 시각까지
+          <b>{m.usual === null ? "—" : `${Math.round(m.usual)}회`}</b>
+        </span>
+        <span>
+          최근 {KICK_WINDOW_MIN / 60}시간
+          <b>{m.recent}회</b>
+        </span>
+        <button type="button" onClick={onManual}>
+          <Pencil size={13} /> 직접 입력
+        </button>
+      </div>
+      <p className="pg-guide">{movementGuide(m)}</p>
+      <button type="button" className="pg-move-less" onClick={onLess}>
+        태동이 줄었거나 평소와 다르게 느껴져요
+      </button>
+    </section>
+  );
+}
+
+function Bolts({ kind, n }: { kind: PregnancyKind; n: number | null }) {
+  if (!n) return null;
+  if (kind === "movement")
+    return (
+      <span
+        className={`pg-lvl l${n}`}
+        aria-label={`강도 ${intensityText(kind, n)}`}
+      >
+        {intensityText(kind, n)}
+      </span>
+    );
+  return (
+    <span className="pg-bolts" aria-label={`강도 ${intensityText(kind, n)}`}>
       {Array.from({ length: n }, (_, i) => (
         <Zap key={i} size={11} />
       ))}
@@ -1182,7 +1351,7 @@ function EventRow({
           {e.kind === "bleeding" && e.bleeding === "none"
             ? "출혈 확인"
             : kindLabel[e.kind]}
-          <Bolts n={e.intensity} />
+          <Bolts kind={e.kind} n={e.intensity} />
         </span>
         {sub && <em>{sub}</em>}
       </span>
@@ -1202,6 +1371,8 @@ function EventRow({
             <b>{e.bleeding ? bleedingLabel[e.bleeding] : ""}</b>
             {e.photo_ids.length > 0 && <span>사진 {e.photo_ids.length}장</span>}
           </>
+        ) : e.kind === "movement" ? (
+          <b>{d !== null ? clock(d) : ""}</b>
         ) : (
           <>
             <b>{d !== null ? clock(d) : ""}</b>
@@ -1230,8 +1401,9 @@ function Strip({
   const lane: Record<TypeKind, number> = {
     tightening: 20,
     pain: 44,
-    bleeding: 68,
-    checkup: 92,
+    movement: 68,
+    bleeding: 92,
+    checkup: 116,
   };
   // 산모 기록은 진통 흐름과 관계없어 그리지 않는다.
   const bars = events.filter(
@@ -1240,7 +1412,7 @@ function Strip({
   return (
     <svg
       className="pg-strip"
-      viewBox={`0 0 ${W} 124`}
+      viewBox={`0 0 ${W} 148`}
       role="img"
       aria-label="최근 3시간 동안의 기록 막대"
     >
@@ -1248,10 +1420,10 @@ function Strip({
         const xt = x(now - span + h * 60 * MIN);
         return (
           <g key={h}>
-            <line x1={xt} y1={8} x2={xt} y2={104} stroke="var(--line)" />
+            <line x1={xt} y1={8} x2={xt} y2={128} stroke="var(--line)" />
             <text
               x={xt}
-              y={118}
+              y={142}
               fontSize={10}
               fill="var(--pg-faint)"
               textAnchor={h === 0 ? "start" : h === 3 ? "end" : "middle"}
@@ -1314,7 +1486,7 @@ function Strip({
           />
         );
       })}
-      {timedKinds.map((k) => {
+      {durationKinds.map((k) => {
         const r = running[k];
         if (!r) return null;
         const s = Math.max(new Date(r.started_at).getTime(), now - span);
@@ -1431,6 +1603,8 @@ function TypeView({
           onPhotos={onPhotos}
           onOpen={onEdit}
         />
+      ) : kind === "movement" ? (
+        <MovementView events={events} from={from} now={now} onEdit={onEdit} />
       ) : (
         <Timeline
           events={events}
@@ -1573,7 +1747,8 @@ function SymptomRow({
       <span className="pg-tl-l">
         <b>{hm(e.started_at)}</b>
         <small>
-          {d !== null ? `${clock(d)} 지속` : ""} <Bolts n={e.intensity} />
+          {d !== null ? `${clock(d)} 지속` : ""}{" "}
+          <Bolts kind={e.kind} n={e.intensity} />
         </small>
       </span>
       <span className="pg-tl-c">
@@ -1617,7 +1792,8 @@ function TimedRow({
       <span className="pg-tl-l">
         <b>{hm(e.started_at)}</b>
         <small>
-          {d !== null ? `${clock(d)} 지속` : ""} <Bolts n={e.intensity} />
+          {d !== null ? `${clock(d)} 지속` : ""}{" "}
+          <Bolts kind={e.kind} n={e.intensity} />
         </small>
       </span>
       <span className="pg-tl-c">
@@ -1811,9 +1987,11 @@ function Histogram({
   now,
 }: {
   events: PregnancyEvent[];
-  kind: TimedKind;
+  kind: DurationKind;
   now: number;
 }) {
+  // 태동은 진통 기준선(1시간 4회)과 관계없어 점선을 그리지 않는다.
+  const watch = kind !== "movement";
   const d0 = new Date(now);
   d0.setHours(0, 0, 0, 0);
   const counts = Array<number>(24).fill(0);
@@ -1821,7 +1999,7 @@ function Histogram({
     const s = new Date(e.started_at);
     if (e.kind === kind && s.getTime() >= d0.getTime()) counts[s.getHours()]++;
   }
-  const max = Math.max(WATCH_PER_HOUR + 1, ...counts),
+  const max = Math.max(watch ? WATCH_PER_HOUR + 1 : 3, ...counts),
     W = 340,
     H = 80,
     L = 20,
@@ -1835,23 +2013,27 @@ function Histogram({
       aria-label={`오늘 시간대별 ${kindLabel[kind]} 횟수`}
     >
       <line x1={L} y1={H} x2={W} y2={H} stroke="var(--line)" />
-      <line
-        x1={L}
-        y1={y(WATCH_PER_HOUR)}
-        x2={W}
-        y2={y(WATCH_PER_HOUR)}
-        stroke="var(--pg-warn)"
-        strokeDasharray="3 3"
-      />
-      <text
-        x={L - 4}
-        y={y(WATCH_PER_HOUR) + 3}
-        fontSize={9.5}
-        fill="var(--pg-warn)"
-        textAnchor="end"
-      >
-        {WATCH_PER_HOUR}
-      </text>
+      {watch && (
+        <>
+          <line
+            x1={L}
+            y1={y(WATCH_PER_HOUR)}
+            x2={W}
+            y2={y(WATCH_PER_HOUR)}
+            stroke="var(--pg-warn)"
+            strokeDasharray="3 3"
+          />
+          <text
+            x={L - 4}
+            y={y(WATCH_PER_HOUR) + 3}
+            fontSize={9.5}
+            fill="var(--pg-warn)"
+            textAnchor="end"
+          >
+            {WATCH_PER_HOUR}
+          </text>
+        </>
+      )}
       {counts.map((c, h) => (
         <g key={h}>
           {c > 0 && (
@@ -1887,6 +2069,187 @@ function Histogram({
           )}
         </g>
       ))}
+    </svg>
+  );
+}
+
+// 태동 탭. 하루 단위 횟수가 중심이다. 간격은 쓰지 않고 날짜마다 번호를 새로 매긴다.
+function MovementView({
+  events,
+  from,
+  now,
+  onEdit,
+}: {
+  events: PregnancyEvent[];
+  from: number;
+  now: number;
+  onEdit: (e: PregnancyEvent) => void;
+}) {
+  const days = movementDays(events, now, MOVEMENT_CHART_DAYS);
+  const recorded = days
+    .slice(1, 1 + MOVEMENT_BASELINE_DAYS)
+    .filter((d) => d.count);
+  const dailyAvg = recorded.length
+    ? recorded.reduce((a, d) => a + d.count, 0) / recorded.length
+    : null;
+  const list = events
+    .filter(
+      (e) => e.kind === "movement" && new Date(e.started_at).getTime() >= from,
+    )
+    .sort((a, b) => a.started_at.localeCompare(b.started_at));
+  const durations = list
+    .map(durationSec)
+    .filter((v): v is number => v !== null);
+  const avgDuration = durations.length
+    ? durations.reduce((a, b) => a + b, 0) / durations.length
+    : null;
+  // 날짜마다 1번부터 센다. 화면은 최근 것이 위로 온다.
+  const numbered = new Map<string, number>();
+  const perDay = new Map<string, PregnancyEvent[]>();
+  for (const e of list) {
+    const key = dayKey(e.started_at);
+    const day = perDay.get(key) ?? [];
+    day.push(e);
+    perDay.set(key, day);
+    numbered.set(e.id, day.length);
+  }
+  const items: React.ReactNode[] = [];
+  for (const [key, day] of [...perDay.entries()].reverse()) {
+    const strong = day.filter((e) => e.intensity === 3).length;
+    items.push(
+      <div className="pg-day" key={`d-${key}`}>
+        <span>{dayLabel(day[0].started_at)}</span>
+        <span>
+          {day.length}회{strong ? ` · 상 ${strong}` : ""}
+        </span>
+      </div>,
+    );
+    for (const e of day.slice().reverse()) {
+      const d = durationSec(e);
+      items.push(
+        <button
+          key={e.id}
+          type="button"
+          className="pg-tl-row movement"
+          onClick={() => onEdit(e)}
+        >
+          <span className="pg-tl-l">
+            <b>{hm(e.started_at)}</b>
+            <small>{d !== null ? `${clock(d)} 지속` : ""}</small>
+          </span>
+          <span className="pg-tl-c">
+            <span>{numbered.get(e.id)}</span>
+          </span>
+          <span className="pg-tl-r">
+            {e.intensity ? (
+              <b>강도 {intensityText("movement", e.intensity)}</b>
+            ) : (
+              <b className="pg-faint">강도 —</b>
+            )}
+            {e.memo}
+          </span>
+        </button>,
+      );
+    }
+  }
+  return (
+    <>
+      <div className="pg-sum3">
+        <div>
+          <small>오늘</small>
+          <b>{days[0].count}회</b>
+        </div>
+        <div>
+          <small>최근 {MOVEMENT_BASELINE_DAYS}일 하루 평균</small>
+          <b>{dailyAvg === null ? "—" : `${Math.round(dailyAvg)}회`}</b>
+        </div>
+        <div>
+          <small>평균 지속</small>
+          <b>{avgDuration ? clock(avgDuration) : "—"}</b>
+        </div>
+      </div>
+      <section className="pg-card">
+        <div className="pg-sec-title">
+          날짜별 태동 횟수
+          <small>최근 {MOVEMENT_CHART_DAYS}일 · 기록한 횟수</small>
+        </div>
+        <DailyBars days={days} />
+      </section>
+      <section className="pg-card">
+        <div className="pg-sec-title">
+          오늘 시간대별 횟수
+          <small>아기가 자는 20~40분은 조용할 수 있습니다</small>
+        </div>
+        <Histogram events={events} kind="movement" now={now} />
+      </section>
+      <section className="pg-card pg-tl">
+        {items.length ? (
+          items
+        ) : (
+          <p className="pg-empty">이 기간에 태동 기록이 없습니다.</p>
+        )}
+      </section>
+    </>
+  );
+}
+
+// 하루별 태동 막대. 왼쪽이 오래된 날, 오른쪽 끝이 오늘이다. 오늘은 아직 끝나지 않아 흐리게 그린다.
+function DailyBars({ days }: { days: MovementDay[] }) {
+  const list = days.slice().reverse();
+  const max = Math.max(5, ...list.map((d) => d.count)),
+    W = 340,
+    H = 86,
+    T = 14,
+    bw = W / list.length;
+  const y = (v: number) => T + (H - T) - (v / max) * (H - T);
+  return (
+    <svg
+      className="pg-hist"
+      viewBox={`0 0 ${W} ${H + 18}`}
+      role="img"
+      aria-label={`최근 ${list.length}일 날짜별 태동 횟수`}
+    >
+      <line x1={0} y1={H} x2={W} y2={H} stroke="var(--line)" />
+      {list.map((d, i) => {
+        const today = i === list.length - 1;
+        const date = new Date(d.start);
+        return (
+          <g key={d.day}>
+            {d.count > 0 && (
+              <rect
+                x={i * bw + 3}
+                y={y(d.count)}
+                width={bw - 6}
+                height={H - y(d.count)}
+                rx={2.5}
+                fill="var(--pg-move)"
+                opacity={today ? 0.55 : 1}
+              />
+            )}
+            <text
+              x={i * bw + bw / 2}
+              y={d.count ? y(d.count) - 3 : H - 3}
+              fontSize={9}
+              fill={d.count ? "var(--muted)" : "var(--pg-faint)"}
+              textAnchor="middle"
+            >
+              {d.count || "·"}
+            </text>
+            {(today || i % 2 === list.length % 2) && (
+              <text
+                x={i * bw + bw / 2}
+                y={H + 13}
+                fontSize={9}
+                fill={today ? "var(--ink)" : "var(--pg-faint)"}
+                fontWeight={today ? 650 : 400}
+                textAnchor="middle"
+              >
+                {today ? "오늘" : `${date.getMonth() + 1}/${date.getDate()}`}
+              </text>
+            )}
+          </g>
+        );
+      })}
     </svg>
   );
 }
@@ -2146,6 +2509,10 @@ function Options<T extends string>({
   );
 }
 const intensityValues = ["1", "2", "3"] as const;
+type IntensityValue = (typeof intensityValues)[number];
+// 태동은 사용자가 부르는 순서(상·중·하)로 놓는다. 저장 값은 하=1, 중=2, 상=3.
+const intensityOrder = (k: DurationKind): readonly IntensityValue[] =>
+  k === "movement" ? ["3", "2", "1"] : intensityValues;
 
 function StopSheet({
   sheet,
@@ -2159,6 +2526,7 @@ function StopSheet({
   const [intensity, setIntensity] = useState<string | null>(null);
   const [memo, setMemo] = useState("");
   const [busy, setBusy] = useState(false);
+  const movement = sheet.kind === "movement";
   const d =
     (new Date(sheet.ended_at).getTime() -
       new Date(sheet.started_at).getTime()) /
@@ -2171,22 +2539,48 @@ function StopSheet({
   return (
     <SheetFrame
       title={`${kindLabel[sheet.kind]} ${clock(d)} 저장됨`}
-      sub={`${hm(sheet.started_at)} – ${hm(sheet.ended_at)} · 아래는 선택 입력입니다`}
+      sub={
+        movement
+          ? `${hm(sheet.started_at)} – ${hm(sheet.ended_at)} · 강도를 누르면 바로 저장합니다`
+          : `${hm(sheet.started_at)} – ${hm(sheet.ended_at)} · 아래는 선택 입력입니다`
+      }
     >
-      <Options
-        label="강도"
-        values={intensityValues}
-        value={intensity as (typeof intensityValues)[number] | null}
-        onChange={setIntensity}
-        render={(v) => intensityLabel[Number(v) - 1]}
-      />
+      {movement ? (
+        <div className="pg-field">
+          <span className="pg-label">강도</span>
+          <div className="pg-opts pg-strength" role="group" aria-label="강도">
+            {intensityOrder("movement").map((v) => (
+              <button
+                key={v}
+                type="button"
+                disabled={busy}
+                onClick={() => run(() => onDone(Number(v), memo.trim()))}
+              >
+                {intensityText("movement", Number(v))}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <Options
+          label="강도"
+          values={intensityValues}
+          value={intensity as IntensityValue | null}
+          onChange={setIntensity}
+          render={(v) => intensityText(sheet.kind, Number(v))}
+        />
+      )}
       <div className="pg-field">
         <label htmlFor="pg-stop-memo">메모</label>
         <textarea
           id="pg-stop-memo"
           maxLength={500}
           value={memo}
-          placeholder="예: 화장실 다녀온 뒤, 허리 쪽 묵직함"
+          placeholder={
+            movement
+              ? "예: 밥 먹고 누워 있을 때, 오른쪽 아래"
+              : "예: 화장실 다녀온 뒤, 허리 쪽 묵직함"
+          }
           onChange={(e) => setMemo(e.target.value)}
         />
       </div>
@@ -2201,13 +2595,54 @@ function StopSheet({
         </button>
         <button
           type="button"
-          className="pg-btn primary"
+          className={`pg-btn ${movement ? "ghost muted" : "primary"}`}
           disabled={busy}
           onClick={() =>
             run(() => onDone(intensity ? Number(intensity) : null, memo.trim()))
           }
         >
-          완료
+          {movement ? "강도 없이 완료" : "완료"}
+        </button>
+      </div>
+    </SheetFrame>
+  );
+}
+
+// 태동이 줄었다고 느낄 때. 앱의 숫자보다 엄마의 느낌이 우선이므로 숫자와 관계없이 같은 안내를 보인다.
+function MovementLessSheet({ onClose }: { onClose: () => void }) {
+  return (
+    <SheetFrame
+      title="태동이 줄었다고 느껴질 때"
+      sub="앱의 횟수와 관계없이 느낌이 기준입니다"
+    >
+      <ol className="pg-steps">
+        <li>
+          <b>기다리지 말고 지금 다니는 병원 분만실에 연락하세요.</b> 밤이어도
+          내일까지 미루지 않습니다.
+        </li>
+        <li>
+          연락하는 동안 옆으로 누워 태동에 집중해 보세요. 그 사이 움직임이
+          느껴져도 병원 안내를 따르세요.
+        </li>
+        <li>
+          집에 있는 도플러나 앱으로 심장 소리를 확인하고 안심하지 마세요. 엄마의
+          맥박을 아기 심장 소리로 착각할 수 있습니다.
+        </li>
+        <li>
+          태동은 막달에도 줄지 않습니다. 움직임의 느낌은 바뀔 수 있지만 횟수가
+          줄어드는 것은 정상으로 보지 않습니다.
+        </li>
+        <li>
+          갑자기 평소와 전혀 다르게 격한 움직임도 걱정되면 같이 물어보세요.
+        </li>
+        <li>
+          전에도 줄었다고 느낀 적이 있다면 진료 때 꼭 알리세요. 반복되면 추가
+          검사를 하기도 합니다.
+        </li>
+      </ol>
+      <div className="pg-actions">
+        <button type="button" className="pg-btn primary" onClick={onClose}>
+          확인
         </button>
       </div>
     </SheetFrame>
@@ -2222,7 +2657,7 @@ function TimedSheet({
 }: {
   sheet: Extract<Sheet, { type: "timed" }>;
   onSave: (v: {
-    kind: TimedKind;
+    kind: DurationKind;
     started_at: string;
     ended_at: string;
     intensity: number | null;
@@ -2231,7 +2666,7 @@ function TimedSheet({
   onDelete?: () => Promise<void>;
   onClose: () => void;
 }) {
-  const [kind, setKind] = useState<TimedKind>(sheet.kind);
+  const [kind, setKind] = useState<DurationKind>(sheet.kind);
   const [start, setStart] = useState(toLocalInput(sheet.started_at));
   const [end, setEnd] = useState(toLocalInput(sheet.ended_at));
   const [intensity, setIntensity] = useState<string | null>(
@@ -2279,7 +2714,14 @@ function TimedSheet({
     >
       <Options
         label="타입"
-        values={timedKinds}
+        values={
+          // 저장된 기록은 같은 묶음 안에서만 타입을 바꾼다(배뭉침↔통증). 태동은 태동으로 남는다.
+          isNew
+            ? durationKinds
+            : sheet.kind === "movement"
+              ? ["movement"]
+              : timedKinds
+        }
         value={kind}
         allowEmpty={false}
         onChange={(v) => v && setKind(v)}
@@ -2309,10 +2751,10 @@ function TimedSheet({
       </div>
       <Options
         label="강도 (선택)"
-        values={intensityValues}
-        value={intensity as (typeof intensityValues)[number] | null}
+        values={intensityOrder(kind)}
+        value={intensity as IntensityValue | null}
         onChange={setIntensity}
-        render={(v) => intensityLabel[Number(v) - 1]}
+        render={(v) => intensityText(kind, Number(v))}
       />
       <div className="pg-field">
         <label htmlFor="pg-memo">메모</label>
@@ -3284,7 +3726,8 @@ type AxisTick = { value: number; label: string | string[] };
 // 가로축 눈금. 출산예정일이 있으면 임신 주 시작일에 맞춰 "24주"와 날짜를 함께 쓴다.
 function axisTicks(xMin: number, xMax: number, due: string | null) {
   const span = (xMax - xMin) / DAY;
-  const step = (span <= 50 ? 7 : span <= 120 ? 14 : span <= 250 ? 28 : 56) * DAY;
+  const step =
+    (span <= 50 ? 7 : span <= 120 ? 14 : span <= 250 ? 28 : 56) * DAY;
   // 예정일이 없으면 월요일(2024-01-01)에 맞춘다.
   const anchor = due ? dayStart(due) - 280 * DAY : dayStart("2024-01-01");
   const ticks: AxisTick[] = [];
@@ -3482,7 +3925,9 @@ function TrendCard({
     last = points[points.length - 1];
   const sub = last
     ? [
-        base !== null ? `임신 전보다 ${metricChange(metric, last.v - base)}` : "",
+        base !== null
+          ? `임신 전보다 ${metricChange(metric, last.v - base)}`
+          : "",
         points.length > 1
           ? `기간 첫 기록보다 ${metricChange(metric, last.v - first.v)}`
           : "",

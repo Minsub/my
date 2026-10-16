@@ -1,6 +1,6 @@
 # 꼬미 — 임신 기록
 
-꼬미는 아이 태명이며 메뉴 이름이다(URL은 `/baby`). 첫 하위 화면은 `/baby/pregnancy`의 임신 기록이다. 자궁수축으로 오는 배뭉침과 통증을 시작·종료 탭으로 기록하고 주기를 보며, 출혈은 시각과 사진으로 남긴다. 진료·NST 수축검사 같은 병원 기록은 "진료·검사"로, 산모의 몸무게·배둘레는 "산모"로 남기고 "추이" 탭에서 항목별 그래프로 본다. 모바일이 주 사용 환경이다. 2026-10-06 코드 기준.
+꼬미는 아이 태명이며 메뉴 이름이다(URL은 `/baby`). 첫 하위 화면은 `/baby/pregnancy`의 임신 기록이다. 자궁수축으로 오는 배뭉침과 통증을 시작·종료 탭으로 기록하고 주기를 보며, 태동도 같은 시작·종료 탭과 강도(상·중·하)로 남겨 하루 횟수를 본다. 출혈은 시각과 사진으로 남긴다. 진료·NST 수축검사 같은 병원 기록은 "진료·검사"로, 산모의 몸무게·배둘레는 "산모"로 남기고 "추이" 탭에서 항목별 그래프로 본다. 모바일이 주 사용 환경이다. 2026-10-16 코드 기준.
 
 ## 화면
 
@@ -9,15 +9,17 @@
 | 상단 | 출산예정일로 계산한 주수(40주 0일 = 예정일). 누르면 "임신 정보" 시트에서 출산예정일과 임신 전 몸무게(kg, 30~200, 소수 한 자리)를 함께 설정 |
 | 지금 기록 · 요약 | 최근 1시간의 배뭉침·통증 횟수, 평균 간격, 평균 지속, 상태 표시와 안내 문구 |
 | 지금 기록 · 타일 | 배뭉침·통증 타일을 누르면 시작, 다시 누르면 종료. 두 타입은 따로 돌아 동시에 켤 수 있다 |
-| 종료 직후 시트 | 이미 저장된 기록에 강도(약·중·강)와 메모를 선택으로 붙인다. 삭제 가능 |
+| 지금 기록 · 태동 카드 | 큰 "태동" 버튼을 누르면 시작, 다시 누르면 종료. 배뭉침·통증과 따로 돌아 동시에 켤 수 있다. 오른쪽에 오늘 횟수(진행 중이면 경과 시간), 아래에 평소 이 시각까지 횟수·최근 2시간 횟수·직접 입력(태동으로 열림), 상태 안내, "태동이 줄었거나 평소와 다르게 느껴져요" 버튼(누르면 고정 안내 시트, 저장 없음) |
+| 종료 직후 시트 | 이미 저장된 기록에 강도와 메모를 선택으로 붙인다. 배뭉침·통증은 약·중·강을 고르고 "완료". 태동은 상·중·하 큰 버튼을 누르면 바로 저장하고 닫히며, 메모를 먼저 쓰면 함께 저장된다. "강도 없이 완료"·삭제 가능 |
 | 출혈 기록 | 시각, 출혈 여부(출혈 없음·묻어남·소량·중간·많음, 필수), 색(출혈일 때만, 선택), 사진 최대 4장, 메모 |
 | 진료·검사 기록 | 진료·NST처럼 형식이 없는 병원 기록. 시각만 필수. 자궁경부길이(cm, 0 초과 8 이하)·양수량(충분·부족)·아기 심박수(bpm, 50~250 정수)·아기 몸무게(g, 1~7000 정수, 초음파 추정 체중)·사진 최대 10장은 선택, 나머지는 메모(2000자) |
 | 진료·검사 상세 | 목록 행을 누르면 먼저 상세가 열린다. 구성원 누구나 보고 "복사하기"로 텍스트를 복사한다. 수정은 기록한 사람·관리자만 상세의 "수정"에서 한다. 사진을 누르면 전체 화면, 닫으면 상세로 돌아온다 |
 | 산모 기록 | 지금 기록의 "산모 기록" 버튼 또는 추이 탭의 "+ 산모 기록". 시각, 몸무게(kg, 30~200)·배둘레(cm, 40~200) 중 하나 이상(소수 한 자리), 메모(500자). 사진 없음. 빈 칸에 지난번 값을 흐리게 보여준다. 최근 기록 행을 누르면 수정(기록한 사람·관리자) |
-| 직접 입력 | 누르지 못한 배뭉침·통증을 시작·종료 시각(초 단위)으로 추가. 목록 행을 누르면 같은 시트로 수정·삭제 |
-| 최근 3시간 흐름 | 타입별 막대. 출혈은 점, 출혈 없음은 빈 점, 진료·검사는 네모 점. 산모 기록은 그리지 않는다 |
-| 타입별 보기 | 한 페이지 안에서 배뭉침·통증(함께 보기, 기본)·배뭉침·통증·출혈·진료·검사 전환. 기간(최근 1시간·오늘·전체), 요약, 오늘 시간대별 횟수(1시간 4회 점선), 날짜별 세로 타임라인(시작·지속·번호·간격) |
+| 직접 입력 | 누르지 못한 배뭉침·통증·태동을 시작·종료 시각(초 단위)으로 추가. 목록 행을 누르면 같은 시트로 수정·삭제. 저장된 태동은 태동으로만 남는다 |
+| 최근 3시간 흐름 | 타입별 막대(배뭉침·통증·태동). 출혈은 점, 출혈 없음은 빈 점, 진료·검사는 네모 점. 산모 기록은 그리지 않는다 |
+| 타입별 보기 | 한 페이지 안에서 배뭉침·통증(함께 보기, 기본)·배뭉침·통증·태동·출혈·진료·검사 전환. 560px 이하는 3칸씩 두 줄. 기간(최근 1시간·오늘·전체), 요약, 오늘 시간대별 횟수(1시간 4회 점선), 날짜별 세로 타임라인(시작·지속·번호·간격) |
 | 타입별 보기 · 배뭉침·통증 | 두 타입을 **하나의 증상**으로 합쳐 본다. 번호·간격·요약(증상 횟수, 평균 간격, 평균 지속)·시간대별 횟수를 타입 구분 없이 증상 단위로 센다. 시간이 겹친 기록은 한 증상으로 묶어 같은 번호를 쓰고 뒤 기록에 "같은 증상"을 표시한다. 행의 색과 이름으로 타입은 구분한다. 출혈은 넣지 않고 출혈 탭에서만 본다. 증상 사이가 60분을 넘으면 "2시간 29분 동안 기록 없음" |
+| 타입별 보기 · 태동 | 요약(오늘 횟수, 최근 7일 중 기록한 날의 하루 평균, 기간의 평균 지속), 최근 14일 날짜별 막대(오늘은 흐리게), 오늘 시간대별 횟수(기준 점선 없음), 날짜별 목록(날마다 1번부터 번호, 강도 하·중·상, 머리에 "13회 · 상 4"). 간격은 쓰지 않는다 |
 | 출혈 목록 | 확인·출혈·사진 수 요약. 사진은 흐리게 보이고 한 번 누르면 선명, 다시 누르면 전체 화면 |
 | 추이 | 기간(3개월·6개월 기본·전체). 몸무게·배둘레(산모)·자궁경부길이·아기 심박수·아기 몸무게(진료·검사)를 항목마다 하나의 꺾은선 그래프로 본다. PC 2열, 760px 이하 1열. 네 그래프는 같은 가로축(첫 기록 2일 전 ~ 오늘+2일, 최소 2주)을 쓰고 눈금은 예정일이 있으면 임신 주(“24주”+날짜), 없으면 날짜. 머리에 최근 값·날짜, 임신 전 대비(몸무게)·기간 첫 기록 대비 변화, 기록 수. 참고선: 임신 전 몸무게 점선, 경부길이 2.5cm 점선, 심박수 110~160bpm 띠(진단 기준 아님). 아기 몸무게는 세로축을 0에서 시작한다. 기록이 없는 항목은 입력 버튼만 보인다 |
 | 추이 · 날짜 상세 | 그래프를 누르면 가장 가까운 날짜(점을 정확히 누르지 않아도 됨), 아래 "날짜별 기록" 행이나 최근 값을 누르면 그 날짜의 진료·검사·산모 기록을 시트로 연다. 값·메모 전문·작성자·사진. 진료·검사는 "상세 · 복사"로 기존 상세를 열고 닫으면 날짜 상세로 돌아온다. 산모 기록은 기록한 사람·관리자에게 "수정" |
@@ -57,9 +59,34 @@
 - 만삭 분만 진통의 5-1-1([UT Southwestern](https://utswmed.org/medblog/braxton-hicks-contractions/)).
 - 화면 구성은 순산해요(요약 3칸·타임라인)와 눕눕생활(부드러운 카드·큰 탭 영역) 앱을 참고했다.
 
+### 태동
+
+- 한 번 누른 시작·종료가 태동 1회다. 하루는 기기 시간대의 0시 기준이다(`movementDays`).
+- 강도는 `intensity` 1~3을 그대로 쓰고 태동에서는 하·중·상으로 부른다(`intensityText`). 시트는 상·중·하 순서로 놓는다. 목록에서는 글자 배지(상은 진하게)로 보인다.
+- 진통 상태(`pregnancyLevel`)·합친 증상(`symptomEpisodes`)에는 넣지 않는다. 그 계산은 `timedKinds`(배뭉침·통증)만, 타이머·직접 입력은 `durationKinds`(배뭉침·통증·태동)를 쓴다.
+- 태동 상태(`movementStatus`, 상수는 `src/lib/pregnancy.ts` 한 곳):
+  - 28주(`MOVEMENT_FROM_WEEKS`) 전: 견주지 않는다("early"). 24주가 지났는데 태동 기록이 한 번도 없으면 느낀 적이 없을 때 병원에 연락하라는 안내를 보인다. 예정일이 없으면 주수 제한 없이 견준다.
+  - 평소 = 오늘을 뺀 최근 7일 중 **기록이 있는 날**의 "0시부터 지금 시각까지 횟수" 평균. 기록하지 않은 날을 0회로 보지 않는다. 그런 날이 4일(`MOVEMENT_MIN_BASELINE_DAYS`) 미만이면 "평소 패턴 익히는 중".
+  - 평소가 4회 이상이고 오늘 같은 시각까지 횟수가 평소의 절반(`MOVEMENT_LOW_RATIO`) 미만이면 "평소보다 적음": 옆으로 누워 2시간 집중해 세어 10회가 안 되거나 줄었다고 느끼면 내일까지 기다리지 말고 분만실에 연락하라고 안내한다.
+  - 그 밖에는 판정 배지를 띄우지 않는다. "정상"처럼 안심시키는 표시는 숫자가 괜찮아도 엄마가 느끼는 변화를 가릴 수 있어 두지 않는다.
+- 절반·4일·4회는 의학 기준이 아니라 앱이 기록을 견주는 참고값이다. 기록을 덜 하면 적게 보인다는 것을 안내 문구에 적는다.
+
+### 태동 기준의 근거
+
+2026-10 조사. 원문 페이지를 직접 열지 못하고 검색 요약으로 확인했으므로 문구를 바꿀 때 원문을 다시 본다. 국내 공공기관·대학병원의 공식 태동 안내는 찾지 못했다.
+
+- 처음 느끼는 시기는 대개 16~20주(초산은 늦게), 24주까지 느끼지 못하면 연락([Cleveland Clinic](https://my.clevelandclinic.org/health/symptoms/22829-quickening-in-pregnancy), [NHS Dudley](https://www.dgft.nhs.uk/service/maternity/community-midwives/your-babys-movements-in-pregnancy/)). 횟수를 살피기 시작하는 흔한 시점은 28주([Cleveland Clinic kick counts](https://my.clevelandclinic.org/health/articles/23497-kick-counts)).
+- 정해진 정상 횟수는 없고 아기의 평소 패턴이 기준이다. RCOG Green-top 57은 정해진 수까지 세는 공식 카운트를 권할 근거가 부족하다고 본다([Tommy's](https://www.tommys.org/pregnancy-information/im-pregnant/pregnancy-news-and-blogs/movements-matter-challenging-baby-movement-myths), [RCOG GTG57 요약](https://opqic.org/bjog-reduced-fetal-movements-green-top-guideline-no-57/), [Cochrane](https://www.cochrane.org/CD004909/PREG_fetal-movement-counting-assessment-fetal-wellbeing)).
+- 집중해서 셀 때 "2시간 안에 10회"는 ACOG를 인용한 병원 안내에서 흔하다. 기관마다 다르다(SOGC 2시간 6회)([Kaiser Permanente](https://healthy.kaiserpermanente.org/health-wellness/healtharticle.counting-kicks), [SOGC](https://pregnancyinfo.ca/your-pregnancy/healthy-pregnancy/kick-counts)).
+- 태동은 32주 무렵까지 늘고 그 뒤 비슷하게 유지되며 막달에도 줄지 않는다. 줄었다고 느끼면 밤이어도 다음 날까지 기다리지 말고 바로 연락([NHS Wales](https://wisdom.nhs.wales/all-wales-guidelines/all-wales-guidelines/all-wales-altered-fetal-movements/), [Safer Care Victoria](https://www.safercare.vic.gov.au/clinical-guidance/maternity/decreased-fetal-movements)).
+- 아기가 자는 20~40분(90분을 넘는 일은 드묾)은 조용할 수 있다. 저녁·식후·옆으로 누웠을 때 잘 느껴진다([Worcestershire NHS](https://apps.worcsacute.nhs.uk/KeyDocumentPortal/Home/DownloadFile/2409)).
+- 가정용 도플러로 안심하지 않는다([Tommy's](https://www.tommys.org/about-us/news-views/experts-warn-against-home-dopplers-checking-babys-heartbeat)). 26주 이후 21일 안에 2번 이상 줄면 반복으로 보고 추가 검사를 한다(NHS England Saving Babies' Lives v3) — 앱은 저장하지 않고 "진료 때 알리세요"로만 안내한다.
+- 갑자기 아주 격한 움직임은 근거가 약해(회상 기반 연구) 자동 경고를 두지 않고 안내 시트에서 "걱정되면 같이 물어보세요"로만 다룬다.
+- "평소의 절반" 같은 개인 비교 수치는 근거 있는 기준을 찾지 못했다. 앱 참고값으로만 쓴다.
+
 ## 진행 중 타이머와 저장
 
-- 진행 중 타이머는 **입력하는 기기의 localStorage**(`mono:kkomi:running:v1:{userId}`)에만 있다. 새로고침하거나 브라우저가 탭을 다시 불러와도 시작 시각이 남는다. 다른 기기나 구성원에게는 진행 중 상태가 보이지 않는다. 한 기기로 계속 입력한다는 전제다.
+- 진행 중 타이머(배뭉침·통증·태동)는 **입력하는 기기의 localStorage**(`mono:kkomi:running:v1:{userId}`)에만 있다. 새로고침하거나 브라우저가 탭을 다시 불러와도 시작 시각이 남는다. 다른 기기나 구성원에게는 진행 중 상태가 보이지 않는다. 한 기기로 계속 입력한다는 전제다.
 - 종료하면 완성된 기록을 먼저 `mono:kkomi:pending:v1:{userId}`에 넣고 서버로 보낸다. 성공하면 대기 목록에서 지운다. 연결이 끊기면 대기 목록에 남아 "저장 대기 N건"으로 보이고, 페이지를 열 때·`online` 이벤트·"지금 저장"에서 다시 보낸다. 4xx 오류(429 제외)는 다시 보내도 같으므로 대기에서 지우고 알린다.
 - 재전송은 클라이언트가 만든 `request_key`로 한 건만 남긴다(`UNIQUE(household_id, request_key)`).
 - 기록 중에는 Screen Wake Lock을 요청한다. 지원하지 않는 브라우저에서는 조용히 넘어간다.
@@ -67,16 +94,16 @@
 
 ## 데이터
 
-`db/migrations/008_pregnancy.sql`, `009_pregnancy_checkup.sql`(진료·검사 타입·필드, 메모 한도), `012_pregnancy_body.sql`(산모 타입, 몸무게·배둘레, 임신 전 몸무게), `013_pregnancy_fetal_weight.sql`(진료·검사의 아기 몸무게).
+`db/migrations/008_pregnancy.sql`, `009_pregnancy_checkup.sql`(진료·검사 타입·필드, 메모 한도), `012_pregnancy_body.sql`(산모 타입, 몸무게·배둘레, 임신 전 몸무게), `013_pregnancy_fetal_weight.sql`(진료·검사의 아기 몸무게), `015_pregnancy_movement.sql`(태동 타입, 태동 조회 인덱스).
 
 | 테이블 | 내용 |
 |---|---|
 | `pregnancy_settings` | 공간당 1행. `due_date`, `pre_weight_kg`(numeric(4,1), 30~200), `version` |
-| `pregnancy_events` | `kind`(`tightening`·`pain`·`bleeding`·`checkup`·`body`), `started_at`, `ended_at`, `intensity`(1~3), `bleeding`(`none`·`spotting`·`light`·`moderate`·`heavy`), `bleeding_color`(`brown`·`pink`·`red`·`dark`), `cervix_length_cm`(numeric(4,2)), `amniotic_fluid`(`enough`·`low`), `fetal_heart_rate`(smallint), `fetal_weight_g`(smallint, 1~7000), `weight_kg`(numeric(4,1), 30~200), `belly_cm`(numeric(4,1), 40~200), `memo`(진료 2000자, 그 외 500자), `request_key`, `version`, 작성·수정자 |
+| `pregnancy_events` | `kind`(`tightening`·`pain`·`bleeding`·`checkup`·`body`·`movement`), `started_at`, `ended_at`, `intensity`(1~3), `bleeding`(`none`·`spotting`·`light`·`moderate`·`heavy`), `bleeding_color`(`brown`·`pink`·`red`·`dark`), `cervix_length_cm`(numeric(4,2)), `amniotic_fluid`(`enough`·`low`), `fetal_heart_rate`(smallint), `fetal_weight_g`(smallint, 1~7000), `weight_kg`(numeric(4,1), 30~200), `belly_cm`(numeric(4,1), 40~200), `memo`(진료 2000자, 그 외 500자), `request_key`, `version`, 작성·수정자 |
 | `pregnancy_photos` | 출혈·진료 사진. 와인 사진과 같은 `normalizePhoto`(회전 보정·1000px·WebP·300KB 이하)를 거친 결과만 저장. 원본은 저장하지 않는다 |
 
-- 배뭉침·통증은 종료가 있어야 하고 출혈 필드를 갖지 않는다. 출혈은 종료·강도가 없고 출혈 여부가 필수이며 `none`이면 색이 없다. 진료·검사는 종료·강도·출혈 필드가 없다. 진료 필드(`cervix_length_cm`·`amniotic_fluid`·`fetal_heart_rate`·`fetal_weight_g`)는 진료·검사에만 있다(CHECK). 서버는 다른 타입에 온 진료 필드를 버린다. 산모는 종료·강도·출혈 필드가 없고 몸무게·배둘레 중 하나는 있어야 한다. 몸무게·배둘레는 산모에만 있다(CHECK).
-- 기록의 타입은 배뭉침↔통증끼리만 바꿀 수 있다. 출혈·진료·검사·산모는 다른 타입과 바꾸지 않는다.
+- 배뭉침·통증·태동은 종료가 있어야 하고(60분 이하) 출혈 필드를 갖지 않는다. 출혈은 종료·강도가 없고 출혈 여부가 필수이며 `none`이면 색이 없다. 진료·검사는 종료·강도·출혈 필드가 없다. 진료 필드(`cervix_length_cm`·`amniotic_fluid`·`fetal_heart_rate`·`fetal_weight_g`)는 진료·검사에만 있다(CHECK). 서버는 다른 타입에 온 진료 필드를 버린다. 산모는 종료·강도·출혈 필드가 없고 몸무게·배둘레 중 하나는 있어야 한다. 몸무게·배둘레는 산모에만 있다(CHECK).
+- 기록의 타입은 배뭉침↔통증끼리만 바꿀 수 있다. 태동·출혈·진료·검사·산모는 다른 타입과 바꾸지 않는다.
 - 사진 장수는 `photoLimit`: 출혈 4장, 진료·검사 10장(`pregnancy_photos.position` 0~9가 상한). 수정할 때 남길 사진 id와 새 사진을 함께 보내며 순서를 다시 매긴다.
 - 브라우저는 사진을 서버와 같은 1000px JPEG로 줄이고, 장당 base64 34만 자를 넘으면 품질을 낮춰 다시 만든다. 10장이어도 요청 본문 4MB 안에 든다(Vercel 한도 4.5MB).
 
@@ -93,10 +120,10 @@
 
 | 요청 | 내용 |
 |---|---|
-| `GET /api/baby/pregnancy` | `{ settings, events }`. 배뭉침·통증·출혈은 최근 5000건, 진료·검사·산모는 추이 그래프용으로 모두 |
+| `GET /api/baby/pregnancy` | `{ settings, events }`. 배뭉침·통증·출혈은 최근 5000건, 태동은 따로 최근 5000건, 진료·검사·산모는 추이 그래프용으로 모두 |
 | `POST /api/baby/pregnancy` | `action`: `create`(request_key), `update`(id, expected_version, keep_photo_ids), `delete`(id, expected_version), `settings`(due_date, pre_weight_kg, expected_version; 처음은 0). 진료·검사는 `kind: "checkup"`과 `cervix_length_cm`·`amniotic_fluid`·`fetal_heart_rate`·`fetal_weight_g`(모두 nullable). 산모는 `kind: "body"`와 `weight_kg`·`belly_cm`(nullable, 하나 이상) |
 | `GET /api/baby/pregnancy/photo/{id}` | WebP 사진 |
 
 ## 현재 없는 것
 
-태동·투약·혈압 기록, 산모 기록 사진, 알림(푸시), PDF 리포트, 기준값 변경, 여러 기기 간 진행 중 타이머 공유는 없다.
+투약·혈압 기록, "태동이 줄었다고 느낌"의 저장·반복 횟수 추적, 태동 강도 추이, 산모 기록 사진, 알림(푸시), PDF 리포트, 기준값 변경, 여러 기기 간 진행 중 타이머 공유는 없다.

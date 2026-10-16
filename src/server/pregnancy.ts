@@ -86,11 +86,15 @@ export async function readPregnancy(actor: Actor): Promise<PregnancyData> {
     "SELECT due_date, pre_weight_kg::float8 AS pre_weight_kg, version FROM pregnancy_settings WHERE household_id=$1",
     [actor.householdId],
   );
-  // 배뭉침·통증·출혈은 최근 5000건만 읽는다. 진료·검사와 산모 기록은 추이 그래프에 쓰이고
+  // 배뭉침·통증·출혈은 최근 5000건, 태동은 따로 최근 5000건만 읽는다. 태동은 하루에도 여러 번 쌓여
+  // 배뭉침 기록을 밀어내지 않게 한도를 나눈다. 진료·검사와 산모 기록은 추이 그래프에 쓰이고
   // 건수가 적으므로 배뭉침이 많이 쌓여도 빠지지 않게 모두 읽는다.
   const rows = await query<EventRow>(
     `(SELECT ${EVENT_COLUMNS} FROM pregnancy_events e LEFT JOIN "user" u ON u.id=e.created_by
-      WHERE e.household_id=$1 AND e.kind NOT IN ('checkup','body') ORDER BY e.started_at DESC LIMIT 5000)
+      WHERE e.household_id=$1 AND e.kind NOT IN ('checkup','body','movement') ORDER BY e.started_at DESC LIMIT 5000)
+     UNION ALL
+     (SELECT ${EVENT_COLUMNS} FROM pregnancy_events e LEFT JOIN "user" u ON u.id=e.created_by
+      WHERE e.household_id=$1 AND e.kind='movement' ORDER BY e.started_at DESC LIMIT 5000)
      UNION ALL
      (SELECT ${EVENT_COLUMNS} FROM pregnancy_events e LEFT JOIN "user" u ON u.id=e.created_by
       WHERE e.household_id=$1 AND e.kind IN ('checkup','body'))
@@ -144,7 +148,12 @@ const fields = {
     .max(WEIGHT_MAX_KG)
     .nullable()
     .optional(),
-  belly_cm: z.number().min(BELLY_MIN_CM).max(BELLY_MAX_CM).nullable().optional(),
+  belly_cm: z
+    .number()
+    .min(BELLY_MIN_CM)
+    .max(BELLY_MAX_CM)
+    .nullable()
+    .optional(),
   memo: z.string().max(memoLimit("checkup")).optional(),
 };
 const createSchema = z
@@ -179,11 +188,7 @@ const settingsSchema = z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .nullable(),
-    pre_weight_kg: z
-      .number()
-      .min(WEIGHT_MIN_KG)
-      .max(WEIGHT_MAX_KG)
-      .nullable(),
+    pre_weight_kg: z.number().min(WEIGHT_MIN_KG).max(WEIGHT_MAX_KG).nullable(),
     expected_version: z.number().int().min(0),
   })
   .strict();
@@ -291,7 +296,7 @@ function normalize(input: Pick<Fields, keyof typeof fields>) {
     memo,
   };
 }
-// 타입은 같은 묶음 안에서만 바꾼다(배뭉침↔통증). 출혈·진료·산모는 다른 타입과 바꾸지 않는다.
+// 타입은 같은 묶음 안에서만 바꾼다(배뭉침↔통증). 태동·출혈·진료·산모는 다른 타입과 바꾸지 않는다.
 const kindGroup = (k: PregnancyKind) => (isTimed(k) ? "timed" : k);
 async function insertPhotos(
   client: PoolClient,
