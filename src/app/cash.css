@@ -1715,3 +1715,26 @@
   background: #dedcff;
   color: #5143b2;
 }
+/* On a phone the original HTML is the whole page: only the top bar and the bottom
+   navigation stay around the frame, which scrolls inside itself. Empty and error
+   states keep the heading so the file links remain reachable. */
+@media (max-width: 800px) {
+  .main-content:has(.cash-old-page .cash-html-frame) {
+    padding: 0;
+  }
+  .main-content:has(.cash-old-page .cash-html-frame) > .page-footer,
+  .cash-old-page:has(.cash-html-frame) > .cash-old-heading,
+  .cash-old-page:has(.cash-html-frame) > .cash-note {
+    display: none;
+  }
+  .cash-old-page:has(.cash-html-frame) > [role="status"] {
+    margin: 0;
+    padding: 12px 20px;
+  }
+  .cash-old-page .cash-html-frame {
+    height: calc(100dvh - 65px - 64px - env(safe-area-inset-bottom));
+    min-height: 320px;
+    border: 0;
+    border-radius: 0;
+  }
+}
