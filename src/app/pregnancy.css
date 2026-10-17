@@ -12,6 +12,12 @@
   --pg-body-pale: #e2f0ec;
   --pg-move: #5b8a2c;
   --pg-move-pale: #ecf3e2;
+  /* 태동 강도 하·중·상. 진할수록 강하다. 추이 그래프(movementLevels)와 같은 값 */
+  --pg-move-l1: #b9d89a;
+  --pg-move-l1-ink: #2c4f0f;
+  --pg-move-l2: #5b8a2c;
+  --pg-move-l3: #2c4f0f;
+  --pg-move-none: #c3c8bc;
   --pg-warn: #9a6412;
   --pg-warn-pale: #fbefd9;
   --pg-danger: #b3261e;
@@ -456,16 +462,33 @@
   margin-left: 4px;
   padding: 0 4px;
   border-radius: 6px;
-  background: var(--pg-move-pale);
-  color: var(--pg-move);
   font-size: 11px;
   font-style: normal;
   font-weight: 700;
   vertical-align: 1px;
 }
-.pg-lvl.l3 {
-  background: var(--pg-move);
-  color: #fff;
+/* 강도 색: 배지·목록 글자·번호 원·선택지가 같은 클래스(l1~l3)를 쓴다. */
+.pg-lvl.l1,
+.pg-lvl-text.l1 {
+  background: var(--pg-move-l1);
+  color: var(--pg-move-l1-ink) !important;
+}
+.pg-lvl.l2,
+.pg-lvl-text.l2 {
+  background: var(--pg-move-l2);
+  color: #fff !important;
+}
+.pg-lvl.l3,
+.pg-lvl-text.l3 {
+  background: var(--pg-move-l3);
+  color: #fff !important;
+}
+.pg-tl-r b.pg-lvl-text {
+  display: inline-block;
+  margin-bottom: 2px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
 }
 .pg-empty {
   padding: 18px 0;
@@ -1027,6 +1050,12 @@
 .pg-btn.ghost.muted {
   color: var(--muted) !important;
 }
+/* 눌러도 되는 보조 동작. 흐린 회색(ghost muted)은 비활성처럼 보여 쓰지 않는다. */
+.pg-btn.outline {
+  border: 1.5px solid var(--ink);
+  background: var(--white);
+  color: var(--ink) !important;
+}
 .pg-toast {
   position: fixed;
   left: calc(50% + var(--sidebar) / 2);
@@ -1171,7 +1200,17 @@
   color: var(--pg-pain);
 }
 .pg-tl-row.movement .pg-tl-c span {
-  background: var(--pg-move);
+  background: var(--pg-move-none);
+}
+.pg-tl-row.movement.l1 .pg-tl-c span {
+  background: var(--pg-move-l1);
+  color: var(--pg-move-l1-ink);
+}
+.pg-tl-row.movement.l2 .pg-tl-c span {
+  background: var(--pg-move-l2);
+}
+.pg-tl-row.movement.l3 .pg-tl-c span {
+  background: var(--pg-move-l3);
 }
 @media (max-width: 380px) {
   .pg-seg button {
@@ -1462,11 +1501,54 @@
 .pg-opts.pg-strength button {
   justify-content: center;
   height: 56px;
-  border-color: var(--pg-move);
-  background: var(--pg-move-pale);
-  color: var(--pg-move) !important;
+  border: 0;
   font-size: 18px;
   font-weight: 700;
+}
+.pg-opts.pg-strength button.l1 {
+  background: var(--pg-move-l1);
+  color: var(--pg-move-l1-ink) !important;
+}
+.pg-opts.pg-strength button.l2 {
+  background: var(--pg-move-l2);
+  color: #fff !important;
+}
+.pg-opts.pg-strength button.l3 {
+  background: var(--pg-move-l3);
+  color: #fff !important;
+}
+/* 직접 입력·수정의 태동 강도 선택지. 고르기 전에는 점으로, 고르면 그 강도 색으로 채운다. */
+.pg-opts button.pg-lvl-opt::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.pg-opts button.pg-lvl-opt.l1::before {
+  background: var(--pg-move-l1);
+}
+.pg-opts button.pg-lvl-opt.l2::before {
+  background: var(--pg-move-l2);
+}
+.pg-opts button.pg-lvl-opt.l3::before {
+  background: var(--pg-move-l3);
+}
+.pg-opts button.pg-lvl-opt[aria-pressed="true"]::before {
+  background: currentColor;
+  opacity: 0.6;
+}
+.pg-opts button.pg-lvl-opt.l1[aria-pressed="true"] {
+  border-color: var(--pg-move-l1);
+  background: var(--pg-move-l1);
+  color: var(--pg-move-l1-ink) !important;
+}
+.pg-opts button.pg-lvl-opt.l2[aria-pressed="true"] {
+  border-color: var(--pg-move-l2);
+  background: var(--pg-move-l2);
+}
+.pg-opts button.pg-lvl-opt.l3[aria-pressed="true"] {
+  border-color: var(--pg-move-l3);
+  background: var(--pg-move-l3);
 }
 .pg-steps {
   display: grid;

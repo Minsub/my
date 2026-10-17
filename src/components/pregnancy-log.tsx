@@ -2130,7 +2130,7 @@ function MovementView({
         <button
           key={e.id}
           type="button"
-          className="pg-tl-row movement"
+          className={`pg-tl-row movement l${e.intensity ?? 0}`}
           onClick={() => onEdit(e)}
         >
           <span className="pg-tl-l">
@@ -2141,7 +2141,9 @@ function MovementView({
           </span>
           <span className="pg-tl-r">
             {e.intensity ? (
-              <b>강도 {intensityText("movement", e.intensity)}</b>
+              <b className={`pg-lvl-text l${e.intensity}`}>
+                강도 {intensityText("movement", e.intensity)}
+              </b>
             ) : (
               <b className="pg-faint">강도 —</b>
             )}
@@ -2480,6 +2482,7 @@ function Options<T extends string>({
   value,
   onChange,
   render,
+  tone,
   allowEmpty = true,
 }: {
   label: string;
@@ -2487,6 +2490,8 @@ function Options<T extends string>({
   value: T | null;
   onChange: (v: T | null) => void;
   render: (v: T) => React.ReactNode;
+  // 값마다 붙일 클래스. 태동 강도처럼 값마다 색이 다른 선택지에 쓴다.
+  tone?: (v: T) => string | undefined;
   allowEmpty?: boolean;
 }) {
   return (
@@ -2497,6 +2502,7 @@ function Options<T extends string>({
           <button
             key={v}
             type="button"
+            className={tone?.(v)}
             aria-pressed={value === v}
             onClick={() => onChange(value === v && allowEmpty ? null : v)}
           >
@@ -2556,6 +2562,7 @@ function StopSheet({
               <button
                 key={v}
                 type="button"
+                className={`l${v}`}
                 disabled={busy}
                 onClick={() => run(() => onDone(Number(v), memo.trim()))}
               >
@@ -2598,7 +2605,7 @@ function StopSheet({
         </button>
         <button
           type="button"
-          className={`pg-btn ${movement ? "ghost muted" : "primary"}`}
+          className={`pg-btn ${movement ? "outline" : "primary"}`}
           disabled={busy}
           onClick={() =>
             run(() => onDone(intensity ? Number(intensity) : null, memo.trim()))
@@ -2778,6 +2785,7 @@ function TimedSheet({
         value={intensity as IntensityValue | null}
         onChange={setIntensity}
         render={(v) => intensityText(kind, Number(v))}
+        tone={(v) => (kind === "movement" ? `pg-lvl-opt l${v}` : undefined)}
       />
       <div className="pg-field">
         <label htmlFor="pg-memo">메모</label>
@@ -4180,13 +4188,13 @@ function TrendChart({
   );
 }
 
-// 태동 강도 색. 진할수록 강하다. pregnancy.css의 --pg-move(중)와 같은 계열. 캔버스는 CSS 변수를 읽지 못한다.
+// 태동 강도 색. 진할수록 강하다. pregnancy.css의 --pg-move-l1~l3과 같은 값(캔버스는 CSS 변수를 읽지 못한다).
 // 순서는 쌓는 순서(아래부터 상·중·하·강도 없음)이다.
 const movementLevels = [
-  { level: 3, label: "상", color: "#3d6619" },
+  { level: 3, label: "상", color: "#2c4f0f" },
   { level: 2, label: "중", color: "#5b8a2c" },
-  { level: 1, label: "하", color: "#a9c785" },
-  { level: 0, label: "강도 없음", color: "#d5dacd" },
+  { level: 1, label: "하", color: "#b9d89a" },
+  { level: 0, label: "강도 없음", color: "#e1e3dd" },
 ] as const;
 
 // 추이의 태동 그래프. 하루 횟수를 막대 하나로 세우고 강도별로 나눠 쌓는다(아래가 상).
@@ -4477,9 +4485,7 @@ function DayDetail({
             {moves.map((e) => (
               <span className="pg-chip" key={e.id}>
                 {hm(e.started_at)}
-                {e.intensity
-                  ? ` ${intensityText("movement", e.intensity)}`
-                  : ""}
+                {e.intensity ? <Bolts kind="movement" n={e.intensity} /> : null}
               </span>
             ))}
           </div>
