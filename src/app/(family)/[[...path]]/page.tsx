@@ -5,6 +5,7 @@ import { webActor, AppError } from "@/server/security";
 import { snapshot } from "@/server/service";
 import { AppShell } from "@/components/app-shell";
 import { findHtmlPage } from "@/lib/html-pages";
+import { findBakingRecipe } from "@/lib/baking";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export default async function Page({
@@ -18,6 +19,9 @@ export default async function Page({
   const path = "/" + parts.join("/");
   const isRegisteredHtml =
     /^\/etc\/html\/[^/]+$/.test(path) && Boolean(findHtmlPage(parts[2] ?? ""));
+  const isBakingRecipe =
+    /^\/hobby\/baking\/[^/]+$/.test(path) &&
+    Boolean(findBakingRecipe(parts[2]));
   if (
     ![
       "/",
@@ -35,10 +39,12 @@ export default async function Page({
       "/assets/strategy",
       "/etc/html",
       "/hobby",
+      "/hobby/baking",
       "/baby",
       "/baby/pregnancy",
     ].includes(path) &&
     !isRegisteredHtml &&
+    !isBakingRecipe &&
     !/^\/(coffee\/beans|wine)\/[0-9a-f-]{36}$/.test(path)
   )
     notFound();

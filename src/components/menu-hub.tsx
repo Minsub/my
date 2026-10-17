@@ -2,6 +2,7 @@
 import Link from "next/link";
 import {
   ArrowUpRight,
+  CakeSlice,
   Coffee,
   Timer,
   Wine,
@@ -72,6 +73,12 @@ export const hobbyMenus: HubItem[] = [
     title: "와인 셀러",
     description: "보유 와인, 입고·소비, 시음 기록과 와인잔을 관리합니다.",
     icon: Wine,
+  },
+  {
+    path: "/hobby/baking",
+    title: "베이킹",
+    description: "케이크·구움과자 레시피를 재료·오븐·공정별로 봅니다.",
+    icon: CakeSlice,
   },
 ];
 export const kkomiMenus: HubItem[] = [

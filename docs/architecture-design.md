@@ -52,6 +52,7 @@ flowchart LR
 | `src/server/wine-shares.ts`, `src/app/share/wine/[token]`, `/api/share/wine/*`, `/api/wine/shares` | 와인 목록 공유. 로그인 없는 공개 페이지·사진·투표와 셀러의 공유 목록 |
 | `src/server/cash.ts`, `cash-parser.ts`, `src/lib/cash.ts` | 웹 전용 XLSX 원본 저장·검증·집계. 공통 snapshot과 분리 |
 | `src/lib/pregnancy.ts`, `src/server/pregnancy.ts`, `/api/baby/pregnancy` | 꼬미 임신 기록. 웹 전용, 공통 snapshot·MCP와 분리. 계산 규칙은 lib가 단일 기준 |
+| `src/lib/baking/` | 베이킹 레시피 정적 데이터(`recipes/{id}.ts`)와 등록 목록·합계·검색 함수. DB·API·MCP 없음. 추가 절차는 [베이킹 문서](baking/README.md) |
 | `src/lib/assets.ts` | 자산 그룹 카탈로그·분류 룰·집계 순수 함수. 웹·서버·MCP가 공유하는 단일 기준 |
 | `src/server/assets.ts`, `/api/assets` | 자산 스냅샷 저장·조회. 공통 snapshot과 분리하고 쓰기는 execute 경유 |
 | `src/lib/asset-plans.ts`, `src/server/asset-plans.ts` | 분할매수 전략. 연금저축·IRP 고정 상수와 월급·현금 그룹 저장·조회(`/api/assets?view=plans`) |

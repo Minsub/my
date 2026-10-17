@@ -11,7 +11,9 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | URL | 현재 역할 | 구현 위치 |
 |---|---|---|
 | `/` | 도구 진입 카드, 모듈별 요약, 최근 활동, MCP 안내 이동 | workspace-home.tsx |
-| `/hobby` | 취미 하위 화면 목록(커피 원두·와인 셀러). 항목은 menu-hub.tsx의 hobbyMenus | menu-hub.tsx |
+| `/hobby` | 취미 하위 화면 목록(커피 원두·와인 셀러·베이킹). 항목은 menu-hub.tsx의 hobbyMenus | menu-hub.tsx |
+| `/hobby/baking` | 베이킹 레시피 목록: 이름·재료 검색, 분류 칩, 카드(분류·구성·오븐 온도·총 무게). 검색어·분류는 `q`·`category` 쿼리 | baking-recipes.tsx |
+| `/hobby/baking/{id}` | 레시피 상세: 배율 ×0.5~×2, 계량 체크(화면 메모리), 전체 재료 합계(구성 2개 이상), 오븐 타임라인, 구성별 재료 계량 목록(이름 ····· 양)·공정, 손글씨 메모 표시, 상자별 접기(브라우저 localStorage). 없는 id는 404 | baking-recipe.tsx |
 | `/coffee` | 정보형 원두 목록, 가격 정렬·브랜드·상태·추천(사용자 기준/누군가 추천)·사용자·검색·보관함, 행마다 추천 인원 집계 | app-shell.tsx renderCoffee |
 | `/coffee/brands` | 브랜드 목록·등록·수정·브랜드별 원두 바로가기 | app-shell.tsx |
 | `/coffee/beans/{uuid}` | 상품·kg 환산 가격·사용자별 평가·추출 설정 | app-shell.tsx |

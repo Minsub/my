@@ -4,6 +4,8 @@ import { CashDashboard } from "./cash-dashboard";
 import { AssetHub } from "./asset-hub";
 import { MenuHub, hobbyMenus, kkomiMenus } from "./menu-hub";
 import { PregnancyLog } from "./pregnancy-log";
+import { BakingRecipeList } from "./baking-recipes";
+import { BakingRecipeView } from "./baking-recipe";
 import { AssetStatus } from "./asset-status";
 import { AssetRecords } from "./asset-records";
 import { AssetPlans } from "./asset-plans";
@@ -48,6 +50,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { findHtmlPage } from "@/lib/html-pages";
+import { findBakingRecipe } from "@/lib/baking";
 import type { Bean, Purchase, Snapshot, Wine } from "@/lib/types";
 import { wineTypes, glassTypes } from "@/lib/types";
 import { money, kgPrice, today, dateLabel, vintageLabel } from "@/lib/format";
@@ -1657,11 +1660,19 @@ export function AppShell({
       <MenuHub
         eyebrow="MONO / HOBBY"
         title="취미"
-        description="커피 원두와 와인 셀러를 한곳에서 엽니다."
+        description="커피 원두, 와인 셀러, 베이킹 레시피를 한곳에서 엽니다."
         items={hobbyMenus}
         href={href}
       />
     );
+  else if (path === "/hobby/baking")
+    content = <BakingRecipeList initialQuery={initialQuery} href={href} />;
+  else if (path.startsWith("/hobby/baking/")) {
+    const recipe = findBakingRecipe(path.split("/")[3]);
+    content = recipe ? (
+      <BakingRecipeView key={recipe.id} recipe={recipe} href={href} />
+    ) : null;
+  }
   else if (path === "/baby")
     content = (
       <MenuHub
