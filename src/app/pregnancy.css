@@ -1489,3 +1489,31 @@
 .pg-steps {
   word-break: keep-all;
 }
+/* 추이 · 태동 날짜별 막대 */
+.pg-trend-card.wide {
+  grid-column: 1 / -1;
+}
+.pg-move-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.pg-move-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.pg-move-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+.pg-move-legend small {
+  margin-left: auto;
+  color: var(--pg-faint);
+  font-size: 10.5px;
+}

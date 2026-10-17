@@ -436,3 +436,27 @@ export function movementStatus(
     never: !events.some((e) => e.kind === "movement"),
   };
 }
+
+// 날짜별 태동 횟수와 강도 구성. levels[0]은 강도 없음, 1~3은 하·중·상. 추이 그래프와 날짜 상세가 쓴다.
+export type MovementDayCount = {
+  day: string; // YYYY-MM-DD, 기기 시간대
+  total: number;
+  levels: [number, number, number, number];
+};
+export function movementCountsByDay(
+  events: PregnancyEvent[],
+  from: number,
+): Map<string, MovementDayCount> {
+  const map = new Map<string, MovementDayCount>();
+  for (const e of events) {
+    if (e.kind !== "movement") continue;
+    const s = t(e.started_at);
+    if (s < from) continue;
+    const day = dayId(s);
+    const d = map.get(day) ?? { day, total: 0, levels: [0, 0, 0, 0] };
+    d.total++;
+    d.levels[e.intensity ?? 0]++;
+    map.set(day, d);
+  }
+  return map;
+}

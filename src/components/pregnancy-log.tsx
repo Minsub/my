@@ -54,6 +54,7 @@ import {
   MOVEMENT_FROM_WEEKS,
   MOVEMENT_MIN_BASELINE_DAYS,
   MOVEMENT_NO_FEEL_WEEKS,
+  movementCountsByDay,
   movementDays,
   movementStatus,
   photoLimit,
@@ -74,6 +75,7 @@ import {
   type BleedingColor,
   type TapKind,
   type MovementDay,
+  type MovementDayCount,
   type MovementStatus,
   type PregnancyData,
   type PregnancyEvent,
@@ -3768,7 +3770,7 @@ function axisTicks(xMin: number, xMax: number, due: string | null) {
   return ticks;
 }
 
-// 몸무게·배둘레·자궁경부길이·아기 심박수를 항목마다 하나의 그래프로 본다.
+// 몸무게·배둘레·자궁경부길이·아기 심박수·아기 몸무게를 항목마다 하나의 그래프로 보고, 태동은 날짜별 막대로 본다.
 // 네 그래프는 같은 가로축 범위를 써서 위아래로 날짜가 맞는다.
 function TrendView({
   events,
@@ -3807,6 +3809,7 @@ function TrendView({
       }))
       .sort((a, b) => a.t - b.t),
   }));
+  const movement = movementCountsByDay(events, from);
   const times = series.flatMap((s) => s.points.map((p) => p.t));
   const xMax = today + 2 * DAY;
   const xMin = Math.min(
@@ -3860,6 +3863,12 @@ function TrendView({
             onAdd={metric.kind === "body" ? onBody : onCheckup}
           />
         ))}
+        <MovementTrendCard
+          counts={movement}
+          today={today}
+          dueDate={settings.due_date}
+          onDay={onDay}
+        />
       </div>
       <section className="pg-card">
         <div className="pg-sec-title">
@@ -4171,6 +4180,243 @@ function TrendChart({
   );
 }
 
+// 태동 강도 색. 진할수록 강하다. pregnancy.css의 --pg-move(중)와 같은 계열. 캔버스는 CSS 변수를 읽지 못한다.
+// 순서는 쌓는 순서(아래부터 상·중·하·강도 없음)이다.
+const movementLevels = [
+  { level: 3, label: "상", color: "#3d6619" },
+  { level: 2, label: "중", color: "#5b8a2c" },
+  { level: 1, label: "하", color: "#a9c785" },
+  { level: 0, label: "강도 없음", color: "#d5dacd" },
+] as const;
+
+// 추이의 태동 그래프. 하루 횟수를 막대 하나로 세우고 강도별로 나눠 쌓는다(아래가 상).
+// 막대 높이로 횟수를, 진한 부분의 비율로 강도를 본다. 오늘은 아직 끝나지 않아 흐리게 그린다.
+// 가로축은 다른 그래프와 따로 첫 태동 기록 하루 전 ~ 내일(최소 2주)로 잡는다. 하루 단위 막대라
+// 몇 달짜리 축에 넣으면 막대가 한쪽에 몰려 읽기 어렵다.
+function MovementTrendCard({
+  counts,
+  today,
+  dueDate,
+  onDay,
+}: {
+  counts: Map<string, MovementDayCount>;
+  today: number;
+  dueDate: string | null;
+  onDay: (day: string) => void;
+}) {
+  const list = [...counts.values()].sort((a, b) => a.day.localeCompare(b.day));
+  const xMax = today + DAY;
+  const xMin = Math.min(
+    list.length ? dayStart(list[0].day) - DAY : today,
+    today - 13 * DAY,
+  );
+  const ticks = axisTicks(xMin, xMax, dueDate);
+  const todayKey = localDay(today);
+  const todayCount = counts.get(todayKey)?.total ?? 0;
+  // 오늘을 뺀 최근 7일 중 기록이 있는 날의 평균. 지금 기록의 "평소"와 같은 기준이다.
+  const recent = list.filter(
+    (d) =>
+      d.day !== todayKey &&
+      dayStart(d.day) >= today - MOVEMENT_BASELINE_DAYS * DAY,
+  );
+  const avg = recent.length
+    ? recent.reduce((a, d) => a + d.total, 0) / recent.length
+    : null;
+  const total = list.reduce((a, d) => a + d.total, 0);
+  const strong = list.reduce((a, d) => a + d.levels[3], 0);
+  const sub = list.length
+    ? [
+        avg === null
+          ? ""
+          : `최근 ${MOVEMENT_BASELINE_DAYS}일 하루 평균 ${Math.round(avg)}회`,
+        `기록한 날 ${list.length}일`,
+        total ? `상 ${Math.round((strong / total) * 100)}%` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+  return (
+    <section className="pg-card pg-trend-card wide">
+      <div className="pg-trend-head">
+        <span>
+          <i className="pg-dot movement" />
+          태동 · 날짜별 횟수
+        </span>
+        {list.length > 0 && (
+          <button
+            type="button"
+            className="pg-trend-last"
+            onClick={() => onDay(todayKey)}
+          >
+            오늘 {todayCount}회
+          </button>
+        )}
+      </div>
+      {sub && <p className="pg-trend-sub">{sub}</p>}
+      {list.length ? (
+        <>
+          <MovementTrendChart
+            list={list}
+            todayKey={todayKey}
+            xMin={xMin}
+            xMax={xMax}
+            ticks={ticks}
+            onDay={onDay}
+          />
+          <div className="pg-move-legend" aria-label="강도 색">
+            {movementLevels.map((l) => (
+              <span key={l.level}>
+                <i style={{ background: l.color }} />
+                {l.label}
+              </span>
+            ))}
+            <small>오늘은 흐리게 · 기록한 횟수</small>
+          </div>
+        </>
+      ) : (
+        <div className="pg-trend-empty">
+          <span>
+            이 기간에 태동 기록이 없습니다. 지금 기록에서 태동을 눌러 남기세요.
+          </span>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function MovementTrendChart({
+  list,
+  todayKey,
+  xMin,
+  xMax,
+  ticks,
+  onDay,
+}: {
+  list: MovementDayCount[];
+  todayKey: string;
+  xMin: number;
+  xMax: number;
+  ticks: AxisTick[];
+  onDay: (day: string) => void;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const onDayRef = useRef(onDay);
+  useEffect(() => {
+    onDayRef.current = onDay;
+  });
+  const input = JSON.stringify({ list, todayKey, xMin, xMax, ticks });
+  useEffect(() => {
+    if (!ref.current) return;
+    const v = JSON.parse(input) as {
+      list: MovementDayCount[];
+      todayKey: string;
+      xMin: number;
+      xMax: number;
+      ticks: AxisTick[];
+    };
+    const byDay = new Map(v.list.map((d) => [d.day, d]));
+    // 가로축 범위의 모든 날을 0으로 채운다. 막대 폭이 하루 간격으로 정해지고 기록 없는 날이 빈칸으로 보인다.
+    const days: { day: string; x: number; d?: MovementDayCount }[] = [];
+    for (let t = dayStart(localDay(v.xMin)); t <= v.xMax; t += DAY) {
+      const day = localDay(t);
+      days.push({ day, x: dayStart(day) + DAY / 2, d: byDay.get(day) });
+      t = dayStart(day);
+    }
+    const labels = new Map(v.ticks.map((t) => [t.value, t.label]));
+    const chart = new Chart(ref.current, {
+      type: "bar",
+      data: {
+        datasets: movementLevels.map((l) => ({
+          label: l.label,
+          data: days.map((p) => ({ x: p.x, y: p.d?.levels[l.level] ?? 0 })),
+          backgroundColor: days.map((p) =>
+            p.day === v.todayKey ? l.color + "80" : l.color,
+          ),
+          borderWidth: 0,
+          borderRadius: 2,
+          borderSkipped: false,
+          barPercentage: 0.8,
+          categoryPercentage: 1,
+          maxBarThickness: 18,
+        })),
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: "index", axis: "x", intersect: false },
+        onClick: (_, hits) => {
+          const hit = hits[0];
+          if (hit && days[hit.index].d) onDayRef.current(days[hit.index].day);
+        },
+        onHover: (event, hits) => {
+          const target = event.native?.target as HTMLElement | undefined;
+          if (target)
+            target.style.cursor =
+              hits.length && days[hits[0].index].d ? "pointer" : "";
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            filter: (item) => (item.parsed.y ?? 0) > 0,
+            callbacks: {
+              title: (items) => {
+                const p = days[items[0].dataIndex];
+                const d = new Date(dayStart(p.day));
+                return `${d.getMonth() + 1}월 ${d.getDate()}일 · ${p.d?.total ?? 0}회`;
+              },
+              label: (ctx) => `${ctx.dataset.label} ${ctx.parsed.y}회`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            type: "linear",
+            stacked: true,
+            min: v.xMin,
+            max: v.xMax,
+            grid: { color: CHART_GRID },
+            border: { display: false },
+            afterBuildTicks: (axis) => {
+              axis.ticks = v.ticks.map((t) => ({ value: t.value }));
+            },
+            ticks: {
+              maxRotation: 0,
+              autoSkipPadding: 10,
+              color: CHART_INK,
+              font: { size: 10 },
+              callback: (value) => labels.get(Number(value)) ?? "",
+            },
+          },
+          y: {
+            stacked: true,
+            min: 0,
+            suggestedMax: 5,
+            grid: { color: CHART_GRID },
+            border: { display: false },
+            ticks: {
+              precision: 0,
+              maxTicksLimit: 5,
+              color: CHART_INK,
+              font: { size: 10 },
+            },
+          },
+        },
+      },
+    });
+    return () => chart.destroy();
+  }, [input]);
+  return (
+    <div className="pg-trend-chart">
+      <canvas
+        ref={ref}
+        role="img"
+        aria-label="날짜별 태동 횟수 막대 그래프(강도별로 쌓음). 누르면 그날 기록"
+      />
+    </div>
+  );
+}
+
 // 추이에서 고른 날짜의 진료·검사와 산모 기록. 값·메모·사진을 한 번에 본다.
 function DayDetail({
   day,
@@ -4194,14 +4440,52 @@ function DayDetail({
   const list = events
     .filter((e) => isMeasure(e.kind) && localDay(e.started_at) === day)
     .sort((a, b) => a.started_at.localeCompare(b.started_at));
+  // 태동은 그날 횟수와 강도 구성, 시각 목록만 짧게 보인다.
+  const moves = events
+    .filter((e) => e.kind === "movement" && localDay(e.started_at) === day)
+    .sort((a, b) => a.started_at.localeCompare(b.started_at));
   return (
     <SheetFrame
       title={dayLabel(`${day}T00:00:00`)}
-      sub={[weekText(dueDate, dayStart(day)), `기록 ${list.length}건`]
+      sub={[
+        weekText(dueDate, dayStart(day)),
+        list.length ? `기록 ${list.length}건` : "",
+        moves.length ? `태동 ${moves.length}회` : "",
+      ]
         .filter(Boolean)
         .join(" · ")}
     >
-      {list.length ? (
+      {moves.length > 0 && (
+        <section className="pg-dd">
+          <div className="pg-dd-head">
+            <span>
+              <i className="pg-dot movement" />
+              태동 {moves.length}회
+            </span>
+            <small>
+              {movementLevels
+                .map((l) => ({
+                  l,
+                  n: moves.filter((e) => (e.intensity ?? 0) === l.level).length,
+                }))
+                .filter((x) => x.n)
+                .map((x) => `${x.l.label} ${x.n}`)
+                .join(" · ")}
+            </small>
+          </div>
+          <div className="pg-chips">
+            {moves.map((e) => (
+              <span className="pg-chip" key={e.id}>
+                {hm(e.started_at)}
+                {e.intensity
+                  ? ` ${intensityText("movement", e.intensity)}`
+                  : ""}
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+      {list.length || moves.length ? (
         list.map((e) => {
           const facts = e.kind === "body" ? bodyFacts(e) : checkupFacts(e);
           return (
