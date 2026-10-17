@@ -272,6 +272,19 @@ function normalize(input: Pick<Fields, keyof typeof fields>) {
       memo,
     };
   }
+  // 태동은 한 시점 기록이다. 보내온 종료 시각과 관계없이 시작=종료(지속 0)로 저장한다.
+  if (input.kind === "movement")
+    return {
+      kind: input.kind,
+      started_at: new Date(start),
+      ended_at: new Date(start),
+      intensity: input.intensity ?? null,
+      bleeding: null,
+      bleeding_color: null,
+      ...noCheckup,
+      ...noBody,
+      memo,
+    };
   if (!input.ended_at)
     throw new AppError("INVALID_TIME", "종료 시각이 필요합니다.");
   const end = new Date(input.ended_at).getTime();

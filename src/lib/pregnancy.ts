@@ -12,10 +12,11 @@ export const timedKinds = ["tightening", "pain"] as const;
 export type TimedKind = (typeof timedKinds)[number];
 export const isTimed = (k: PregnancyKind): k is TimedKind =>
   k === "tightening" || k === "pain";
-// 시작·종료 타이머로 기록하는 타입. 태동은 타이머는 같지만 진통 상태 판정(timedKinds)에는 넣지 않는다.
-export const durationKinds = ["tightening", "pain", "movement"] as const;
-export type DurationKind = (typeof durationKinds)[number];
-export const hasDuration = (k: PregnancyKind): k is DurationKind =>
+// 지금 기록의 버튼과 직접 입력 시트로 남기는 타입. 배뭉침·통증은 시작·종료 타이머, 태동은 누르는 순간
+// 한 시점(시작=종료, 지속 0)이다. 태동은 진통 상태 판정(timedKinds)에는 넣지 않는다.
+export const tapKinds = ["tightening", "pain", "movement"] as const;
+export type TapKind = (typeof tapKinds)[number];
+export const isTapKind = (k: PregnancyKind): k is TapKind =>
   isTimed(k) || k === "movement";
 export const bleedingAmounts = [
   "none",
@@ -331,7 +332,7 @@ export const trendMetrics: TrendMetric[] = [
 export const isMeasure = (k: PregnancyKind) => k === "checkup" || k === "body";
 
 // ── 태동 ──
-// 태동은 진통 상태(pregnancyLevel)와 따로 하루 단위 횟수로 본다. 한 번 누른 시작·종료가 1회다.
+// 태동은 진통 상태(pregnancyLevel)와 따로 하루 단위 횟수로 본다. 버튼을 한 번 누른 것이 1회다.
 // 날짜는 입력하는 기기 시간대의 자정 기준이다.
 // 평소 기준은 오늘을 뺀 최근 7일 중 기록이 있는 날만 쓴다. 기록하지 않은 날을 0회로 보면 평소가 낮아진다.
 export const MOVEMENT_BASELINE_DAYS = 7;

@@ -34,13 +34,13 @@ import {
   CERVIX_MAX_CM,
   checkupFacts,
   colorLabel,
-  durationKinds,
+  tapKinds,
   durationSec,
   FETAL_HR_MAX,
   FETAL_HR_MIN,
   FETAL_WEIGHT_MAX_G,
   FETAL_WEIGHT_MIN_G,
-  hasDuration,
+  isTapKind,
   intensityText,
   isMeasure,
   kindLabel,
@@ -72,7 +72,7 @@ import {
   type AmnioticFluid,
   type BleedingAmount,
   type BleedingColor,
-  type DurationKind,
+  type TapKind,
   type MovementDay,
   type MovementStatus,
   type PregnancyData,
@@ -87,11 +87,12 @@ import { copyText } from "@/lib/clipboard";
 
 const MIN = 60000;
 type Running = { started_at: string; key: string };
-type RunningMap = Partial<Record<DurationKind, Running>>;
+// 진행 중 타이머는 배뭉침·통증만 있다. 태동은 누르는 순간 저장한다.
+type RunningMap = Partial<Record<TimedKind, Running>>;
 // 종료했지만 아직 서버에 저장하지 못한 기록. 같은 request_key로 다시 보낸다.
 type Pending = {
   request_key: string;
-  kind: DurationKind;
+  kind: TapKind;
   started_at: string;
   ended_at: string;
   intensity: number | null;
@@ -117,14 +118,14 @@ type Sheet =
   | {
       type: "stop";
       key: string;
-      kind: DurationKind;
+      kind: TapKind;
       started_at: string;
       ended_at: string;
     }
   | {
       type: "timed";
       event?: PregnancyEvent;
-      kind: DurationKind;
+      kind: TapKind;
       started_at: string;
       ended_at: string;
       key?: string;
@@ -425,7 +426,7 @@ export function PregnancyLog({
     return () => window.removeEventListener("online", online);
   }, [runningKey, pendingKey, load, flush]);
 
-  const anyRunning = durationKinds.some((k) => running[k]);
+  const anyRunning = timedKinds.some((k) => running[k]);
   useEffect(() => {
     const id = window.setInterval(
       () => setNow(Date.now()),
@@ -464,9 +465,54 @@ export function PregnancyLog({
     setRunning(next);
   };
 
-  function toggle(k: DurationKind) {
+  // 완성된 기록을 저장 대기에 넣고 보낸 뒤 강도·메모 시트를 연다.
+  function saveDone(
+    k: TapKind,
+    key: string,
+    startedAt: string,
+    endedAt: string,
+  ) {
+    const p: Pending = {
+      request_key: key,
+      kind: k,
+      started_at: startedAt,
+      ended_at: endedAt,
+      intensity: null,
+      memo: "",
+    };
+    updatePending((l) => [
+      ...l.filter((x) => x.request_key !== p.request_key),
+      p,
+    ]);
+    setSheet({
+      type: "stop",
+      key: p.request_key,
+      kind: k,
+      started_at: p.started_at,
+      ended_at: p.ended_at,
+    });
+    flush().then(() => {
+      if (
+        readStore<Pending[]>(pendingKey, []).some(
+          (x) => x.request_key === p.request_key,
+        )
+      )
+        inform(
+          "연결이 불안정해 이 기기에 보관했습니다. 다시 연결되면 저장합니다.",
+        );
+    });
+  }
+
+  function toggle(k: TapKind) {
     if (demo) {
       inform("둘러보기에서는 기록하지 않습니다. 로그인 후 이용해주세요.");
+      return;
+    }
+    // 태동은 한 시점 기록이다. 누르면 바로 저장하고 강도 시트를 연다(지속 0).
+    if (k === "movement") {
+      const at = new Date().toISOString();
+      setNow(Date.now());
+      saveDone(k, crypto.randomUUID(), at, at);
       return;
     }
     const current = readStore<RunningMap>(runningKey, {});
@@ -503,35 +549,12 @@ export function PregnancyLog({
       });
       return;
     }
-    const p: Pending = {
-      request_key: r.key,
-      kind: k,
-      started_at: r.started_at,
-      ended_at: new Date(Math.max(ended.getTime(), start + 1000)).toISOString(),
-      intensity: null,
-      memo: "",
-    };
-    updatePending((l) => [
-      ...l.filter((x) => x.request_key !== p.request_key),
-      p,
-    ]);
-    setSheet({
-      type: "stop",
-      key: p.request_key,
-      kind: k,
-      started_at: p.started_at,
-      ended_at: p.ended_at,
-    });
-    flush().then(() => {
-      if (
-        readStore<Pending[]>(pendingKey, []).some(
-          (x) => x.request_key === p.request_key,
-        )
-      )
-        inform(
-          "연결이 불안정해 이 기기에 보관했습니다. 다시 연결되면 저장합니다.",
-        );
-    });
+    saveDone(
+      k,
+      r.key,
+      r.started_at,
+      new Date(Math.max(ended.getTime(), start + 1000)).toISOString(),
+    );
   }
 
   // 종료 직후 시트: 이미 저장된 기록이면 수정하고, 아직 대기 중이면 대기 기록을 고친다.
@@ -588,7 +611,7 @@ export function PregnancyLog({
   async function saveTimed(
     sheetValue: Extract<Sheet, { type: "timed" }>,
     values: {
-      kind: DurationKind;
+      kind: TapKind;
       started_at: string;
       ended_at: string;
       intensity: number | null;
@@ -692,9 +715,8 @@ export function PregnancyLog({
             setSheet({
               type: "timed",
               kind: k,
-              started_at: new Date(
-                end - (k === "movement" ? 15000 : 40000),
-              ).toISOString(),
+              // 태동은 시각만 쓰지만 타입을 배뭉침·통증으로 바꿀 때를 위해 종료도 채워 둔다.
+              started_at: new Date(end - 40000).toISOString(),
               ended_at: new Date(end).toISOString(),
             });
           }}
@@ -934,7 +956,7 @@ export function PregnancyLog({
     }
     if (e.kind === "bleeding") setSheet({ type: "bleeding", event: e });
     else if (e.kind === "body") setSheet({ type: "body", event: e });
-    else if (hasDuration(e.kind))
+    else if (isTapKind(e.kind))
       setSheet({
         type: "timed",
         event: e,
@@ -1010,12 +1032,12 @@ function NowView({
   pending: Pending[];
   termWeek: boolean;
   weeks: number | null;
-  onToggle: (k: DurationKind) => void;
+  onToggle: (k: TapKind) => void;
   onRetry: () => void;
   onBleeding: () => void;
   onCheckup: () => void;
   onBody: () => void;
-  onManual: (k: DurationKind) => void;
+  onManual: (k: TapKind) => void;
   onMovementLess: () => void;
   onEdit: (e: PregnancyEvent) => void;
 }) {
@@ -1124,8 +1146,7 @@ function NowView({
           events={events}
           now={now}
           weeks={weeks}
-          running={running.movement}
-          onToggle={() => onToggle("movement")}
+          onTap={() => onToggle("movement")}
           onManual={() => onManual("movement")}
           onLess={onMovementLess}
         />
@@ -1220,16 +1241,14 @@ function MovementCard({
   events,
   now,
   weeks,
-  running,
-  onToggle,
+  onTap,
   onManual,
   onLess,
 }: {
   events: PregnancyEvent[];
   now: number;
   weeks: number | null;
-  running: Running | undefined;
-  onToggle: () => void;
+  onTap: () => void;
   onManual: () => void;
   onLess: () => void;
 }) {
@@ -1247,45 +1266,23 @@ function MovementCard({
       </div>
       <button
         type="button"
-        className={`pg-tile movement pg-move-tile${running ? " running" : ""}`}
-        onClick={onToggle}
-        aria-label={`태동 ${running ? "종료" : "시작"}`}
+        className="pg-tile movement pg-move-tile"
+        onClick={onTap}
+        aria-label="태동 기록"
       >
         <span className="pg-tile-icon">
           <Footprints size={22} />
         </span>
-        {running ? (
-          <span>
-            <span className="pg-tile-name">태동 중</span>
-            <span className="pg-tile-cta">
-              탭해서 종료 · {hm(running.started_at)} 시작
-            </span>
+        <span>
+          <span className="pg-tile-name">태동</span>
+          <span className="pg-tile-cta">느껴지면 탭 · 바로 기록</span>
+          <span className="pg-tile-last">
+            {last ? `마지막 ${agoText(last.started_at, now)}` : "기록 없음"}
           </span>
-        ) : (
-          <span>
-            <span className="pg-tile-name">태동</span>
-            <span className="pg-tile-cta">느껴지면 탭해서 시작</span>
-            <span className="pg-tile-last">
-              {last ? `마지막 ${agoText(last.started_at, now)}` : "기록 없음"}
-            </span>
-          </span>
-        )}
+        </span>
         <span className="pg-move-count">
-          {running ? (
-            <span className="pg-elapsed">
-              {clock(
-                Math.max(
-                  0,
-                  (now - new Date(running.started_at).getTime()) / 1000,
-                ),
-              )}
-            </span>
-          ) : (
-            <>
-              <b>{m.today}</b>
-              <small>회</small>
-            </>
-          )}
+          <b>{m.today}</b>
+          <small>회</small>
         </span>
       </button>
       <div className="pg-move-facts">
@@ -1371,9 +1368,7 @@ function EventRow({
             <b>{e.bleeding ? bleedingLabel[e.bleeding] : ""}</b>
             {e.photo_ids.length > 0 && <span>사진 {e.photo_ids.length}장</span>}
           </>
-        ) : e.kind === "movement" ? (
-          <b>{d !== null ? clock(d) : ""}</b>
-        ) : (
+        ) : e.kind === "movement" ? null : (
           <>
             <b>{d !== null ? clock(d) : ""}</b>
             <span>{interval ? `간격 ${gap(interval)}` : "새 구간"}</span>
@@ -1473,6 +1468,16 @@ function Strip({
               fill="var(--pg-blood)"
             />
           );
+        if (e.kind === "movement")
+          return (
+            <circle
+              key={e.id}
+              cx={x(s)}
+              cy={lane.movement}
+              r={4.5}
+              fill="var(--pg-move)"
+            />
+          );
         const end = e.ended_at ? new Date(e.ended_at).getTime() : s;
         return (
           <rect
@@ -1486,7 +1491,7 @@ function Strip({
           />
         );
       })}
-      {durationKinds.map((k) => {
+      {timedKinds.map((k) => {
         const r = running[k];
         if (!r) return null;
         const s = Math.max(new Date(r.started_at).getTime(), now - span);
@@ -1987,7 +1992,7 @@ function Histogram({
   now,
 }: {
   events: PregnancyEvent[];
-  kind: DurationKind;
+  kind: TapKind;
   now: number;
 }) {
   // 태동은 진통 기준선(1시간 4회)과 관계없어 점선을 그리지 않는다.
@@ -2097,12 +2102,6 @@ function MovementView({
       (e) => e.kind === "movement" && new Date(e.started_at).getTime() >= from,
     )
     .sort((a, b) => a.started_at.localeCompare(b.started_at));
-  const durations = list
-    .map(durationSec)
-    .filter((v): v is number => v !== null);
-  const avgDuration = durations.length
-    ? durations.reduce((a, b) => a + b, 0) / durations.length
-    : null;
   // 날짜마다 1번부터 센다. 화면은 최근 것이 위로 온다.
   const numbered = new Map<string, number>();
   const perDay = new Map<string, PregnancyEvent[]>();
@@ -2125,7 +2124,6 @@ function MovementView({
       </div>,
     );
     for (const e of day.slice().reverse()) {
-      const d = durationSec(e);
       items.push(
         <button
           key={e.id}
@@ -2135,7 +2133,6 @@ function MovementView({
         >
           <span className="pg-tl-l">
             <b>{hm(e.started_at)}</b>
-            <small>{d !== null ? `${clock(d)} 지속` : ""}</small>
           </span>
           <span className="pg-tl-c">
             <span>{numbered.get(e.id)}</span>
@@ -2164,8 +2161,8 @@ function MovementView({
           <b>{dailyAvg === null ? "—" : `${Math.round(dailyAvg)}회`}</b>
         </div>
         <div>
-          <small>평균 지속</small>
-          <b>{avgDuration ? clock(avgDuration) : "—"}</b>
+          <small>어제</small>
+          <b>{days[1].count}회</b>
         </div>
       </div>
       <section className="pg-card">
@@ -2511,7 +2508,7 @@ function Options<T extends string>({
 const intensityValues = ["1", "2", "3"] as const;
 type IntensityValue = (typeof intensityValues)[number];
 // 태동은 사용자가 부르는 순서(상·중·하)로 놓는다. 저장 값은 하=1, 중=2, 상=3.
-const intensityOrder = (k: DurationKind): readonly IntensityValue[] =>
+const intensityOrder = (k: TapKind): readonly IntensityValue[] =>
   k === "movement" ? ["3", "2", "1"] : intensityValues;
 
 function StopSheet({
@@ -2538,10 +2535,14 @@ function StopSheet({
   };
   return (
     <SheetFrame
-      title={`${kindLabel[sheet.kind]} ${clock(d)} 저장됨`}
+      title={
+        movement
+          ? `태동 ${hm(sheet.started_at)} 저장됨`
+          : `${kindLabel[sheet.kind]} ${clock(d)} 저장됨`
+      }
       sub={
         movement
-          ? `${hm(sheet.started_at)} – ${hm(sheet.ended_at)} · 강도를 누르면 바로 저장합니다`
+          ? "강도를 누르면 함께 저장하고 닫습니다"
           : `${hm(sheet.started_at)} – ${hm(sheet.ended_at)} · 아래는 선택 입력입니다`
       }
     >
@@ -2657,7 +2658,7 @@ function TimedSheet({
 }: {
   sheet: Extract<Sheet, { type: "timed" }>;
   onSave: (v: {
-    kind: DurationKind;
+    kind: TapKind;
     started_at: string;
     ended_at: string;
     intensity: number | null;
@@ -2666,7 +2667,7 @@ function TimedSheet({
   onDelete?: () => Promise<void>;
   onClose: () => void;
 }) {
-  const [kind, setKind] = useState<DurationKind>(sheet.kind);
+  const [kind, setKind] = useState<TapKind>(sheet.kind);
   const [start, setStart] = useState(toLocalInput(sheet.started_at));
   const [end, setEnd] = useState(toLocalInput(sheet.ended_at));
   const [intensity, setIntensity] = useState<string | null>(
@@ -2676,16 +2677,24 @@ function TimedSheet({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const isNew = !sheet.event;
+  // 태동은 한 시점 기록이라 시각 하나만 받고 종료 = 시작으로 보낸다.
+  const point = kind === "movement";
   async function submit() {
     const s = fromLocalInput(start),
-      e = fromLocalInput(end);
+      e = point ? s : fromLocalInput(end);
+    if (point && !s) return setError("시각을 입력해주세요.");
     if (!s || !e) return setError("시작과 종료 시각을 입력해주세요.");
-    if (new Date(e) <= new Date(s))
-      return setError("종료는 시작보다 늦어야 합니다.");
-    if (new Date(e).getTime() - new Date(s).getTime() > MAX_DURATION_MIN * MIN)
-      return setError(
-        `한 번의 기록은 ${MAX_DURATION_MIN}분을 넘을 수 없습니다.`,
-      );
+    if (!point) {
+      if (new Date(e) <= new Date(s))
+        return setError("종료는 시작보다 늦어야 합니다.");
+      if (
+        new Date(e).getTime() - new Date(s).getTime() >
+        MAX_DURATION_MIN * MIN
+      )
+        return setError(
+          `한 번의 기록은 ${MAX_DURATION_MIN}분을 넘을 수 없습니다.`,
+        );
+    }
     setBusy(true);
     setError("");
     try {
@@ -2717,7 +2726,7 @@ function TimedSheet({
         values={
           // 저장된 기록은 같은 묶음 안에서만 타입을 바꾼다(배뭉침↔통증). 태동은 태동으로 남는다.
           isNew
-            ? durationKinds
+            ? tapKinds
             : sheet.kind === "movement"
               ? ["movement"]
               : timedKinds
@@ -2727,28 +2736,40 @@ function TimedSheet({
         onChange={(v) => v && setKind(v)}
         render={(v) => kindLabel[v]}
       />
-      <div className="pg-field-row">
+      {point ? (
         <div className="pg-field">
-          <label htmlFor="pg-start">시작</label>
+          <label htmlFor="pg-start">시각</label>
           <input
             id="pg-start"
             type="datetime-local"
-            step={1}
-            value={start}
+            value={start.slice(0, 16)}
             onChange={(e) => setStart(e.target.value)}
           />
         </div>
-        <div className="pg-field">
-          <label htmlFor="pg-end">종료</label>
-          <input
-            id="pg-end"
-            type="datetime-local"
-            step={1}
-            value={end}
-            onChange={(e) => setEnd(e.target.value)}
-          />
+      ) : (
+        <div className="pg-field-row">
+          <div className="pg-field">
+            <label htmlFor="pg-start">시작</label>
+            <input
+              id="pg-start"
+              type="datetime-local"
+              step={1}
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+            />
+          </div>
+          <div className="pg-field">
+            <label htmlFor="pg-end">종료</label>
+            <input
+              id="pg-end"
+              type="datetime-local"
+              step={1}
+              value={end}
+              onChange={(e) => setEnd(e.target.value)}
+            />
+          </div>
         </div>
-      </div>
+      )}
       <Options
         label="강도 (선택)"
         values={intensityOrder(kind)}

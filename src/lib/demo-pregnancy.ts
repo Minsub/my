@@ -16,7 +16,10 @@ export function demoPregnancy(now: number): PregnancyData {
       ended_at:
         kind === "bleeding" || kind === "checkup" || kind === "body"
           ? null
-          : new Date(start + seconds * 1000).toISOString(),
+          : // 태동은 한 시점 기록(시작=종료)이다.
+            new Date(
+              start + (kind === "movement" ? 0 : seconds * 1000),
+            ).toISOString(),
       intensity: null,
       bleeding: null,
       bleeding_color: null,
@@ -69,15 +72,10 @@ export function demoPregnancy(now: number): PregnancyData {
       .map((m, i) => ({ minutesAgo: sinceMidnight - m + day * DAY_MIN, i }))
       .filter(({ minutesAgo }) => minutesAgo > 2)
       .map(({ minutesAgo, i }) =>
-        ev(
-          "movement",
-          minutesAgo + ((i * 7 + day * 3) % 11),
-          8 + ((i * 13 + day) % 40),
-          {
-            intensity: (((i + day) % 3) + 1) as 1 | 2 | 3,
-            memo: day === 1 && i === 3 ? "점심 먹고 누웠을 때 오른쪽 아래" : "",
-          },
-        ),
+        ev("movement", minutesAgo + ((i * 7 + day * 3) % 11), 0, {
+          intensity: (((i + day) % 3) + 1) as 1 | 2 | 3,
+          memo: day === 1 && i === 3 ? "점심 먹고 누웠을 때 오른쪽 아래" : "",
+        }),
       ),
   ).flat();
   const checkups = visits.map(([daysAgo, cervix, hr, grams, memo]) =>
