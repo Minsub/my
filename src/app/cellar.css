@@ -156,16 +156,35 @@
     inset 0 1px 0 #fff3dc99,
     0 3px 6px #000000b0;
 }
+/* 층 번호와 채운 칸 수는 그 층 와인 목록을 여는 버튼이다. 줄 높이만큼 눌리게 늘린다. */
+.cellar-shelf-no,
+.cellar-shelf-count {
+  align-self: stretch;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 4px;
+  font-size: 9px;
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
 .cellar-shelf-no {
   color: #7d847f;
-  font-size: 9px;
   font-weight: 600;
   text-align: center;
 }
 .cellar-shelf-count {
   color: #5f6662;
-  font-size: 9px;
   text-align: right;
+  padding-right: 2px;
+}
+.cellar-shelf-no:hover,
+.cellar-shelf-count:hover,
+.cellar-shelf-no:focus-visible,
+.cellar-shelf-count:focus-visible {
+  color: #f2e2c4;
+  background: #ffffff12;
 }
 .cellar-slots {
   display: grid;
@@ -445,6 +464,45 @@
 .cellar-shelf-chips button:hover:not(:disabled) {
   background: var(--green-pale);
 }
+.cellar-shelf-list {
+  display: flex;
+  flex-direction: column;
+}
+.cellar-shelf-item {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+.cellar-shelf-item .cellar-bottle-face {
+  width: 30px;
+  height: 40px;
+}
+.cellar-shelf-item a {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cellar-shelf-item strong {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cellar-shelf-item small {
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cellar-shelf-qty {
+  font-size: 13px;
+  font-weight: 600;
+}
 .cellar-sheet-search {
   margin-bottom: 10px;
 }
@@ -547,7 +605,7 @@
     padding: 2px 4px 6px;
   }
   .cellar-shelf {
-    grid-template-columns: 13px minmax(0, 1fr) 20px;
+    grid-template-columns: 16px minmax(0, 1fr) 22px;
     gap: 3px;
     padding: 5px 0 10px;
   }

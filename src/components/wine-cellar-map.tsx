@@ -289,6 +289,7 @@ export function PlacementEditor({
 type Picked =
   | { kind: "bottle"; wine: Wine; shelf: number }
   | { kind: "empty"; shelf: number }
+  | { kind: "shelf"; shelf: number }
   | { kind: "edit"; wine: Wine };
 export function WineCellarMap({
   data,
@@ -394,7 +395,13 @@ export function WineCellarMap({
                 const bottles = shelfBottles(shelf);
                 return (
                   <div className="cellar-shelf" key={shelf}>
-                    <span className="cellar-shelf-no">{shelf}</span>
+                    <button
+                      className="cellar-shelf-no"
+                      aria-label={`${shelf}층 와인 보기`}
+                      onClick={() => setPicked({ kind: "shelf", shelf })}
+                    >
+                      {shelf}
+                    </button>
                     <div className="cellar-slots">
                       {Array.from({ length: CELLAR_SHELF_CAPACITY }, (_, i) => {
                         const wine = bottles[i];
@@ -425,9 +432,13 @@ export function WineCellarMap({
                         );
                       })}
                     </div>
-                    <span className="cellar-shelf-count">
+                    <button
+                      className="cellar-shelf-count"
+                      aria-label={`${shelf}층 와인 보기`}
+                      onClick={() => setPicked({ kind: "shelf", shelf })}
+                    >
                       {totals[shelf]}/{CELLAR_SHELF_CAPACITY}
-                    </span>
+                    </button>
                   </div>
                 );
               })}
@@ -503,6 +514,17 @@ export function WineCellarMap({
             toggleFocus(picked.wine.id);
             close();
           }}
+        />
+      )}
+      {picked?.kind === "shelf" && (
+        <ShelfSheet
+          shelf={picked.shelf}
+          data={data}
+          href={href}
+          canPut={unplaced.length > 0}
+          onClose={close}
+          onEdit={(wine) => pick({ kind: "edit", wine })}
+          onPut={() => pick({ kind: "empty", shelf: picked.shelf })}
         />
       )}
       {picked?.kind === "empty" && (
@@ -619,6 +641,86 @@ function BottleSheet({
         뺀 병은 재고에 그대로 남고 &quot;자리 없는 병&quot;이 됩니다. 마신 병은
         상세에서 소비로 기록하세요.
       </p>
+    </Sheet>
+  );
+}
+// 층 번호(또는 채운 칸 수)를 누르면 그 층의 와인을 넣은 순서대로 보여준다. 둘러보기에서도 연다.
+function ShelfSheet({
+  shelf,
+  data,
+  href,
+  canPut,
+  onClose,
+  onEdit,
+  onPut,
+}: {
+  shelf: number;
+  data: Snapshot;
+  href: (url: string) => string;
+  canPut: boolean;
+  onClose: () => void;
+  onEdit: (wine: Wine) => void;
+  onPut: () => void;
+}) {
+  const rows = data.placements
+    .filter((p) => p.shelf === shelf)
+    .flatMap((p) => {
+      const wine = data.wines.find((w) => w.id === p.wine_id);
+      return wine ? [{ wine, quantity: p.quantity }] : [];
+    });
+  const used = rows.reduce((sum, r) => sum + r.quantity, 0);
+  const free = CELLAR_SHELF_CAPACITY - used;
+  return (
+    <Sheet
+      eyebrow={`SHELF ${shelf}`}
+      title={`${shelf}층`}
+      onClose={onClose}
+      busy={false}
+    >
+      <p className="muted cellar-sheet-lead">
+        {rows.length}종 {used}병 · 빈 칸 {free}
+      </p>
+      <div className="cellar-shelf-list">
+        {rows.map(({ wine, quantity }) => {
+          const elsewhere = winePlacement(wine, data.placements).shelves.filter(
+            (p) => p.shelf !== shelf,
+          );
+          return (
+            <div className="cellar-shelf-item" key={wine.id}>
+              <Bottle wine={wine} />
+              <Link href={href(`/wine/${wine.id}`)}>
+                <strong>{wine.name}</strong>
+                <small>
+                  {[wine.type, vintageLabel(wine), wine.country]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </small>
+                <small>
+                  보유 {wine.stock}병
+                  {elsewhere.length > 0 &&
+                    ` · ${elsewhere.map((p) => `${p.shelf}층 ${p.quantity}병`).join(" · ")}`}
+                </small>
+              </Link>
+              <span className="cellar-shelf-qty">{quantity}병</span>
+              <button
+                className="icon-button"
+                aria-label={`${wine.name} 위치 수정`}
+                onClick={() => onEdit(wine)}
+              >
+                <Pencil size={14} />
+              </button>
+            </div>
+          );
+        })}
+        {!rows.length && <p className="muted small">이 층은 비어 있어요.</p>}
+      </div>
+      {free > 0 && canPut && (
+        <div className="dialog-footer">
+          <button type="button" className="button secondary" onClick={onPut}>
+            <Plus size={16} />빈 칸에 넣기
+          </button>
+        </div>
+      )}
     </Sheet>
   );
 }

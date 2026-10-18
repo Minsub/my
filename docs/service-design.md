@@ -20,7 +20,7 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | `/wine` | 보유량 대시보드(모바일은 한 줄 요약), 종류·국가·가격 구간·지역·빈티지·품종 다중 선택 칩(같은 항목은 OR)과 상세 필터·정렬, 결과 합계·평균, 세로 사진 카드(기본)/촘촘한 목록 전환(`view=list`), 결과 줄의 "공유"로 지금 목록의 공개 링크 만들기. 입고·소비는 상세에서 | wine-cellar.tsx, wine-share.tsx WineShareCreate |
 | `/wine/{uuid}` | 왼쪽 세로 사진(PC 고정)과 정보(셀러 위치 포함)·입고·소비(꺼낸 층 선택)·취소·시음·위치 수정·사진 | app-shell.tsx, wine-cellar.tsx WineDetailPhoto, wine-photo-upload.tsx |
 | `/wine/glasses` | 와인잔 등록·수정 | app-shell.tsx |
-| `/wine/cellar` | 셀러 배치: 14층(1층이 맨 아래)×8칸 셀러 모양에 층별 병을 사진으로 표시, 빈 칸에 넣기, 병 눌러 다른 층으로 옮기기·빼기, 자리 없는 병 목록. `wine={id}`면 그 와인 병만 강조 | wine-cellar-map.tsx WineCellarMap |
+| `/wine/cellar` | 셀러 배치: 14층(1층이 맨 아래)×8칸 셀러 모양에 층별 병을 사진으로 표시, 층 번호를 눌러 그 층 와인 목록, 빈 칸에 넣기, 병 눌러 다른 층으로 옮기기·빼기, 자리 없는 병 목록. `wine={id}`면 그 와인 병만 강조 | wine-cellar-map.tsx WineCellarMap |
 | `/wine/shares` | 공유한 와인 목록: 상태(D-n·끝남·꺼짐)·링크 복사·끄기, 와인별 득표 순위와 받은 이름·선택·한마디 | wine-share.tsx WineShares |
 | `/share/wine/{token}` | **로그인 없이** 여는 공유 목록. 번호 붙은 세로 사진 카드, 고르기(최대 N개)·이름·한마디 보내기, 설정에 따라 가격대/정확한 가격/숨김, 결과 공개 시 와인별 선택 수, 와인별 네이버 지식백과·Vivino 검색 링크 | share/wine/[token]/page.tsx, wine-share-view.tsx |
 | `/assets` | 자산관리 하위 화면 목록. 항목은 lib/assets.ts의 assetSubMenus에서 관리 | asset-hub.tsx |
