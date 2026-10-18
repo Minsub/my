@@ -348,7 +348,7 @@ export function WineCellarMap({
   const legend = bottleKinds.filter((k) => present.has(k.key));
   return (
     <>
-      <div className="cellar-summary">
+      <div className="cellar-map-stats">
         <div>
           <span>셀러</span>
           <strong>

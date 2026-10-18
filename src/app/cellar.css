@@ -1,10 +1,10 @@
 /* 와인 셀러 층별 배치(/wine/cellar)와 위치 수정 시트 */
-.cellar-summary {
+.cellar-map-stats {
   display: flex;
   gap: 10px;
   margin-bottom: 14px;
 }
-.cellar-summary > div {
+.cellar-map-stats > div {
   flex: 1;
   background: #fff;
   border: 1px solid var(--line);
@@ -14,15 +14,15 @@
   flex-direction: column;
   gap: 4px;
 }
-.cellar-summary span {
+.cellar-map-stats span {
   font-size: 11px;
   color: var(--muted);
 }
-.cellar-summary strong {
+.cellar-map-stats strong {
   font-size: 20px;
   font-weight: 600;
 }
-.cellar-summary small {
+.cellar-map-stats small {
   font-size: 12px;
   font-weight: 400;
   color: var(--muted);
@@ -540,7 +540,7 @@
   }
 }
 @media (max-width: 760px) {
-  .cellar-summary strong {
+  .cellar-map-stats strong {
     font-size: 17px;
   }
   .cellar-glass {
