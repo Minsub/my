@@ -1,0 +1,568 @@
+/* 와인 셀러 층별 배치(/wine/cellar)와 위치 수정 시트 */
+.cellar-summary {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.cellar-summary > div {
+  flex: 1;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cellar-summary span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.cellar-summary strong {
+  font-size: 20px;
+  font-weight: 600;
+}
+.cellar-summary small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.cellar-focus {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--green-pale);
+  border-radius: 8px;
+  padding: 6px 12px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+.cellar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 440px) minmax(280px, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+.cellar-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+/* 냉장형 와인셀러: 어두운 몸체, 위 조작부, 유리문 안의 나무 선반, 오른쪽 손잡이, 아래 통풍구 */
+/* 실물(전면 유리 냉장형)을 따른다: 검은 몸체, 거의 끝까지 덮은 유리문, 유리 안 위쪽 조작부와
+   따뜻한 조명, 얇은 밝은 원목 선반, 아래 가운데 잠금쇠. 손잡이는 보이지 않는다. */
+.cellar-cabinet {
+  position: relative;
+  background: linear-gradient(180deg, #161817, #0c0d0d);
+  border-radius: 10px;
+  padding: 6px 6px 0;
+  box-shadow:
+    inset 0 1px 0 #ffffff1a,
+    inset 0 0 0 1px #000,
+    0 22px 40px #1e322638,
+    0 2px 6px #1e322626;
+}
+.cellar-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  height: 26px;
+  margin-bottom: 2px;
+}
+.cellar-panel i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #8fb8ff;
+  box-shadow: 0 0 5px #8fb8ffcc;
+  opacity: 0.8;
+}
+.cellar-display {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  color: #dfe9ff;
+  text-shadow: 0 0 6px #8fb8ffaa;
+  letter-spacing: 0.06em;
+}
+.cellar-display small {
+  font-size: 9px;
+  color: #6fa880;
+}
+.cellar-glass {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid #2a2d2c;
+  background:
+    radial-gradient(90% 22% at 50% 0%, #ffd9a033, transparent 75%),
+    linear-gradient(180deg, #121312, #0a0b0b);
+  padding: 2px 6px 8px;
+  box-shadow: inset 0 0 30px #000000c0;
+}
+/* 유리문에 비친 사선 반사광 */
+.cellar-glass::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 28%,
+    #ffffff0d 34%,
+    #ffffff05 42%,
+    transparent 48%,
+    transparent 62%,
+    #ffffff08 66%,
+    transparent 70%
+  );
+}
+.cellar-base {
+  position: relative;
+  height: 24px;
+}
+.cellar-lock {
+  position: absolute;
+  left: 50%;
+  top: 7px;
+  width: 9px;
+  height: 9px;
+  margin-left: -4.5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #d7dbd8, #6f7572);
+  box-shadow: 0 1px 2px #000;
+}
+.cellar-shelf {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 0 11px;
+}
+/* 병이 놓인 나무 선반 앞면 */
+/* 병이 놓인 얇은 원목 선반 앞면(밝은 너도밤나무 톤) */
+.cellar-shelf::after {
+  content: "";
+  position: absolute;
+  left: -6px;
+  right: -6px;
+  bottom: 2px;
+  height: 5px;
+  background: linear-gradient(180deg, #ecd3ab, #d2ad7c 55%, #b48a5a);
+  box-shadow:
+    inset 0 1px 0 #fff3dc99,
+    0 3px 6px #000000b0;
+}
+.cellar-shelf-no {
+  color: #7d847f;
+  font-size: 9px;
+  font-weight: 600;
+  text-align: center;
+}
+.cellar-shelf-count {
+  color: #5f6662;
+  font-size: 9px;
+  text-align: right;
+}
+.cellar-slots {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 3px;
+  justify-items: center;
+}
+.cellar-slot {
+  width: min(100%, 44px);
+  aspect-ratio: 1;
+  border: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  transition:
+    opacity 0.15s,
+    transform 0.15s,
+    box-shadow 0.15s;
+}
+.cellar-slot.empty {
+  border: 1px dashed #ffffff1f;
+  color: #ffffff59;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cellar-slot.empty svg {
+  opacity: 0;
+}
+.cellar-slot.empty:hover,
+.cellar-slot.empty:focus-visible {
+  border-color: #ffffff4d;
+}
+.cellar-slot.empty:hover svg,
+.cellar-slot.empty:focus-visible svg {
+  opacity: 1;
+}
+.cellar-slot:not(.empty):hover {
+  transform: scale(1.06);
+}
+.cellar-slot.dim {
+  opacity: 0.22;
+}
+.cellar-slot.lit {
+  box-shadow:
+    0 0 0 2px #f2d27a,
+    0 0 12px #f2d27a99;
+}
+/* 뉘어 둔 병의 바닥. 가장자리는 두꺼운 유리라 어둡고, 가운데는 안으로 들어간 펀트, 왼쪽 위 반사광 */
+.bottle-end {
+  --wine: #6e1f33;
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse 34% 22% at 34% 24%, #ffffff8c, transparent 70%),
+    radial-gradient(
+      circle at 50% 50%,
+      var(--wine) 0 42%,
+      color-mix(in srgb, var(--wine) 55%, #000) 78%,
+      color-mix(in srgb, var(--wine) 30%, #000) 100%
+    );
+  box-shadow:
+    inset 0 0 0 1px #ffffff26,
+    inset 0 -2px 4px #00000080,
+    0 2px 3px #000000b3;
+}
+.bottle-punt {
+  position: absolute;
+  inset: 33%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 62% 66%,
+    color-mix(in srgb, var(--wine) 80%, #fff),
+    color-mix(in srgb, var(--wine) 60%, #000) 75%
+  );
+  box-shadow:
+    inset 0 2px 3px #00000099,
+    0 0 0 1px #ffffff1a;
+}
+/* 스파클링·샴페인: 펀트 오른쪽 위로 올라가는 작은 기포 */
+.bottle-bubbles i {
+  position: absolute;
+  border-radius: 50%;
+  background: #fffdf0;
+  box-shadow: 0 0 2px #fff8;
+}
+.bottle-bubbles i:nth-child(1) {
+  width: 11%;
+  height: 11%;
+  left: 64%;
+  top: 30%;
+}
+.bottle-bubbles i:nth-child(2) {
+  width: 8%;
+  height: 8%;
+  left: 74%;
+  top: 46%;
+}
+.bottle-bubbles i:nth-child(3) {
+  width: 6%;
+  height: 6%;
+  left: 70%;
+  top: 18%;
+}
+.bottle-end.k-red {
+  --wine: #7a1f36;
+}
+.bottle-end.k-white {
+  --wine: #e2cf7c;
+}
+.bottle-end.k-rose {
+  --wine: #e79aa3;
+}
+.bottle-end.k-sparkling {
+  --wine: #b9c779;
+}
+/* 샴페인: 금색 호일 테 */
+.bottle-end.k-champagne {
+  --wine: #d6b95e;
+  box-shadow:
+    inset 0 0 0 2px #f6e2a0,
+    inset 0 0 0 3.5px #8a6a1f,
+    inset 0 -2px 4px #00000066,
+    0 2px 3px #000000b3;
+}
+.bottle-end.k-dessert {
+  --wine: #c8882e;
+}
+.bottle-end.k-fortified {
+  --wine: #5e3020;
+}
+.cellar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 0;
+  padding: 0 4px;
+  list-style: none;
+  font-size: 12px;
+  color: var(--muted);
+}
+.cellar-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cellar-legend .bottle-end {
+  width: 18px;
+  height: 18px;
+}
+.cellar-bottle-face {
+  box-shadow: 0 0 0 2px #f2d27a;
+}
+.cellar-bottle-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 5px;
+  overflow: hidden;
+  background: #f4f1ea;
+  border-bottom: 3px solid var(--bottle);
+}
+.cellar-bottle-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.cellar-bottle-face b {
+  font-size: 10px;
+  color: var(--bottle);
+  font-weight: 600;
+  line-height: 1.1;
+  word-break: keep-all;
+  text-align: center;
+  padding: 2px;
+}
+.cellar-unplaced {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cellar-unplaced-row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+}
+.cellar-unplaced-row .cellar-bottle-face,
+.cellar-candidate .cellar-bottle-face {
+  width: 30px;
+  height: 40px;
+}
+.cellar-unplaced-row a,
+.cellar-candidate > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cellar-unplaced-row strong,
+.cellar-candidate strong {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cellar-unplaced-row small,
+.cellar-candidate small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.cellar-unplaced-count {
+  font-size: 12px;
+  color: var(--rose);
+  font-weight: 600;
+}
+.cellar-sheet .cellar-sheet-body {
+  padding: 28px;
+}
+.cellar-sheet .cellar-sheet-lead {
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+.cellar-sheet-sub {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 18px 0 10px;
+}
+.cellar-sheet-note {
+  margin-top: 10px;
+  text-align: right;
+}
+.cellar-sheet .dialog-footer {
+  margin-top: 18px;
+}
+.cellar-bottle-info {
+  display: grid;
+  grid-template-columns: 66px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.cellar-bottle-info .cellar-bottle-face {
+  width: 66px;
+  height: 88px;
+}
+.cellar-bottle-info p {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+.cellar-shelf-chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(62px, 1fr));
+  gap: 6px;
+}
+.cellar-shelf-chips button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 8px;
+  padding: 7px 4px;
+  font-size: 13px;
+}
+.cellar-shelf-chips button small {
+  font-size: 10px;
+  color: var(--muted);
+}
+.cellar-shelf-chips button:hover:not(:disabled) {
+  background: var(--green-pale);
+}
+.cellar-sheet-search {
+  margin-bottom: 10px;
+}
+.cellar-candidates {
+  display: flex;
+  flex-direction: column;
+  max-height: 50dvh;
+  overflow-y: auto;
+}
+.cellar-candidate {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  padding: 8px 4px;
+  text-align: left;
+  color: var(--green);
+}
+.cellar-candidate:hover:not(:disabled) {
+  background: var(--green-pale);
+}
+.placement-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.placement-row {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 3px 0;
+}
+.placement-shelf {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
+}
+.placement-row.has-mine .placement-shelf {
+  color: var(--ink);
+  font-weight: 600;
+}
+.placement-cells {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 3px;
+}
+.placement-cells i {
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid #dfe3d6;
+  background: #fff;
+}
+.placement-cells i.other {
+  background: #cfd5c8;
+  border-color: #cfd5c8;
+}
+.placement-cells i.mine {
+  background: var(--green);
+  border-color: var(--green);
+}
+.placement-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.placement-stepper button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.placement-stepper b {
+  width: 18px;
+  text-align: center;
+  font-size: 13px;
+}
+@media (max-width: 1000px) {
+  .cellar-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cellar-stage {
+    max-width: 440px;
+    width: 100%;
+    margin: 0 auto;
+  }
+}
+@media (max-width: 760px) {
+  .cellar-summary strong {
+    font-size: 17px;
+  }
+  .cellar-glass {
+    padding: 2px 4px 6px;
+  }
+  .cellar-shelf {
+    grid-template-columns: 13px minmax(0, 1fr) 20px;
+    gap: 3px;
+    padding: 5px 0 10px;
+  }
+  .cellar-shelf::after {
+    left: -4px;
+    right: -4px;
+  }
+  .cellar-slots {
+    gap: 2px;
+  }
+  .cellar-sheet .cellar-sheet-body {
+    padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+  }
+  .placement-stepper button {
+    width: 34px;
+    height: 34px;
+  }
+}

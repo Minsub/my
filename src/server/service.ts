@@ -16,6 +16,7 @@ import {
 } from "./assets";
 import { saveAssetBuyPlan } from "./asset-plans";
 import { createWineShare, revokeWineShare } from "./wine-shares";
+import { releaseForStockDrop, setWinePlacement } from "./wine-placements";
 import type { Actor, Snapshot } from "@/lib/types";
 const tables = {
   brand: "coffee_brands",
@@ -471,10 +472,18 @@ export async function execute(
           ],
           client,
         );
+        const released = await releaseForStockDrop(
+          client,
+          actor,
+          d.wine_id,
+          d.quantity,
+          before - d.quantity,
+          d.shelf,
+        );
         const tasting = d.tasting
           ? await addTasting(client, actor, d.wine_id, d.tasting, event.id)
           : null;
-        result = { event, tasting, stock: before - d.quantity };
+        result = { event, tasting, stock: before - d.quantity, released };
         label = wine.name;
         break;
       }
@@ -505,8 +514,32 @@ export async function execute(
           ],
           client,
         );
-        result = { event, stock: d.quantity };
+        const released =
+          d.quantity < before
+            ? await releaseForStockDrop(
+                client,
+                actor,
+                d.wine_id,
+                before - d.quantity,
+                d.quantity,
+                d.shelf,
+              )
+            : [];
+        result = { event, stock: d.quantity, released };
         label = wine.name;
+        break;
+      }
+      case "wine_set_placement": {
+        const d = command.input;
+        const wine = await record(client, actor, "wine", d.wine_id);
+        result = await setWinePlacement(
+          client,
+          actor,
+          { id: wine.id, archived: wine.archived },
+          await stock(client, actor, d.wine_id),
+          d,
+        );
+        label = `${wine.name} 셀러 위치`;
         break;
       }
       case "wine_delete": {
@@ -515,7 +548,7 @@ export async function execute(
         canEdit(actor, wine, d.expected_version);
         const args = [actor.householdId, d.id];
         // 시음 → 재고 이벤트 → 구매 순서로 참조를 끊는다. 취소 이벤트와 원본은 한 문장에서 같이 지운다.
-        // 사진은 ON DELETE CASCADE. 공유의 wine_ids 배열은 그대로 두고 읽을 때 없는 와인을 거른다.
+        // 사진·셀러 위치는 ON DELETE CASCADE. 공유의 wine_ids 배열은 그대로 두고 읽을 때 없는 와인을 거른다.
         const tastings = await query(
           "DELETE FROM wine_tastings WHERE household_id=$1 AND wine_id=$2 RETURNING id",
           args,
@@ -573,6 +606,17 @@ export async function execute(
             "INSUFFICIENT_STOCK",
             "입고 취소에 필요한 재고가 부족합니다.",
             409,
+          );
+        // 입고 취소처럼 재고가 줄면 셀러에 든 병도 맞춘다. 소비 취소로 돌아온 병은 자리 없는 병이 된다.
+        if (event.delta > 0)
+          await releaseForStockDrop(
+            client,
+            actor,
+            event.wine_id,
+            event.delta,
+            before - event.delta,
+            undefined,
+            "셀러 여러 층에 있는 와인입니다. 셀러 위치에서 먼저 뺀 뒤 취소해주세요.",
           );
         [result] = await query(
           "INSERT INTO wine_stock_events(household_id,wine_id,kind,delta,created_by,reverses_id,reason) VALUES($1,$2,'reverse',$3,$4,$5,$6) RETURNING *",
@@ -814,6 +858,13 @@ export async function snapshot(actor: Actor): Promise<Snapshot> {
         : [],
       tastings: wine ? await read("wine_tastings", "tasted_on DESC,id") : [],
       glasses: wine ? await read("wine_glasses", "name") : [],
+      placements: wine
+        ? await query(
+            "SELECT wine_id,shelf::int,quantity,placed_at FROM wine_cellar_placements WHERE household_id=$1 ORDER BY shelf,placed_at,wine_id",
+            [actor.householdId],
+            client,
+          )
+        : [],
       members:
         actor.channel === "web"
           ? await query(

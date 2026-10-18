@@ -96,8 +96,9 @@ export const commandGuide = {
     description:
       "보유 수량에서 마신 병수를 차감합니다. 재고가 부족하면 거부하며, 시음을 함께 기록할 수 있습니다.",
     input:
-      "wine_id. 선택: quantity(기본 1병), occurred_on(기본 오늘), tasting{score,note,repurchase,tasted_on}.",
-    result: "소비 이벤트와 감소한 재고. 선택한 시음 기록.",
+      "wine_id. 선택: quantity(기본 1병), occurred_on(기본 오늘), tasting{score,note,repurchase,tasted_on}, shelf(꺼낸 셀러 층 1~14, 1층이 맨 아래).",
+    result:
+      "소비 이벤트와 감소한 재고, 셀러에서 뺀 층(released). shelf를 생략하면 자리 없는 병부터 빼고, 여러 층에 있어 어느 층인지 모르면 shelf를 달라고 거부합니다.",
     example: "이 와인 한 병 마셨어. 91점이고 다시 사고 싶다고 기록해줘.",
   },
   wine_adjust_stock: {
@@ -105,10 +106,20 @@ export const commandGuide = {
     description:
       "실제 병 수와 기록이 다를 때 보유 수량을 맞춥니다. 차이만큼 조정 기록을 남기며 구매 내역·가격은 바꾸지 않습니다. 새로 산 병은 입고, 마신 병은 소비로 기록합니다.",
     input:
-      "wine_id, expected_stock(wine_get의 현재 stock), quantity(맞출 병 수 0~1,000). 선택: occurred_on(기본 오늘), reason(사유 200자).",
+      "wine_id, expected_stock(wine_get의 현재 stock), quantity(맞출 병 수 0~1,000). 선택: occurred_on(기본 오늘), reason(사유 200자), shelf(줄일 때 뺀 셀러 층, 규칙은 소비와 같음).",
     result:
       "조정 이벤트와 바뀐 재고. 그 사이 재고가 바뀌었거나 같은 수량이면 거부합니다. 보관한 와인은 보관 해제 후 수정합니다.",
     example: "이 와인 실제로는 3병 있어. 수량을 3병으로 고쳐줘.",
+  },
+  wine_set_placement: {
+    title: "와인 셀러 위치",
+    description:
+      "와인이 셀러 몇 층에 몇 병 있는지 정합니다. 셀러는 14층(1층이 맨 아래), 층마다 최대 8병입니다. 재고는 바꾸지 않으며 셀러에 넣지 않은 병은 '자리 없음'으로 남습니다.",
+    input:
+      "wine_id, expected_placements(wine_get의 placements 그대로), placements([{shelf, quantity}] 그 와인의 위치 전체, 빈 배열이면 셀러에서 모두 뺌).",
+    result:
+      "바뀐 위치. 보유 병 수보다 많거나 층이 가득 찼거나 그 사이 위치가 바뀌었으면 거부합니다.",
+    example: "이 와인 2병을 셀러 3층에 넣었어.",
   },
   wine_log_tasting: {
     title: "와인 시음 기록",
@@ -215,7 +226,7 @@ export const readGuide: Record<string, Entry> = {
     description: "와인 한 종류의 제품 정보와 구매·가족 시음 내역을 조회합니다.",
     input: "id(와인 UUID).",
     result:
-      "와인 정보·현재 재고·최근 구입가·version·has_photo, purchases, tastings, 웹 화면 링크. 사진 파일 자체는 포함하지 않습니다.",
+      "와인 정보·현재 재고·최근 구입가·version·has_photo, 셀러 위치(placements: 층별 병 수, unplaced: 자리 없는 병), purchases, tastings, 웹 화면 링크. 사진 파일 자체는 포함하지 않습니다.",
     example: "이 와인을 언제 얼마에 샀고 가족들이 어떻게 평가했어?",
   },
   wine_list_glasses: {

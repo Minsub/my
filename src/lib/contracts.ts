@@ -7,7 +7,11 @@ import {
   weightsComplete,
 } from "./asset-plans";
 import type { Scope } from "./types";
-import { WINE_SHARE_MAX_WINES } from "./wine-cellar";
+import {
+  CELLAR_SHELF_CAPACITY,
+  CELLAR_SHELVES,
+  WINE_SHARE_MAX_WINES,
+} from "./wine-cellar";
 const id = z.uuid();
 const text = z.string().trim().max(5000);
 const name = z.string().trim().min(1).max(200);
@@ -51,6 +55,22 @@ const wine = {
   vintage: z.number().int().min(1800).max(2200).nullable().default(null),
   volume_ml: z.number().int().positive().max(100000).nullable().default(null),
 };
+// 셀러 층 번호. 1층이 맨 아래다.
+const shelf = z.number().int().min(1).max(CELLAR_SHELVES);
+const shelfCounts = z
+  .array(
+    z
+      .object({
+        shelf,
+        quantity: z.number().int().min(1).max(CELLAR_SHELF_CAPACITY),
+      })
+      .strict(),
+  )
+  .max(CELLAR_SHELVES)
+  .refine(
+    (rows) => new Set(rows.map((r) => r.shelf)).size === rows.length,
+    "같은 층을 두 번 넣을 수 없습니다.",
+  );
 const tasting = {
   score: z.number().int().min(0).max(100).nullable().default(null),
   note: text.default(""),
@@ -132,6 +152,8 @@ export const commandSchemas = {
       quantity: z.number().int().min(1).max(1000).default(1),
       occurred_on: date,
       tasting: z.object(tasting).optional(),
+      // 꺼낸 셀러 층. 생략하면 자리 없는 병부터 빼고, 그래도 모자라면 한 층에만 있을 때 그 층에서 뺀다.
+      shelf: shelf.optional(),
     })
     .strict(),
   // 실제 병 수와 기록이 다를 때 보유 수량을 quantity로 맞춘다. 차이만큼 adjust 이벤트를 남겨
@@ -144,6 +166,18 @@ export const commandSchemas = {
       quantity: z.number().int().min(0).max(1000),
       occurred_on: date,
       reason: text.max(200).default(""),
+      // 줄일 때 뺀 셀러 층. 규칙은 wine_consume의 shelf와 같고 늘릴 때는 무시한다.
+      shelf: shelf.optional(),
+    })
+    .strict(),
+  // 한 와인의 셀러 위치 전체를 placements로 바꾼다(빈 배열이면 셀러에서 모두 뺀다).
+  // expected_placements는 화면에서 본 그 와인의 위치이며, 그 사이 바뀌었으면 거부한다.
+  wine_set_placement: z
+    .object({
+      ...key,
+      wine_id: id,
+      expected_placements: shelfCounts,
+      placements: shelfCounts,
     })
     .strict(),
   wine_log_tasting: z.object({ ...key, wine_id: id, ...tasting }).strict(),
@@ -353,6 +387,7 @@ export const commandScopes: Record<Operation, Scope | null> = {
   wine_update_price: "wine:write",
   wine_consume: "wine:write",
   wine_adjust_stock: "wine:write",
+  wine_set_placement: "wine:write",
   wine_delete: "wine:write",
   wine_log_tasting: "wine:write",
   wine_reverse_event: "wine:write",

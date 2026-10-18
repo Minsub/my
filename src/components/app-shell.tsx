@@ -14,7 +14,8 @@ import { WorkspaceHome } from "./workspace-home";
 import { WineCellar, WineDetailPhoto } from "./wine-cellar";
 import { WineShares } from "./wine-share";
 import { WinePhotoUpload } from "./wine-photo-upload";
-import { wineFacts } from "@/lib/wine-cellar";
+import { PlacementEditor, WineCellarMap } from "./wine-cellar-map";
+import { placementLabel, wineFacts, winePlacement } from "@/lib/wine-cellar";
 /* eslint-disable @next/next/no-location-assign-relative-destination -- Full navigation deliberately clears all cached family data when a session ends. */
 import Link from "next/link";
 import { useState } from "react";
@@ -130,6 +131,7 @@ export function AppShell({
   const router = useRouter();
   const [data, setData] = useState(initial),
     [form, setForm] = useState<FormSpec | null>(null),
+    [placementFor, setPlacementFor] = useState<Wine | null>(null),
     [toast, setToast] = useState(""),
     [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState(initialQuery.q ?? ""),
@@ -469,8 +471,42 @@ export function AppShell({
           max: 1000,
         },
         txt("reason", "사유"),
+        ...shelfField(wine, "줄였다면 뺀 셀러 층"),
       ],
+      transform: shelfTransform,
     });
+  }
+  // 셀러에 든 와인을 소비·감소할 때 꺼낸 층을 고른다. 고를 필요가 없으면 미리 선택해 둔다
+  // (자리 없는 병이 있으면 그 병, 한 층에만 있으면 그 층). 서버가 같은 규칙으로 다시 검사한다.
+  function shelfField(wine: Wine, label: string): Field[] {
+    const { shelves, unplaced } = winePlacement(wine, data.placements);
+    if (!shelves.length) return [];
+    return [
+      {
+        name: "shelf",
+        label,
+        type: "select",
+        required: true,
+        value: unplaced > 0 ? "none" : String(shelves[0].shelf),
+        options: [
+          ...(unplaced > 0
+            ? [{ value: "none", label: `자리 없는 병 (${unplaced}병)` }]
+            : []),
+          ...shelves.map((p) => ({
+            value: String(p.shelf),
+            label: `${p.shelf}층 (${p.quantity}병)`,
+          })),
+        ],
+        hint:
+          shelves.length > 1 || unplaced > 0
+            ? "꺼낸 병만큼 셀러 위치에서 빠집니다."
+            : undefined,
+      },
+    ];
+  }
+  function shelfTransform(v: Record<string, unknown>) {
+    const { shelf, ...rest } = v;
+    return shelf && shelf !== "none" ? { ...rest, shelf: Number(shelf) } : rest;
   }
   function deleteForm(wine: Wine) {
     const events = data.events.filter((e) => e.wine_id === wine.id).length;
@@ -526,10 +562,12 @@ export function AppShell({
           min: 1,
           max: wine.stock,
         },
+        ...shelfField(wine, "꺼낸 위치"),
         ...tastingFields(),
       ],
       transform: (v) => {
-        const { score, note, repurchase, tasted_on, ...rest } = v;
+        const { score, note, repurchase, tasted_on, ...rest } =
+          shelfTransform(v);
         return {
           ...rest,
           occurred_on: tasted_on,
@@ -756,6 +794,14 @@ export function AppShell({
         >
           {domain === "coffee" ? "브랜드 스토어" : "와인잔"}
         </Link>
+        {domain === "wine" && (
+          <Link
+            className={path === "/wine/cellar" ? "selected" : ""}
+            href={href("/wine/cellar")}
+          >
+            셀러 배치
+          </Link>
+        )}
         {domain === "wine" && (
           <Link
             className={path === "/wine/shares" ? "selected" : ""}
@@ -1184,6 +1230,26 @@ export function AppShell({
       </>
     );
   }
+  function renderWineCellarMap() {
+    return (
+      <>
+        {pageHeading(
+          "WINE CELLAR",
+          "셀러 배치",
+          "셀러 층마다 어떤 와인이 있는지 봅니다. 1층이 맨 아래이고 층마다 8병까지 들어갑니다.",
+        )}
+        {tabs("wine")}
+        <WineCellarMap
+          data={data}
+          save={save}
+          href={href}
+          demo={demo}
+          inform={inform}
+          initialWine={initialQuery.wine ?? ""}
+        />
+      </>
+    );
+  }
   function renderWineDetail(wine: Wine) {
     const events = data.events.filter((e) => e.wine_id === wine.id);
     const facts = wineFacts(wine, data);
@@ -1242,6 +1308,20 @@ export function AppShell({
                   <dd>{wine.stock}병</dd>
                 </div>
                 <div>
+                  <dt>셀러 위치</dt>
+                  <dd>
+                    {winePlacement(wine, data.placements).placed > 0 ? (
+                      <Link href={href(`/wine/cellar?wine=${wine.id}`)}>
+                        {placementLabel(wine, data.placements)}
+                      </Link>
+                    ) : wine.stock > 0 ? (
+                      "셀러에 없음"
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
+                </div>
+                <div>
                   <dt>품종</dt>
                   <dd>{wine.grapes || "미입력"}</dd>
                 </div>
@@ -1281,6 +1361,20 @@ export function AppShell({
                   <button onClick={() => stockForm(wine)}>
                     <Pencil size={13} />
                     수량 수정
+                  </button>
+                )}
+                {!wine.archived && wine.stock > 0 && (
+                  <button
+                    onClick={() =>
+                      demo
+                        ? inform(
+                            "둘러보기 화면입니다. 로그인하면 기록을 저장할 수 있어요.",
+                          )
+                        : setPlacementFor(wine)
+                    }
+                  >
+                    <Pencil size={13} />
+                    위치 수정
                   </button>
                 )}
                 {priceEditable && (
@@ -1643,7 +1737,8 @@ export function AppShell({
   const selectedWine =
     path.startsWith("/wine/") &&
     !path.endsWith("glasses") &&
-    path !== "/wine/shares"
+    path !== "/wine/shares" &&
+    path !== "/wine/cellar"
       ? data.wines.find((w) => w.id === path.split("/")[2])
       : undefined;
   let content: React.ReactNode;
@@ -1654,6 +1749,7 @@ export function AppShell({
   else if (path === "/wine") content = renderWine();
   else if (path === "/wine/glasses") content = renderGlasses();
   else if (path === "/wine/shares") content = renderWineShares();
+  else if (path === "/wine/cellar") content = renderWineCellarMap();
   else if (selectedWine) content = renderWineDetail(selectedWine);
   else if (path === "/hobby")
     content = (
@@ -1672,8 +1768,7 @@ export function AppShell({
     content = recipe ? (
       <BakingRecipeView key={recipe.id} recipe={recipe} href={href} />
     ) : null;
-  }
-  else if (path === "/baby")
+  } else if (path === "/baby")
     content = (
       <MenuHub
         eyebrow="MONO / KKOMI"
@@ -1852,6 +1947,16 @@ export function AppShell({
       </nav>
       {form && (
         <RecordForm spec={form} onClose={() => setForm(null)} onSave={save} />
+      )}
+      {placementFor && (
+        <PlacementEditor
+          wine={
+            data.wines.find((w) => w.id === placementFor.id) ?? placementFor
+          }
+          data={data}
+          save={save}
+          onClose={() => setPlacementFor(null)}
+        />
       )}
       {toast && (
         <div className="toast" role="status">

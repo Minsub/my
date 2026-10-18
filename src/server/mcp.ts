@@ -9,7 +9,12 @@ import {
 } from "@/lib/contracts";
 import { snapshot, execute } from "./service";
 import { photoSchema, uploadWinePhoto } from "./wine-photos";
-import { wineFacts, filterWines, type WineFilters } from "@/lib/wine-cellar";
+import {
+  wineFacts,
+  filterWines,
+  winePlacement,
+  type WineFilters,
+} from "@/lib/wine-cellar";
 import { readAssetHistory, readAssetItems, readAssetOverview } from "./assets";
 import {
   assetClassificationRules,
@@ -20,7 +25,7 @@ import {
 import { query } from "./db";
 import { AppError, rateLimit } from "./security";
 import { appUrl } from "./auth";
-import type { Actor, Scope } from "@/lib/types";
+import type { Actor, Scope, Snapshot, Wine } from "@/lib/types";
 function output(data: unknown) {
   return {
     content: [{ type: "text" as const, text: JSON.stringify(data) }],
@@ -36,9 +41,11 @@ const descriptions: Partial<Record<Operation, string>> = {
   wine_update_price:
     "이미 입고한 와인의 병당 구입가를 고칩니다. 재고는 바꾸지 않습니다. wine_get의 purchases[].id를 purchase_id로, 와인 version을 expected_version으로 보냅니다. 구매 내역이 없는 이관 와인은 purchase_id 없이 보내면 참고 가격을 고칩니다.",
   wine_consume:
-    "와인 재고를 소비합니다. 부족하면 거부합니다. 시음도 함께 기록할 수 있습니다.",
+    "와인 재고를 소비합니다. 부족하면 거부합니다. 시음도 함께 기록할 수 있습니다. 셀러 여러 층에 있는 와인이면 꺼낸 층을 shelf로 보냅니다(wine_get의 placements). 생략하면 자리 없는 병부터 빼고, 어느 층인지 정할 수 없으면 SHELF_REQUIRED로 거부합니다.",
   wine_adjust_stock:
-    "실제 병 수와 기록이 다를 때 보유 수량을 quantity로 맞춥니다. 입고·소비가 아닌 단순 정정에만 씁니다. wine_get의 현재 stock을 expected_stock으로 보내며, 그 사이 재고가 바뀌었으면 거부합니다. 차이만큼 조정 기록이 남고 wine_reverse_event로 취소할 수 있습니다.",
+    "실제 병 수와 기록이 다를 때 보유 수량을 quantity로 맞춥니다. 입고·소비가 아닌 단순 정정에만 씁니다. wine_get의 현재 stock을 expected_stock으로 보내며, 그 사이 재고가 바뀌었으면 거부합니다. 차이만큼 조정 기록이 남고 wine_reverse_event로 취소할 수 있습니다. 줄일 때 셀러 위치 규칙은 wine_consume의 shelf와 같습니다.",
+  wine_set_placement:
+    "와인이 셀러 몇 층에 몇 병 있는지 정합니다. 셀러는 14층(1층이 맨 아래)이고 층마다 최대 8병입니다. placements는 그 와인의 위치 전체([{shelf, quantity}])이며 빈 배열이면 셀러에서 모두 뺍니다. expected_placements에는 wine_get의 placements를 그대로 보냅니다. 재고는 바꾸지 않고, 보유 병 수보다 많이 넣거나 층이 가득 차면 거부합니다.",
   coffee_save_preference: "인증된 사용자 본인의 원두 취향을 저장합니다.",
   wine_log_tasting: "재고 변화 없이 시음을 기록합니다.",
   asset_record_snapshot:
@@ -47,6 +54,11 @@ const descriptions: Partial<Record<Operation, string>> = {
     "이미 저장된 기록에서 항목 한 줄의 자산그룹이나 금액만 고칩니다. 나머지 항목은 그대로 둡니다. 분류를 잘못 넣었거나 금액에 오타가 난 한 줄을 바로잡을 때 쓰고, 그 날짜 전체를 다시 보내야 하면 asset_record_snapshot을 씁니다. snapshot_id·item_id는 asset_list_records에서 얻고 expected_version은 그 스냅샷의 version입니다.",
   asset_delete_snapshot: "잘못 등록한 날짜의 자산 기록을 삭제합니다.",
 };
+// wine_get의 셀러 위치. placements는 wine_set_placement의 expected_placements로 그대로 쓴다.
+function cellarPlacement(wine: Wine, s: Snapshot) {
+  const { shelves, unplaced } = winePlacement(wine, s.placements);
+  return { placements: shelves, unplaced };
+}
 export function mcpHandler(actor: Actor) {
   return createMcpHandler(
     (server) => {
@@ -294,6 +306,7 @@ export function mcpHandler(actor: Actor) {
                   }
                 : {
                     ...wineFacts(item as import("@/lib/types").Wine, s),
+                    ...cellarPlacement(item as import("@/lib/types").Wine, s),
                     tastings: s.tastings.filter((x) => x.wine_id === id),
                     purchases: s.purchases.filter((x) => x.wine_id === id),
                     url: `${appUrl()}/wine/${id}`,

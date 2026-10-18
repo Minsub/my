@@ -65,6 +65,7 @@ export function demoSnapshot(): Snapshot {
     purchases: [],
     tastings: [],
     glasses: [],
+    placements: [],
     members: [{ user_id: uid, name: "나", role: "owner", active: true }],
     invites: [],
     activities: [],

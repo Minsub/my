@@ -106,6 +106,13 @@ export type Tasting = {
   repurchase: boolean | null;
   event_id: string | null;
 };
+// 셀러 층에 넣은 병 수. 와인별 합계는 재고 이하이고 나머지는 "자리 없음"이다.
+export type Placement = {
+  wine_id: string;
+  shelf: number;
+  quantity: number;
+  placed_at: string;
+};
 export type Glass = {
   id: string;
   name: string;
@@ -142,6 +149,7 @@ export type Snapshot = {
   purchases: Purchase[];
   tastings: Tasting[];
   glasses: Glass[];
+  placements: Placement[];
   members: Member[];
   invites: Invite[];
   activities: Activity[];

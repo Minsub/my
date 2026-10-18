@@ -1,4 +1,4 @@
-import type { Snapshot, Wine } from "./types";
+import type { Placement, Snapshot, Wine } from "./types";
 export const champagne = (w: Wine) =>
   w.type === "스파클링" &&
   /champagne|샹파뉴|샴페인/i.test(w.region) &&
@@ -185,6 +185,42 @@ export const wineTypeColor: Record<string, string> = {
   디저트: "#c98a3c",
   주정강화: "#6b3a2a",
 };
+// 셀러 실물: 14층, 층마다 최대 8병. 1층이 맨 아래다. 층 안의 칸 번호는 저장하지 않는다.
+// 셀러를 바꾸면 이 두 값만 고친다(DB에는 1 이상만 검사한다).
+export const CELLAR_SHELVES = 14;
+export const CELLAR_SHELF_CAPACITY = 8;
+export type ShelfCount = { shelf: number; quantity: number };
+// 한 와인의 층별 병 수(층 오름차순)와 셀러에 넣지 않은 병 수.
+export function winePlacement(
+  wine: Pick<Wine, "id" | "stock">,
+  placements: Placement[],
+) {
+  const shelves: ShelfCount[] = placements
+    .filter((p) => p.wine_id === wine.id)
+    .map((p) => ({ shelf: p.shelf, quantity: p.quantity }))
+    .sort((a, b) => a.shelf - b.shelf);
+  const placed = shelves.reduce((sum, p) => sum + p.quantity, 0);
+  return { shelves, placed, unplaced: Math.max(0, wine.stock - placed) };
+}
+// "3층 2병 · 7층 1병 · 자리 없음 1병". 재고가 없으면 빈 문자열.
+export function placementLabel(
+  wine: Pick<Wine, "id" | "stock">,
+  placements: Placement[],
+) {
+  const { shelves, unplaced } = winePlacement(wine, placements);
+  return [
+    ...shelves.map((p) => `${p.shelf}층 ${p.quantity}병`),
+    ...(unplaced ? [`자리 없음 ${unplaced}병`] : []),
+  ].join(" · ");
+}
+// 층마다 들어 있는 병 수 합계. index 0은 비워 두고 1층부터 쓴다.
+export function shelfTotals(placements: Placement[], exceptWineId?: string) {
+  const totals = Array<number>(CELLAR_SHELVES + 1).fill(0);
+  for (const p of placements)
+    if (p.wine_id !== exceptWineId && p.shelf <= CELLAR_SHELVES)
+      totals[p.shelf] += p.quantity;
+  return totals;
+}
 // 공유 링크 하나에 담는 와인 수 상한. 공개 페이지가 한 번에 그리는 사진 수이기도 하다.
 export const WINE_SHARE_MAX_WINES = 60;
 export const WINE_SHARE_DAYS = 14;

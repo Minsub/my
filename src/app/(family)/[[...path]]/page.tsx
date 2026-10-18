@@ -30,6 +30,7 @@ export default async function Page({
       "/wine",
       "/wine/glasses",
       "/wine/shares",
+      "/wine/cellar",
       "/settings",
       "/cash",
       "/cash/old",

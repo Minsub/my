@@ -45,10 +45,11 @@ flowchart LR
 | `src/server/db.ts` | pg Pool(max 5), 파라미터 쿼리, transaction, DATE 문자열 파서 |
 | `src/server/security.ts` | webActor/mcpActor, 활성 멤버십·scope, Origin, DB 기반 rateLimit, 오류 응답 |
 | `src/server/auth.ts` | Google 로그인, OWNER_EMAIL 최초 소유자, 초대 검증, OAuth/JWT 발급·폐기 |
-| `src/server/mcp.ts` | 35개 도구 등록, scope별 노출, 서비스 호출, 결과·오류 변환 |
+| `src/server/mcp.ts` | 36개 도구 등록, scope별 노출, 서비스 호출, 결과·오류 변환 |
 | `src/lib/mcp-guide.ts`, `src/components/mcp-guide.tsx` | 설정에서 보여주는 도구 목록과 사용 안내 |
 | `src/server/wine-photos.ts` | 사진 검증·압축·권한·버전·중복 방지·저장 |
 | `src/lib/wine-cellar.ts` | 웹·MCP가 공유하는 최근 구입가/평점 계산, 필터·정렬, 가격 구간, 공유 페이지 타입 |
+| `src/server/wine-placements.ts`, `src/components/wine-cellar-map.tsx` | 셀러 위치(층별 병 수) 규칙과 셀러 배치 화면·위치 수정 시트. 층 수·용량은 `lib/wine-cellar.ts` 상수 |
 | `src/server/wine-shares.ts`, `src/app/share/wine/[token]`, `/api/share/wine/*`, `/api/wine/shares` | 와인 목록 공유. 로그인 없는 공개 페이지·사진·투표와 셀러의 공유 목록 |
 | `src/server/cash.ts`, `cash-parser.ts`, `src/lib/cash.ts` | 웹 전용 XLSX 원본 저장·검증·집계. 공통 snapshot과 분리 |
 | `src/lib/pregnancy.ts`, `src/server/pregnancy.ts`, `/api/baby/pregnancy` | 꼬미 임신 기록. 웹 전용, 공통 snapshot·MCP와 분리. 계산 규칙은 lib가 단일 기준 |
@@ -77,6 +78,8 @@ UI 숨김은 보안 검사가 아니다. 쿠키 기반 변경은 sameOrigin, 모
 `POST /api/commands` → 입력 크기/Origin/인증/빈도 검사 → `execute` → Zod → scope → 트랜잭션. `mutation_requests`의 공간·사용자·UUID 키와 입력 해시/결과로 중복을 막는다. 주요 수정은 version 충돌을 409로 거부한다. `activity_log`에는 공통 명령의 작업자·경로·라벨이 남는다. 사진 업로드는 별도 요청 테이블을 사용하며 현재 공통 activity_log에는 남지 않는다.
 
 와인 재고는 `SUM(wine_stock_events.delta)`. 와인 행을 FOR UPDATE로 잠근 뒤 별도 쿼리로 잔량을 읽고 입고/소비/조정/취소를 원자적으로 기록한다. 재고 컬럼을 직접 덮어쓰지 않는다. 수량 수정(`wine_adjust_stock`)은 목표 병 수를 받아 차이만큼 `adjust` 이벤트를 남기며, 화면에서 본 재고(`expected_stock`)가 잠근 뒤 읽은 합계와 다르면 409로 거부한다. 음수 재고, 중복 취소는 거부한다. 취소는 원본 삭제가 아닌 반대 이벤트다. 예외는 와인 삭제(`wine_delete`, 웹 전용)로, 잘못 등록한 와인의 시음 → 재고 이벤트 → 구매 → 와인 행을 한 트랜잭션에서 지운다(사진은 CASCADE). 공유의 `wine_ids` 배열은 그대로 두고 읽을 때 없는 와인을 거른다.
+
+셀러 위치는 재고와 별개인 현재 상태다(017 `wine_cellar_placements`, 와인×층의 병 수, 와인 삭제 시 CASCADE). 와인별 합계 ≤ 재고, 층별 합계 ≤ 층 용량(8)을 지킨다. 층 용량은 여러 와인에 걸친 조건이라 와인 행 잠금 뒤 공간 단위 advisory lock(`wine_cellar:{household}`)을 잡고 검사한다. 순서는 항상 와인 행 → 셀러 잠금이다. `wine_set_placement`는 한 와인의 위치 전체를 바꾸며 화면에서 본 위치(`expected_placements`)가 다르면 409. 소비·감소 조정·입고 취소로 재고가 줄면 같은 트랜잭션에서 셀러 병을 뺀다: 고른 층(`shelf`) → 자리 없는 병 → 한 층에만 있으면 그 층 순서이고, 여러 층이라 정할 수 없으면 `SHELF_REQUIRED`(409)로 거부한다. 소비 취소로 돌아온 병은 원래 층으로 돌리지 않고 자리 없는 병이 된다.
 
 `snapshot`은 읽기 전용 REPEATABLE READ 트랜잭션에서 공간·허용 도메인 데이터를 반환한다. 페이지 최초 진입과 `/api/data` 새로고침이 같은 서비스를 쓴다. 저장 후 재조회하며 외부 AI 변경은 새로고침으로 확인한다. 도메인 전체를 읽는 방식이므로 대량 데이터에서는 전용 SQL 조회·페이지네이션을 추가한다. MCP 페이지 제한은 DB 조회량 제한을 의미하지 않는다.
 
