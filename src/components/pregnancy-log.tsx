@@ -1057,6 +1057,14 @@ function NowView({
   return (
     <div className="pg-now">
       <div className="pg-col">
+        <MovementCard
+          events={events}
+          now={now}
+          weeks={weeks}
+          onTap={() => onToggle("movement")}
+          onManual={() => onManual("movement")}
+          onLess={onMovementLess}
+        />
         <section className="pg-card pg-status" aria-label="최근 1시간 요약">
           <div className="pg-status-top">
             <span>최근 1시간</span>
@@ -1144,14 +1152,6 @@ function NowView({
             );
           })}
         </div>
-        <MovementCard
-          events={events}
-          now={now}
-          weeks={weeks}
-          onTap={() => onToggle("movement")}
-          onManual={() => onManual("movement")}
-          onLess={onMovementLess}
-        />
         <div className="pg-quick">
           <button type="button" className="pg-quick-blood" onClick={onBleeding}>
             <Droplet size={18} />
