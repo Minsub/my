@@ -105,18 +105,25 @@ export function AssetTrendView({
       />
       <section className="panel">
         <div className="section-heading compact">
-          <h2>기간별 {hide ? "비중" : "금액"}·증감</h2>
-          <span className="muted small">
-            {period === "year" ? "연별" : "월별"} · 이름을 누르면 추이, 셀을
-            누르면 종목을 봅니다
+          <h2>항목별 증감 히트맵</h2>
+          <span className="asset-heat-key" aria-hidden>
+            {unit} 대비
+            <i style={{ background: heatColor(-1, 1) }} />
+            감소
+            <i style={{ background: heatColor(-0.15, 1) }} />
+            <i style={{ background: heatColor(0.15, 1) }} />
+            증가
+            <i style={{ background: heatColor(1, 1) }} />
           </span>
         </div>
-        <AssetMatrix
+        <AssetHeatmap
           timeline={timeline}
           series={series}
-          onCell={onDrill}
-          onSeries={setTrend}
+          sel={sel}
+          unit={unit}
           hide={hide}
+          onSelect={select}
+          onSeries={setTrend}
         />
       </section>
       {trendSeries && (
@@ -587,21 +594,35 @@ function FlowSpark({
   );
 }
 
-// 한 칸에 금액과 직전 기간 대비 증감을 적는다. 합계는 기준선이므로 맨 위에 둔다.
-function AssetMatrix({
+// 칸 색은 직전 기간 대비 증감률이다. 증가 빨강·감소 파랑이고, 진할수록 많이 움직였다.
+// t는 -1~1로 줄인 증감률이고 strength는 그 칸의 진하기다(범례는 1).
+function heatColor(t: number, strength = Math.abs(t)) {
+  const rgb = t >= 0 ? "196,54,47" : "47,95,196";
+  return `rgba(${rgb},${(0.07 + 0.6 * Math.min(1, strength)).toFixed(3)})`;
+}
+// 항목 × 기간 표. 칸에는 증감액과 증감률을 적고 색으로 증감률을 보인다.
+// 같은 데이터를 금액 표로 보면 숫자를 하나씩 읽어야 하지만, 색으로 보면 어느 달에 무엇이 움직였는지 한눈에 들어온다.
+// 열(기간)을 누르면 위 차트·항목별 증감과 같은 기간을 고른다. 이름을 누르면 그 항목의 선 그래프가 열린다.
+function AssetHeatmap({
   timeline,
   series,
-  onCell,
-  onSeries,
+  sel,
+  unit,
   hide,
+  onSelect,
+  onSeries,
 }: {
   timeline: AssetTimelinePoint[];
   series: AssetSeries[];
-  onCell: (period: string, key: string) => void;
-  onSeries: (key: string) => void;
-  // 금액 가리기. 칸의 금액 대신 그 기간 합계 대비 비중을, 합계 줄은 비공개를 적는다.
+  sel: number;
+  unit: string;
   hide: boolean;
+  onSelect: (index: number) => void;
+  onSeries: (key: string) => void;
 }) {
+  const box = useRef<HTMLDivElement>(null);
+  // 월별은 5%, 연별은 25% 움직이면 가장 진한 색이다.
+  const scale = unit === "전월" ? 0.05 : 0.25;
   const rows = useMemo(
     () => [
       { key: TOTAL_KEY, name: "합계", values: timeline.map((p) => p.total) },
@@ -609,15 +630,30 @@ function AssetMatrix({
     ],
     [timeline, series],
   );
+  // 기간이 많으면 가로로 스크롤한다. 고른 기간(처음은 최신)이 보이도록 당긴다.
+  useEffect(() => {
+    const el = box.current;
+    const th = el?.querySelector<HTMLElement>("th.selected");
+    if (!el || !th) return;
+    const left = th.offsetLeft + th.offsetWidth - el.clientWidth + 8;
+    if (left > el.scrollLeft || th.offsetLeft < el.scrollLeft)
+      el.scrollLeft = Math.max(0, left);
+  }, [sel, timeline]);
   return (
-    <div className="asset-table-scroll">
-      <table className="asset-table asset-matrix">
+    <div className="asset-table-scroll" ref={box}>
+      <table className="asset-heat">
         <thead>
           <tr>
             <th scope="col">구분</th>
-            {timeline.map((p) => (
-              <th scope="col" key={p.period}>
-                {periodLabel(p.period)}
+            {timeline.map((p, i) => (
+              <th
+                scope="col"
+                key={p.period}
+                className={i === sel ? "selected" : ""}
+              >
+                <button onClick={() => onSelect(i)}>
+                  {periodLabel(p.period)}
+                </button>
               </th>
             ))}
           </tr>
@@ -648,36 +684,52 @@ function AssetMatrix({
                   const change = before === null ? null : value - before;
                   const rate =
                     before === null ? null : assetChangeRate(value, before);
-                  const figures = (
-                    <>
-                      <b>
-                        {!hide
-                          ? assetCompact(value)
-                          : total
-                            ? ASSET_HIDDEN
-                            : assetPct(
-                                timeline[i].total > 0
-                                  ? value / timeline[i].total
-                                  : null,
-                              )}
-                      </b>
-                      <em className={assetChangeTone(change)}>
-                        {assetChangeText(change, rate, hide)}
-                      </em>
-                    </>
-                  );
+                  const t =
+                    change === null || !change
+                      ? null
+                      : rate === null
+                        ? Math.sign(change)
+                        : Math.max(-1, Math.min(1, rate / scale));
+                  const strong = t !== null && Math.abs(t) > 0.62;
                   return (
-                    <td key={timeline[i].period}>
-                      {total ? (
-                        <span className="asset-cell">{figures}</span>
-                      ) : (
-                        <button
-                          className="asset-cell"
-                          onClick={() => onCell(timeline[i].period, row.key)}
-                        >
-                          {figures}
-                        </button>
-                      )}
+                    <td
+                      key={timeline[i].period}
+                      className={i === sel ? "selected" : ""}
+                      style={
+                        t === null ? undefined : { background: heatColor(t) }
+                      }
+                    >
+                      <button
+                        className={strong ? "strong" : ""}
+                        onClick={() => onSelect(i)}
+                        title={`${row.name} ${periodLabel(timeline[i].period)}${hide ? "" : ` ${assetMoney(value)}`}`}
+                      >
+                        {change === null ? (
+                          <>
+                            <b className="flat">—</b>
+                            <small>
+                              {hide
+                                ? total
+                                  ? ASSET_HIDDEN
+                                  : assetPct(
+                                      timeline[i].total > 0
+                                        ? value / timeline[i].total
+                                        : null,
+                                    )
+                                : assetCompact(value)}
+                            </small>
+                          </>
+                        ) : hide ? (
+                          <b>{assetChangeText(change, rate, true)}</b>
+                        ) : (
+                          <>
+                            <b>{assetChangeText(change, null)}</b>
+                            <small>
+                              {rate === null ? "새 항목" : assetSignedPct(rate)}
+                            </small>
+                          </>
+                        )}
+                      </button>
                     </td>
                   );
                 })}

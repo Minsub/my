@@ -24,8 +24,8 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | `/wine/shares` | 공유한 와인 목록: 상태(D-n·끝남·꺼짐)·링크 복사·끄기, 와인별 득표 순위와 받은 이름·선택·한마디 | wine-share.tsx WineShares |
 | `/share/wine/{token}` | **로그인 없이** 여는 공유 목록. 번호 붙은 세로 사진 카드, 고르기(최대 N개)·이름·한마디 보내기, 설정에 따라 가격대/정확한 가격/숨김, 결과 공개 시 와인별 선택 수, 와인별 네이버 지식백과·Vivino 검색 링크 | share/wine/[token]/page.tsx, wine-share-view.tsx |
 | `/assets` | 자산관리 하위 화면 목록. 항목은 lib/assets.ts의 assetSubMenus에서 관리 | asset-hub.tsx |
-| `/assets/status` | 자산현황. 최신 기록 기준 네 칸 요약(총자산·원화/달러·위험/안전·구성원별), 자산 구성 트리맵, 위험·안전 구성, 주식/해외 주식 TOP 5(종목 수익률, 전체 종목·비중 팝업), CSV 업로드, 묶음 클릭 시 오른쪽 상세, 금액 가리기, 현재 자산 글 복사. 머리말 아래 현황·추이 탭 | asset-status.tsx, asset-chart.tsx, asset-detail.tsx |
-| `/assets/trend` | 자산추이. 구성원·기간 범위·월별/연별 필터, 네 칸 요약(연평균 증가율·원화/달러 직전 대비 증감·총자산 직전 대비와 늘어난 합/줄어든 합·가장 크게 움직인 항목), 총자산과 순증감(증감률), 고른 기간의 항목별 증감, 항목별 흐름(항목마다 자기 축), 기간별 금액·증감 표 | asset-status.tsx, asset-trend-view.tsx, asset-chart.tsx |
+| `/assets/status` | 자산현황. 최신 기록 기준 네 칸 요약(총자산·원화/달러·위험/안전·구성원별), 자산 구성 도넛+트리맵, 위험·안전 구성, 주식/해외 주식 TOP 5(종목 수익률, 전체 종목·비중 팝업), CSV 업로드, 묶음 클릭 시 오른쪽 상세, 금액 가리기, 현재 자산 글 복사. 머리말 아래 현황·추이 탭 | asset-status.tsx, asset-chart.tsx, asset-detail.tsx |
+| `/assets/trend` | 자산추이. 구성원·기간 범위·월별/연별 필터, 네 칸 요약(연평균 증가율·원화/달러 직전 대비 증감·총자산 직전 대비와 늘어난 합/줄어든 합·가장 크게 움직인 항목), 총자산과 순증감(증감률), 고른 기간의 항목별 증감, 항목별 흐름(항목마다 자기 축), 항목별 증감 히트맵. 필터(구성원·범위·월별/연별·분류 기준·금액 가리기)는 한 줄 | asset-status.tsx, asset-trend-view.tsx, asset-chart.tsx |
 | `/assets/records` | 등록 이력, 원본 항목 목록, 항목 한 줄의 자산그룹·금액 수정, 전체 CSV 내보내기 | asset-records.tsx |
 | `/assets/strategy` | 구성원별 분할매수 전략. 연금저축·IRP 고정 비중, 월급·현금 분할매수 그룹의 금액·개월·종목 비중·ISA 여부(티커·이름으로 네이버 증권 검색), 한 달 매수 합계·12개월 누적·ISA 몫, 저장하지 않는 금액·기간 바꿔 보기. 자산현황과 머리말 버튼으로 오감 | asset-plans.tsx, asset-plan-editor.tsx |
 | `/baby` | 꼬미(아이 태명) 하위 화면 목록. 항목은 menu-hub.tsx의 kkomiMenus | menu-hub.tsx |

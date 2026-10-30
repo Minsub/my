@@ -18,6 +18,7 @@ import Link from "next/link";
 import {
   ASSET_HIDDEN,
   assetAxes,
+  assetGroups,
   assetChangeRate,
   assetChangeText,
   assetChangeTone,
@@ -42,7 +43,7 @@ import {
   type AssetSummary,
 } from "@/lib/assets";
 import type { AssetOverview } from "@/server/assets";
-import { AssetTreemap, assetColor } from "./asset-chart";
+import { AssetPie, AssetTreemap, assetColor } from "./asset-chart";
 import { AssetTrendView } from "./asset-trend-view";
 import { AssetDetail, type AssetDetailTarget } from "./asset-detail";
 import { AssetUpload } from "./asset-upload";
@@ -353,7 +354,7 @@ export function AssetStatus({
         </div>
       </div>
       {/* 두 화면은 구성원·분류 기준·금액 가리기를 같은 주소 조건으로 이어 쓴다. */}
-      <nav className="section-tabs asset-view-tabs" aria-label="자산 화면">
+      <nav className="asset-view-switch" aria-label="자산 화면">
         {views.map((v) => (
           <Link
             key={v.key}
@@ -380,6 +381,8 @@ export function AssetStatus({
       ))}
     </div>
   );
+  // 필터는 탭과 상관없이 한 줄에 둔다. 왼쪽은 누구의 자산인지, 오른쪽은 어떻게 볼지다.
+  // 기간 범위와 월별/연별은 추이에만 있다. 현황은 최신 기록 하나를 보기 때문이다.
   // 소유자 칩은 데이터가 없어도 항상 그린다. 기록 없는 사람을 고른 뒤 돌아오지 못하면 안 된다.
   const ownerChips = data && (
     <div className="asset-filters">
@@ -400,31 +403,51 @@ export function AssetStatus({
           </button>
         ))}
       </div>
-      {trend && (
-        <div
-          className="asset-chips asset-filter-range"
-          role="group"
-          aria-label="기간 범위"
-        >
-          {assetRanges.map((r) => (
-            <button
-              key={r.key}
-              className={range === r.key ? "selected" : ""}
-              onClick={() => update({ range: r.key })}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
-      )}
-      <label className="asset-hide-toggle">
-        <input
-          type="checkbox"
-          checked={hide}
-          onChange={(e) => toggleHide(e.target.checked)}
-        />
-        금액 가리기
-      </label>
+      <div className="asset-filter-options">
+        {trend && (
+          <div className="asset-chips" role="group" aria-label="기간 범위">
+            {assetRanges.map((r) => (
+              <button
+                key={r.key}
+                className={range === r.key ? "selected" : ""}
+                onClick={() => update({ range: r.key })}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {trend && (
+          <div className="asset-chips" role="group" aria-label="기간 단위">
+            {periods.map((p) => (
+              <button
+                key={p.key}
+                className={period === p.key ? "selected" : ""}
+                // 연별을 최근 1년으로 보면 한 해뿐이라 비교할 직전 해가 없다. 전체로 넓힌다.
+                onClick={() =>
+                  update({
+                    period: p.key,
+                    ...(p.key === "year" && range === "1y"
+                      ? { range: "all" }
+                      : {}),
+                  })
+                }
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {axisChips}
+        <label className="asset-hide-toggle">
+          <input
+            type="checkbox"
+            checked={hide}
+            onChange={(e) => toggleHide(e.target.checked)}
+          />
+          금액 가리기
+        </label>
+      </div>
     </div>
   );
   if (error)
@@ -462,10 +485,6 @@ export function AssetStatus({
         ?.buckets.find((b) => b.key === bucket)?.name ?? bucket;
     setDetail({ at, axis, bucket, label });
   };
-  // 위험·안전 박스는 화면의 분류 기준과 무관하게 항상 자산 그룹으로 연다.
-  const drillGroup = (bucket: string, label: string) =>
-    groupSummary &&
-    setDetail({ at: groupSummary.period, axis: "group", bucket, label });
   // 카드 키와 카드에 담긴 자산그룹 키(구성 칸) 어느 쪽으로도 카드를 찾는다.
   const stockBoard = (key: string | null) => {
     const def = assetStockBoardDefs.find(
@@ -474,6 +493,13 @@ export function AssetStatus({
     return data.stocks.find((b) => b.key === def?.key && b.count > 0);
   };
   const openStock = stockBoard(stockKey);
+  // 주식 그룹은 카드의 전체 보기와 같은 종목 팝업을 연다. 원본 항목 서랍은
+  // 계좌·구성원별로 쪼개져 있어 종목 규모와 비중을 읽기 어렵다.
+  const openBucket = (key: string) => {
+    const board = axis === "group" && stockBoard(key);
+    if (board) setStockKey(board.key);
+    else if (summary) drill(summary.period, key);
+  };
   // 종목 이름은 네이버 증권을 새 창으로 연다. 서버가 이름으로 종목 코드를 찾아 보낸다.
   // 둘러보기는 로그인이 없어 서버 조회를 거치지 않고 바로 "종목명 주가" 검색을 연다.
   const stockHref = (name: string) =>
@@ -527,32 +553,6 @@ export function AssetStatus({
               )}
               {trend ? (
                 <>
-                  <div className="asset-view-controls">
-                    <div
-                      className="asset-chips"
-                      role="group"
-                      aria-label="기간 단위"
-                    >
-                      {periods.map((p) => (
-                        <button
-                          key={p.key}
-                          className={period === p.key ? "selected" : ""}
-                          // 연별을 최근 1년으로 보면 한 해뿐이라 비교할 직전 해가 없다. 전체로 넓힌다.
-                          onClick={() =>
-                            update({
-                              period: p.key,
-                              ...(p.key === "year" && range === "1y"
-                                ? { range: "all" }
-                                : {}),
-                            })
-                          }
-                        >
-                          {p.label}
-                        </button>
-                      ))}
-                    </div>
-                    {axisChips}
-                  </div>
                   <AssetTrendView
                     data={data}
                     axis={axis}
@@ -572,23 +572,26 @@ export function AssetStatus({
                     <div className="section-heading compact">
                       <h2>자산 구성</h2>
                       <span className="muted small">
-                        {periodLabel(groupSummary.period)} 기준 · 면적이 금액,
-                        칸을 누르면 종목을 봅니다
+                        {periodLabel(groupSummary.period)} 기준 · 조각이나 칸을
+                        누르면 종목을 봅니다
                       </span>
                     </div>
-                    <div className="asset-panel-controls">{axisChips}</div>
-                    <AssetTreemap
-                      rows={summary?.rows ?? []}
-                      total={summary?.total ?? 0}
-                      hide={hide}
-                      onCell={(key) => {
-                        // 주식 그룹은 카드의 전체 보기와 같은 종목 팝업을 연다. 원본 항목 서랍은
-                        // 계좌·구성원별로 쪼개져 있어 종목 규모와 비중을 읽기 어렵다.
-                        const board = axis === "group" && stockBoard(key);
-                        if (board) setStockKey(board.key);
-                        else if (summary) drill(summary.period, key);
-                      }}
-                    />
+                    {/* 도넛은 각 항목의 비중을, 트리맵은 금액의 크기를 읽는다. 넓은 화면에서 트리맵만 두면
+                        칸이 가로로 늘어나 비중을 눈으로 비교하기 어렵다. */}
+                    <div className="asset-compose">
+                      <AssetPie
+                        rows={summary?.rows ?? []}
+                        total={summary?.total ?? 0}
+                        hide={hide}
+                        onSlice={openBucket}
+                      />
+                      <AssetTreemap
+                        rows={summary?.rows ?? []}
+                        total={summary?.total ?? 0}
+                        hide={hide}
+                        onCell={openBucket}
+                      />
+                    </div>
                   </section>
                   <section className="panel">
                     <div className="section-heading compact">
@@ -598,11 +601,14 @@ export function AssetStatus({
                         비율은 각 묶음 안의 비중
                       </span>
                     </div>
-                    <AssetRiskBoard
-                      summary={groupSummary}
-                      onRow={drillGroup}
-                      hide={hide}
-                    />
+                    {summary && (
+                      <AssetRiskBoard
+                        summary={summary}
+                        axis={axis}
+                        onRow={(key) => drill(summary.period, key)}
+                        hide={hide}
+                      />
+                    )}
                   </section>
                   <section className="panel">
                     <div className="section-heading compact">
@@ -817,22 +823,26 @@ const riskSides: { risk: AssetRisk | null; key: string; label: string }[] = [
   { risk: "SAFE", key: "SAFE", label: "안전" },
   { risk: null, key: "UNKNOWN", label: "미분류" },
 ];
+// 분류 기준을 따른다. 상위 그룹은 한 위험 분류 안에만 있으므로 그 그룹의 위험으로 나눈다.
+const riskOf = (key: string, axis: AssetAxis) =>
+  (axis === "parent"
+    ? assetGroups.find((g) => g.parent === key)?.risk
+    : findAssetGroup(key)?.risk) ?? null;
 function AssetRiskBoard({
   summary,
+  axis,
   onRow,
   hide,
 }: {
   summary: AssetSummary;
-  onRow: (key: string, label: string) => void;
+  axis: AssetAxis;
+  onRow: (key: string) => void;
   hide: boolean;
 }) {
   const sides = riskSides
     .map((side) => {
       const rows = summary.rows
-        .filter(
-          (r) =>
-            r.amount > 0 && (findAssetGroup(r.key)?.risk ?? null) === side.risk,
-        )
+        .filter((r) => r.amount > 0 && riskOf(r.key, axis) === side.risk)
         .sort((a, b) => b.amount - a.amount);
       return {
         ...side,
@@ -887,7 +897,7 @@ function AssetRiskBoard({
             <ul>
               {side.rows.map((row) => (
                 <li key={row.key}>
-                  <button onClick={() => onRow(row.key, row.name)}>
+                  <button onClick={() => onRow(row.key)}>
                     <span>{row.name}</span>
                     <i className="asset-bar">
                       <b

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Chart } from "chart.js/auto";
 import {
+  ASSET_HIDDEN,
   assetChangeRate,
   assetCompact,
   assetMoney,
@@ -262,6 +263,144 @@ export function AssetNetChart({
         위는 총자산(세로축 0 아님), 아래는 {unit} 대비 순증감과 증감률입니다.
         기간을 누르면 아래 항목별 증감이 그 기간으로 바뀝니다.
       </p>
+    </div>
+  );
+}
+// 조각 위에 비중을 직접 적는다. 가운데는 작게 뚫어 그 시점의 총자산을 적는다.
+const shareLabels = {
+  id: "assetShareLabels",
+  afterDatasetsDraw(chart: Chart) {
+    const { ctx } = chart;
+    const meta = chart.getDatasetMeta(0);
+    const data = chart.data.datasets[0].data as number[];
+    const total = data.reduce((n, v) => n + Number(v), 0);
+    if (!total) return;
+    const labels = chart.data.labels as string[];
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    meta.data.forEach((arc, i) => {
+      const share = Number(data[i]) / total;
+      // 조각이 너무 작으면 글자가 겹친다. 그런 항목은 범례에서 읽는다.
+      if (share < 0.05) return;
+      const { x, y } = (
+        arc as unknown as { getCenterPoint(): { x: number; y: number } }
+      ).getCenterPoint();
+      ctx.fillStyle = "#fff";
+      ctx.strokeStyle = "rgba(0,0,0,.45)";
+      ctx.lineWidth = 2.5;
+      const lines = [labels[i], `${(share * 100).toFixed(1)}%`];
+      lines.forEach((text, row) => {
+        ctx.font = row === 0 ? "600 10px system-ui" : "700 12px system-ui";
+        const dy = y + (row === 0 ? -8 : 7);
+        ctx.strokeText(text, x, dy);
+        ctx.fillText(text, x, dy);
+      });
+    });
+    ctx.restore();
+  },
+};
+// 구멍은 조각 라벨을 밀어내지 않을 만큼만 뚫는다. 총액은 두 줄로 적는다.
+const centerTotal = (hide: boolean) => ({
+  id: "assetCenterTotal",
+  afterDatasetsDraw(chart: Chart) {
+    const { ctx } = chart;
+    const meta = chart.getDatasetMeta(0);
+    const arc = meta.data[0] as unknown as
+      { x: number; y: number; innerRadius: number } | undefined;
+    if (!arc) return;
+    const total = (chart.data.datasets[0].data as number[]).reduce(
+      (n, v) => n + Number(v),
+      0,
+    );
+    if (!total) return;
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#7b8574";
+    ctx.font = "600 9px system-ui";
+    ctx.fillText("총자산", arc.x, arc.y - 9);
+    ctx.fillStyle = "#2f3a2f";
+    ctx.font = "700 14px system-ui";
+    const text = hide ? ASSET_HIDDEN : assetCompact(total);
+    // 구멍보다 글자가 넓으면 줄인다. 잘린 숫자는 없느니만 못하다.
+    const room = arc.innerRadius * 1.8;
+    if (ctx.measureText(text).width > room)
+      ctx.font = `700 ${Math.max(9, Math.floor((14 * room) / ctx.measureText(text).width))}px system-ui`;
+    ctx.fillText(text, arc.x, arc.y + 6);
+    ctx.restore();
+  },
+});
+export function AssetPie({
+  rows,
+  total,
+  onSlice,
+  hide = false,
+}: {
+  rows: { key: string; name: string; amount: number }[];
+  total: number;
+  onSlice?: (key: string) => void;
+  hide?: boolean;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const shown = rows.filter((r) => r.amount > 0);
+  useEffect(() => {
+    if (!ref.current || !shown.length) return;
+    const chart = new Chart(ref.current, {
+      type: "doughnut",
+      data: {
+        labels: shown.map((r) => r.name),
+        datasets: [
+          {
+            data: shown.map((r) => r.amount),
+            backgroundColor: shown.map((r) => assetColor(r.key)),
+            borderWidth: 2,
+            borderColor: "#fff",
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        onClick: (_, points) => {
+          if (points[0] && onSlice) onSlice(shown[points[0].index].key);
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const share = assetPct(total > 0 ? ctx.parsed / total : null);
+                return hide
+                  ? `${ctx.label}: ${share}`
+                  : `${ctx.label}: ${assetMoney(ctx.parsed)} · ${share}`;
+              },
+            },
+          },
+        },
+      },
+      plugins: [shareLabels, centerTotal(hide)],
+    });
+    // chart.js의 설정 타입이 doughnut으로 좁혀지지 않아 구멍 크기는 생성 뒤에 지정한다.
+    (chart.options as { cutout?: string }).cutout = "34%";
+    chart.update("none");
+    return () => chart.destroy();
+  }, [shown, total, onSlice, hide]);
+  if (!shown.length) return null;
+  return (
+    <div className="asset-pie">
+      <div className="asset-pie-canvas">
+        <canvas ref={ref} role="img" aria-label="자산 구성 비중" />
+      </div>
+      <div className="asset-legend" aria-label="구성 항목">
+        {shown.map((r) => (
+          <button key={r.key} onClick={() => onSlice?.(r.key)}>
+            <i style={{ background: assetColor(r.key) }} />
+            {r.name} {assetPct(total > 0 ? r.amount / total : null)}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

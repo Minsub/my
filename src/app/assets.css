@@ -36,7 +36,13 @@
   justify-content: space-between;
   margin: 22px 0 18px;
 }
-.asset-filter-range {
+/* 오른쪽 묶음: 기간 범위·월별/연별(추이만)·분류 기준·금액 가리기. 좁으면 줄을 바꿔 왼쪽으로 붙는다. */
+.asset-filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px 16px;
   margin-left: auto;
 }
 .asset-hide-toggle {
@@ -348,13 +354,6 @@
     grid-area: change;
   }
 }
-.asset-view-controls {
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
 .asset-measure {
   margin: 16px 0 0;
 }
@@ -376,19 +375,6 @@
   height: 8px;
   border-radius: 3px;
   margin-right: 6px;
-}
-.asset-cell {
-  border: 0;
-  background: none;
-  padding: 2px 4px;
-  border-radius: 6px;
-  font: inherit;
-  color: inherit;
-  width: 100%;
-  text-align: right;
-}
-.asset-cell:hover {
-  background: #eef1f8;
 }
 .asset-table td {
   padding: 4px 6px;
@@ -583,8 +569,9 @@
   .asset-record-list {
     max-height: none;
   }
-  .asset-filter-range {
+  .asset-filter-options {
     margin-left: 0;
+    justify-content: flex-start;
   }
   /* 세 버튼이 두 줄로 갈라지지 않게 아이콘만 남겨 제목 오른쪽 한 줄에 둔다. */
   .asset-heading-actions {
@@ -624,35 +611,6 @@
     grid-template-columns: 1fr;
   }
 }
-.asset-matrix {
-  font-variant-numeric: tabular-nums;
-}
-.asset-matrix td {
-  padding: 3px 4px;
-  border-bottom: 0;
-}
-.asset-matrix tbody tr {
-  border-bottom: 1px solid #f1f2ec;
-}
-.asset-matrix tbody tr:hover {
-  background: #fafbf6;
-}
-/* 기간이 많으면 가로로 스크롤한다. 이름 칸이 같이 밀려나가면 어느 줄을 보는지 잃는다. */
-.asset-matrix th[scope="row"] {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  background: #fff;
-  padding: 3px 12px 3px 0;
-  box-shadow: 1px 0 0 var(--line);
-}
-.asset-matrix tbody tr:hover th[scope="row"] {
-  background: #fafbf6;
-}
-.asset-matrix thead th {
-  font-size: 11px;
-  padding-bottom: 7px;
-}
 .asset-series-button {
   display: flex;
   align-items: center;
@@ -673,52 +631,6 @@
 }
 .asset-series-button:hover svg {
   color: var(--green);
-}
-.asset-matrix .asset-cell {
-  display: grid;
-  gap: 2px;
-  padding: 5px 8px;
-  line-height: 1.3;
-}
-.asset-matrix .asset-cell b {
-  font-size: 13px;
-  font-weight: 600;
-}
-/* .asset-page .up/.down보다 선택자가 강해 색이 덮이므로 여기서 다시 지정한다. */
-.asset-matrix .asset-cell em {
-  font-size: 10.5px;
-  font-style: normal;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.asset-matrix .asset-cell em.flat {
-  color: #9aa392;
-  font-weight: 400;
-}
-.asset-matrix .asset-cell em.up {
-  color: #c4362f;
-}
-.asset-matrix .asset-cell em.down {
-  color: #2f5fc4;
-}
-.asset-matrix .asset-total-row {
-  background: var(--green-pale);
-}
-.asset-matrix .asset-total-row:hover,
-.asset-matrix .asset-total-row:hover th[scope="row"],
-.asset-matrix .asset-total-row th[scope="row"] {
-  background: var(--green-pale);
-}
-.asset-matrix .asset-total-row .asset-cell b {
-  font-size: 13.5px;
-  font-weight: 700;
-}
-.asset-matrix .asset-total-row .asset-cell em {
-  font-size: 11px;
-  font-weight: 700;
-}
-.asset-matrix .asset-total-row th[scope="row"] {
-  box-shadow: 1px 0 0 #d8e0cd;
 }
 /* 항목 하나만 선으로 보는 팝업. */
 /* 모바일에서 .record-dialog는 바닥 시트로 바뀐다. 그 폭을 덮어쓰지 않도록 100%까지만 넓힌다. */
@@ -1200,14 +1112,156 @@
 .asset-export {
   margin-left: auto;
 }
-/* 자산현황·자산추이 전환 탭. 머리말과 필터 사이에 둔다. */
-.asset-view-tabs {
-  margin: -12px 0 4px;
+/* 자산현황·자산추이 전환. 머리말 아래 큰 알약 두 개로 둔다. 작은 밑줄 탭은 화면 전환으로 안 읽힌다. */
+.asset-view-switch {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  margin: -10px 0 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
 }
-.asset-panel-controls {
+.asset-view-switch a {
+  min-width: 104px;
+  padding: 10px 22px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--muted);
+  text-decoration: none;
+}
+.asset-view-switch a:hover {
+  color: var(--ink);
+}
+.asset-view-switch a.selected {
+  background: var(--green);
+  color: #fff;
+}
+/* 자산 구성: 왼쪽 도넛(비중), 오른쪽 트리맵(크기). */
+.asset-compose {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  gap: 24px;
+  align-items: start;
+}
+.asset-pie {
+  min-width: 0;
+}
+.asset-pie-canvas {
+  position: relative;
+  width: 100%;
+  height: 280px;
+}
+.asset-legend {
   display: flex;
-  justify-content: flex-end;
-  margin: -4px 0 12px;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 12px 0 0;
+}
+.asset-legend button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.asset-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+}
+/* 항목별 증감 히트맵. 칸 색은 증감률, 글자는 증감액·증감률이다. */
+.asset-heat {
+  border-collapse: separate;
+  border-spacing: 3px;
+  min-width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.asset-heat th,
+.asset-heat td {
+  padding: 0;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.asset-heat thead th {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.asset-heat thead th button {
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: right;
+}
+.asset-heat thead th.selected button {
+  background: var(--ink);
+  color: #fff;
+}
+/* 기간이 많으면 가로로 스크롤한다. 이름 칸이 같이 밀려나가면 어느 줄을 보는지 잃는다. */
+.asset-heat th[scope="row"] {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #fff;
+  padding-right: 10px;
+  text-align: left;
+}
+.asset-heat td button {
+  display: grid;
+  gap: 1px;
+  width: 100%;
+  min-width: 72px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: right;
+  line-height: 1.25;
+}
+.asset-heat td button.strong {
+  color: #fff;
+}
+.asset-heat td b {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.asset-heat td b.flat {
+  color: #9aa392;
+}
+.asset-heat td small {
+  font-size: 10.5px;
+  opacity: 0.85;
+}
+.asset-heat td.selected {
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+.asset-heat .asset-total-row td:not([style]) {
+  background: var(--green-pale);
+}
+.asset-heat-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.asset-heat-key i {
+  width: 16px;
+  height: 11px;
+  border-radius: 3px;
 }
 /* 두 줄 이하의 짧은 목록 칸(원화·달러 증감, 늘어난 합·줄어든 합, 가장 크게 움직인 항목). */
 .asset-kpi-lines {
@@ -1511,7 +1565,22 @@ button.asset-diverge-row:hover {
 .asset-flow-spark line {
   vector-effect: non-scaling-stroke;
 }
+@media (max-width: 900px) {
+  .asset-compose {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 @media (max-width: 620px) {
+  .asset-view-switch {
+    display: flex;
+  }
+  .asset-view-switch a {
+    flex: 1;
+    min-width: 0;
+  }
+  .asset-pie-canvas {
+    height: 240px;
+  }
   .asset-treemap {
     height: 300px;
   }
