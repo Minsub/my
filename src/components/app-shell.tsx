@@ -1787,9 +1787,14 @@ export function AppShell({
       />
     );
   else if (path === "/assets") content = <AssetHub href={href} />;
-  else if (path === "/assets/status")
+  else if (path === "/assets/status" || path === "/assets/trend")
     content = (
-      <AssetStatus initialQuery={initialQuery} demo={demo} href={href} />
+      <AssetStatus
+        initialQuery={initialQuery}
+        view={path === "/assets/trend" ? "trend" : "status"}
+        demo={demo}
+        href={href}
+      />
     );
   else if (path === "/assets/records")
     content = (

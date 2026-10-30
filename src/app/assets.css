@@ -95,7 +95,7 @@
 /* 총자산이 왼쪽에서 두 줄을 차지하고, 증가율·통화 비율이 오른쪽에 쌓인다. */
 .asset-kpis {
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 20px;
 }
@@ -108,9 +108,6 @@
   border-radius: 14px;
   background: #fff;
   min-width: 0;
-}
-.asset-kpi-total {
-  grid-row: span 2;
 }
 .asset-kpi-label {
   font-size: 13px;
@@ -126,8 +123,8 @@
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
-.asset-kpi-total > .asset-kpi-value {
-  font-size: 36px;
+.asset-kpi-big {
+  font-size: 26px;
 }
 .asset-kpi-sub {
   margin: 0;
@@ -193,43 +190,11 @@
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-/* 총자산 카드의 남는 높이를 채운다. 늘어나는 쪽은 이 선이다. */
-.asset-sparkline {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 56px;
-  margin-top: 6px;
-}
-/* 높이 0에서 시작해 남는 자리만큼만 자란다. 비율대로 높이를 잡으면 카드가 늘어난다. */
-.asset-sparkline svg {
-  flex: 1 1 0;
-  width: 100%;
-  height: 0;
-  min-height: 48px;
-}
-.asset-sparkline polygon {
-  fill: var(--green-pale);
-}
-.asset-sparkline polyline {
-  fill: none;
-  stroke: var(--green);
-  stroke-width: 2;
-  vector-effect: non-scaling-stroke;
-  stroke-linejoin: round;
-}
-.asset-sparkline span {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: var(--muted);
-}
-/* 구성원별 내역은 총자산 카드 안에서 본다. 총액을 보는 자리와 누가 얼마인지 보는 자리를 나누지 않는다. */
+/* 구성원별 자산 칸. 이름·비중, 금액, 기준일, 직전 대비를 두 줄로 적는다. */
 .asset-kpi-owners {
   list-style: none;
   margin: 4px 0 0;
-  padding: 12px 0 0;
-  border-top: 1px solid var(--line);
+  padding: 0;
   display: grid;
   gap: 10px;
 }
@@ -280,57 +245,6 @@
 }
 .asset-page .down {
   color: #2f5fc4;
-}
-.asset-chart-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
-  gap: 20px;
-  align-items: start;
-}
-.asset-plot {
-  min-width: 0;
-  width: 100%;
-}
-.asset-plot-canvas {
-  position: relative;
-  width: 100%;
-  height: 300px;
-}
-.asset-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin: 12px 0 0;
-  max-height: 120px;
-  overflow-y: auto;
-}
-.asset-legend button {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--line);
-  background: #fff;
-  border-radius: 999px;
-  padding: 5px 10px;
-  font-size: 11px;
-  color: var(--muted);
-}
-.asset-legend button[aria-pressed="false"] {
-  opacity: 0.45;
-  text-decoration: line-through;
-}
-.asset-legend i {
-  width: 9px;
-  height: 9px;
-  border-radius: 3px;
-}
-.asset-pie {
-  min-width: 0;
-}
-.asset-pie-canvas {
-  position: relative;
-  width: 100%;
-  height: 260px;
 }
 .asset-note {
   margin: 12px 0 0;
@@ -408,11 +322,6 @@
   gap: 4px;
   justify-content: flex-end;
 }
-@media (max-width: 900px) {
-  .asset-chart-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 @media (max-width: 620px) {
   .asset-breakdown > div {
     grid-template-columns: minmax(0, 1fr) 76px 52px;
@@ -437,9 +346,6 @@
   }
   .asset-breakdown > div > b {
     grid-area: change;
-  }
-  .asset-plot-canvas {
-    height: 240px;
   }
 }
 .asset-view-controls {
@@ -646,13 +552,9 @@
   .asset-records-grid {
     grid-template-columns: minmax(0, 1fr);
   }
-  /* 좁아지면 총자산이 한 줄을 다 쓰고 나머지 둘이 그 아래 나란히 선다. */
+  /* 좁아지면 네 칸이 두 줄로 선다. */
   .asset-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .asset-kpi-total {
-    grid-row: auto;
-    grid-column: 1 / -1;
   }
 }
 @media (max-width: 620px) {
@@ -665,8 +567,8 @@
   .asset-kpi-value {
     font-size: 24px;
   }
-  .asset-kpi-total > .asset-kpi-value {
-    font-size: 30px;
+  .asset-kpi-big {
+    font-size: 24px;
   }
   .asset-stock-dialog > header {
     padding: 18px 16px 12px;
@@ -721,28 +623,6 @@
   .asset-upload-fields {
     grid-template-columns: 1fr;
   }
-}
-.asset-plot-controls {
-  display: flex;
-  align-items: start;
-  gap: 10px;
-  justify-content: space-between;
-  margin: 12px 0 0;
-}
-.asset-scale {
-  flex: none;
-  border: 1px solid var(--line);
-  background: #fff;
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 11px;
-  color: var(--muted);
-  min-height: 32px;
-}
-.asset-scale[aria-pressed="true"] {
-  border-color: var(--green);
-  color: var(--green);
-  font-weight: 600;
 }
 .asset-matrix {
   font-variant-numeric: tabular-nums;
@@ -1319,6 +1199,339 @@
 }
 .asset-export {
   margin-left: auto;
+}
+/* 자산현황·자산추이 전환 탭. 머리말과 필터 사이에 둔다. */
+.asset-view-tabs {
+  margin: -12px 0 4px;
+}
+.asset-panel-controls {
+  display: flex;
+  justify-content: flex-end;
+  margin: -4px 0 12px;
+}
+/* 두 줄 이하의 짧은 목록 칸(원화·달러 증감, 늘어난 합·줄어든 합, 가장 크게 움직인 항목). */
+.asset-kpi-lines {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.asset-kpi-lines li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 8px;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+.asset-kpi-lines span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.asset-kpi-lines span i {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 3px;
+}
+.asset-kpi-lines span small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.asset-kpi-lines b {
+  font-size: 17px;
+  text-align: right;
+  white-space: nowrap;
+}
+.asset-kpi-lines em {
+  grid-column: 2;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+}
+.asset-kpi-lines em.flat {
+  color: var(--muted);
+  font-weight: 400;
+}
+/* 면적이 금액인 구성. 칸 위치는 컴포넌트가 실제 크기를 재서 정한다. */
+.asset-treemap {
+  position: relative;
+  width: 100%;
+  height: 340px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.asset-treemap button {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 2px;
+  padding: 7px 9px;
+  border: 2px solid #fff;
+  border-radius: 7px;
+  color: #fff;
+  text-align: left;
+  overflow: hidden;
+  line-height: 1.25;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+.asset-treemap button:hover {
+  filter: brightness(1.06);
+}
+.asset-treemap b {
+  font-size: 12.5px;
+  font-weight: 700;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asset-treemap span {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.asset-treemap small {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.92;
+}
+/* 카드의 종목 줄 오른쪽에 수익률 칸을 둔다. 수익 빨강, 손실 파랑. */
+.asset-stock-list.with-rate li {
+  grid-template-columns: 18px minmax(0, 1fr) auto 64px;
+}
+.asset-stock-rate {
+  justify-self: end;
+  font-style: normal;
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 6px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.asset-stock-rate.up {
+  background: #fbeceb;
+}
+.asset-stock-rate.down {
+  background: #ebf0fb;
+}
+.asset-stock-rate.flat {
+  color: var(--muted);
+}
+/* 총자산과 순증감. 위는 선, 아래는 막대다. */
+.asset-net-canvas {
+  position: relative;
+  width: 100%;
+  height: 320px;
+}
+.asset-select select {
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 6px 8px;
+  min-height: 34px;
+}
+/* 항목별 증감. 가운데 세로선을 두고 줄어든 쪽은 왼쪽, 늘어난 쪽은 오른쪽으로 자란다. */
+.asset-diverge-sum {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.asset-diverge-sum b {
+  font-weight: 700;
+}
+.asset-diverge {
+  display: grid;
+}
+.asset-diverge-row {
+  display: grid;
+  grid-template-columns:
+    minmax(96px, 150px) 150px minmax(0, 1fr) minmax(0, 1fr)
+    96px;
+  align-items: center;
+  gap: 0 10px;
+  width: 100%;
+  min-height: 34px;
+  padding: 3px 0;
+  border: 0;
+  border-bottom: 1px solid #f1f2ec;
+  background: none;
+  text-align: left;
+  font-size: 13px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+button.asset-diverge-row:hover {
+  background: #fafbf6;
+}
+.asset-diverge-head {
+  min-height: 26px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.asset-diverge-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.asset-diverge-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asset-diverge-was {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.asset-diverge-neg,
+.asset-diverge-pos {
+  position: relative;
+  height: 14px;
+}
+.asset-diverge-neg {
+  border-right: 1px solid #c9cbbf;
+}
+.asset-diverge-head .asset-diverge-neg {
+  height: auto;
+  border-right-color: transparent;
+  text-align: right;
+}
+.asset-diverge-head .asset-diverge-pos {
+  height: auto;
+}
+.asset-diverge-neg i,
+.asset-diverge-pos i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 2px;
+  border-radius: 3px;
+}
+.asset-diverge-neg i {
+  right: 0;
+  background: #2f5fc4;
+}
+.asset-diverge-pos i {
+  left: 0;
+  background: #c4362f;
+}
+.asset-diverge-value {
+  text-align: right;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.asset-diverge-value small {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+}
+.asset-diverge-head .asset-diverge-value {
+  font-weight: 400;
+}
+/* 항목별 흐름. 항목마다 자기 세로축을 쓴 작은 선 그래프다. */
+.asset-flows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
+}
+.asset-flows > button {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fbfbf8;
+  text-align: left;
+  color: var(--ink);
+  min-width: 0;
+}
+.asset-flows > button:hover {
+  border-color: var(--green);
+}
+.asset-flow-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  min-width: 0;
+}
+.asset-flow-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asset-flow-figure {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.asset-flow-figure b {
+  font-size: 14px;
+}
+.asset-flow-figure em {
+  font-style: normal;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.asset-flow-spark {
+  width: 100%;
+  height: 40px;
+}
+.asset-flow-spark polyline {
+  fill: none;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  stroke-linejoin: round;
+}
+.asset-flow-spark line {
+  vector-effect: non-scaling-stroke;
+}
+@media (max-width: 620px) {
+  .asset-treemap {
+    height: 300px;
+  }
+  .asset-net-canvas {
+    height: 280px;
+  }
+  .asset-diverge-row {
+    grid-template-columns: 92px minmax(0, 1fr) minmax(0, 1fr) 76px;
+    gap: 0 6px;
+    font-size: 12px;
+  }
+  .asset-diverge-was {
+    display: none;
+  }
+  .asset-flows {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .asset-stock-list.with-rate li {
+    grid-template-columns: 18px minmax(0, 1fr) auto 58px;
+  }
 }
 /* 분할매수 전략. 다른 자산 화면과 달리 금액을 가장 크게 읽히게 한다.
    위는 어두운 배너(합계·구성), 아래는 그룹 카드와 종목 타일이다. 그룹마다 색이 정해져 있다. */

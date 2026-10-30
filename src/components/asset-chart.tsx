@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Chart } from "chart.js/auto";
 import {
-  ASSET_HIDDEN,
   assetChangeRate,
   assetCompact,
   assetMoney,
@@ -48,133 +47,106 @@ export function assetColor(key: string) {
   return fallback[Math.abs(hash) % fallback.length];
 }
 export type AssetSeries = { key: string; name: string; values: number[] };
-// 직전 기간 대비 증감률. 칸 안의 흰 글씨는 색으로 방향을 못 나타내므로 ▲▼로 적는다.
-// 직전 값이 없거나 0이면 비율이 없으므로 적지 않는다.
-function changeMark(values: number[], i: number) {
-  if (i < 1) return null;
-  const rate = assetChangeRate(values[i] ?? 0, values[i - 1] ?? 0);
-  if (rate === null) return null;
-  const arrow = rate > 0 ? "▲" : rate < 0 ? "▼" : "";
-  return { text: `${arrow}${Math.abs(rate * 100).toFixed(1)}%` };
-}
-// 막대로 그린다. 기본은 누적이라 총자산 증감이 바로 보이고,
-// 작은 항목은 큰 항목에 눌려 변화가 안 보이므로 대칭 로그 축으로 펼치는 전환을 둔다.
-export function AssetTrend({
+// 총자산 선과 직전 기간 대비 순증감 막대를 한 축(기간) 위에 위아래로 놓는다.
+// 항목별 누적 막대는 항목이 잘게 나뉘어 읽히지 않으므로, 여기서는 합계의 흐름만 보고
+// 항목별 증감은 기간을 골라 아래 목록에서 본다. 막대마다 증감률을 적고 고른 기간은 금액도 적는다.
+export function AssetNetChart({
   periods,
-  series,
-  onPoint,
+  totals,
+  selected,
+  onSelect,
   hide = false,
   unit = "직전",
 }: {
   periods: string[];
-  series: AssetSeries[];
-  onPoint?: (period: string, key: string) => void;
-  // 금액 가리기. 막대 높이는 그대로 두고 금액 라벨·축을 지우며, 툴팁은 그 기간 안의 비중으로 바꾼다.
+  totals: number[];
+  selected: number;
+  onSelect: (index: number) => void;
+  // 금액 가리기. 금액 축·라벨을 지우고 증감률만 남긴다. 선과 막대의 모양은 그대로다.
   hide?: boolean;
-  // 증감률을 무엇과 비교했는지. 월별은 "전월", 연별은 "전년".
   unit?: string;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const [hidden, setHidden] = useState<string[]>([]);
-  const [expand, setExpand] = useState(false);
   useEffect(() => {
     if (!ref.current) return;
-    const visible = series.filter((s) => !hidden.includes(s.key));
-    const symlog = (v: number) => Math.sign(v) * Math.log10(1 + Math.abs(v));
-    const sumAt = (i: number) =>
-      visible.reduce((n, s) => n + (s.values[i] ?? 0), 0);
-    // 도넛처럼 막대의 각 칸 안에 비중(그 기간 합계 대비)과 직전 기간 대비 증감률을 두 줄로 적는다.
-    // 칸이 낮으면 증감률을 빼고, 비중이 칸 폭에 안 들어가면 소수점을 버리고 글자를 줄이며, 그래도 안 되면 적지 않는다.
-    // 적지 못한 값은 툴팁에서 본다. 펼침 모드는 막대가 나란히 서서 칸이 좁으므로 적지 않는다.
-    const SHARE_FONT = "700 9px system-ui";
-    const CHANGE_FONT = "600 8px system-ui";
-    const SMALL_FONT = "700 8px system-ui";
-    const segmentLabels = {
-      id: "assetSegmentLabels",
-      afterDatasetsDraw(chart: Chart) {
-        if (expand) return;
-        const { ctx } = chart;
+    const changes = totals.map((v, i) => (i === 0 ? null : v - totals[i - 1]));
+    const rates = totals.map((v, i) =>
+      i === 0 ? null : assetChangeRate(v, totals[i - 1]),
+    );
+    const tone = (n: number | null) =>
+      !n ? "#9aa392" : n > 0 ? "#c4362f" : "#2f5fc4";
+    const rateText = (n: number | null) =>
+      n === null
+        ? ""
+        : `${n > 0 ? "▲" : n < 0 ? "▼" : ""}${Math.abs(n * 100).toFixed(1)}%`;
+    // 고른 기간을 세로 띠로 칠해 아래 목록이 어느 기간인지 잇는다.
+    const band = {
+      id: "assetSelectedBand",
+      beforeDatasetsDraw(chart: Chart) {
+        const bar = chart.getDatasetMeta(1).data[selected];
+        if (!bar) return;
+        const { ctx, chartArea } = chart;
+        const step =
+          periods.length > 1
+            ? chartArea.width / periods.length
+            : chartArea.width;
         ctx.save();
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.lineJoin = "round";
-        ctx.lineWidth = 2.5;
-        ctx.strokeStyle = "rgba(0,0,0,.45)";
-        ctx.fillStyle = "#fff";
-        // 옆 막대의 글자와 맞닿지 않도록 막대 폭 안에 들어갈 때만 적는다.
-        const fits = (font: string, text: string, room: number) => {
-          ctx.font = font;
-          return ctx.measureText(text).width <= room + 1;
-        };
-        const write = (font: string, text: string, x: number, y: number) => {
-          ctx.font = font;
-          ctx.strokeText(text, x, y);
-          ctx.fillText(text, x, y);
-        };
-        visible.forEach((s, dataset) => {
-          const meta = chart.getDatasetMeta(dataset);
-          s.values.forEach((value, i) => {
-            const total = sumAt(i);
-            const bar = meta.data[i];
-            if (!bar || value <= 0 || !total) return;
-            const { x, y, base, width } = bar.getProps(
-              ["x", "y", "base", "width"],
-              true,
-            ) as { x: number; y: number; base: number; width: number };
-            const height = Math.abs(base - y);
-            if (height < 12) return;
-            const rounded = `${Math.round((value / total) * 100)}%`;
-            const share = (
-              [
-                [SHARE_FONT, assetPct(value / total)],
-                [SHARE_FONT, rounded],
-                [SMALL_FONT, rounded],
-              ] as const
-            ).find(([font, text]) => fits(font, text, width));
-            if (!share) return;
-            const [shareFont, shareText] = share;
-            const change = changeMark(s.values, i);
-            const mid = (y + base) / 2;
-            if (
-              change &&
-              height >= 24 &&
-              fits(CHANGE_FONT, change.text, width)
-            ) {
-              write(shareFont, shareText, x, mid - 5);
-              write(CHANGE_FONT, change.text, x, mid + 5);
-            } else write(shareFont, shareText, x, mid);
-          });
-        });
+        ctx.fillStyle = "#eef2e9";
+        ctx.fillRect(bar.x - step / 2, chartArea.top, step, chartArea.height);
         ctx.restore();
       },
     };
-    // 누적 막대 맨 위에 그 기간의 합산 금액을 적는다. 막대 높이만으로는 총자산이 얼마인지 못 읽는다.
-    // 펼침 모드는 누적이 아니라 대칭 로그 축이라 합계를 그릴 자리가 없으므로 건너뛴다.
-    const stackTotals = {
-      id: "assetStackTotals",
+    // 막대 끝에 증감률을 적는다. 자리가 좁으면 고른 기간만 적는다.
+    // 고른 기간은 금액(가리면 생략)과 총자산도 함께 적는다.
+    const labels = {
+      id: "assetNetLabels",
       afterDatasetsDraw(chart: Chart) {
-        if (hide || expand || !visible.length) return;
         const { ctx } = chart;
-        const meta = chart.getDatasetMeta(0);
+        const bars = chart.getDatasetMeta(1).data;
+        const step = chart.chartArea.width / Math.max(1, periods.length);
         ctx.save();
-        ctx.font = "700 10px system-ui";
         ctx.textAlign = "center";
-        ctx.textBaseline = "bottom";
-        ctx.fillStyle = "#3f4a3f";
-        // 라벨이 겹치면 못 읽는다. 최신 기간부터 자리를 잡고 겹치는 것만 버린다.
-        let leftmost = Infinity;
-        for (let i = periods.length - 1; i >= 0; i--) {
-          const total = sumAt(i);
-          const bar = meta.data[i];
-          if (!total || !bar) continue;
-          const text = assetCompact(total);
-          const width = ctx.measureText(text).width;
-          const half = width / 2 + 4;
-          // 마지막 막대의 라벨이 막대보다 넓으면 캔버스 밖으로 잘린다. 가운데를 캔버스 안쪽으로 당긴다.
-          const x = Math.min(bar.x, chart.width - width / 2 - 1);
-          if (x + half > leftmost) continue;
-          ctx.fillText(text, x, chart.scales.y.getPixelForValue(total) - 3);
-          leftmost = x - half;
+        bars.forEach((bar, i) => {
+          const change = changes[i];
+          if (change === null || !bar) return;
+          const { x, y, base } = bar.getProps(["x", "y", "base"], true) as {
+            x: number;
+            y: number;
+            base: number;
+          };
+          const isSel = i === selected;
+          const text = rateText(rates[i]);
+          ctx.font = `${isSel ? 700 : 600} 10px system-ui`;
+          if (!isSel && ctx.measureText(text).width > step - 2) return;
+          const up = change >= 0;
+          const edge = up ? Math.min(y, base) : Math.max(y, base);
+          ctx.fillStyle = tone(change);
+          ctx.textBaseline = up ? "bottom" : "top";
+          const lines =
+            isSel && !hide ? [assetSignedMoney(change), text] : [text];
+          // 위로 자라는 막대는 위로, 아래로 자라는 막대는 아래로 줄을 쌓는다.
+          const ordered = up ? [...lines].reverse() : lines;
+          const cx = Math.min(Math.max(x, 24), chart.width - 24);
+          ordered.forEach((line, row) =>
+            ctx.fillText(
+              line,
+              cx,
+              up ? edge - 2 - row * 12 : edge + 2 + row * 12,
+            ),
+          );
+        });
+        const point = chart.getDatasetMeta(0).data[selected];
+        if (point && !hide) {
+          ctx.font = "700 11px system-ui";
+          ctx.fillStyle = "#283a32";
+          ctx.textBaseline = "bottom";
+          const text = assetCompact(totals[selected]);
+          const half = ctx.measureText(text).width / 2 + 2;
+          ctx.fillText(
+            text,
+            Math.min(Math.max(point.x, half), chart.width - half),
+            point.y - 8,
+          );
         }
         ctx.restore();
       },
@@ -183,217 +155,34 @@ export function AssetTrend({
       type: "bar",
       data: {
         labels: periods.map(periodLabel),
-        datasets: visible.map((s) => ({
-          label: s.name,
-          data: s.values.map((v) => (expand ? symlog(v) : v)),
-          backgroundColor: assetColor(s.key) + (expand ? "cc" : "e6"),
-          borderColor: assetColor(s.key),
-          borderWidth: 0,
-          borderRadius: 3,
-          categoryPercentage: 0.82,
-          barPercentage: expand ? 0.94 : 0.98,
-        })),
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        // 합계 라벨이 잘리지 않도록 위쪽을 비워둔다.
-        layout: { padding: { top: expand ? 0 : 16 } },
-        interaction: { mode: "index", intersect: false },
-        onClick: (_, points) => {
-          const hit = points[0];
-          if (hit && onPoint)
-            onPoint(periods[hit.index], visible[hit.datasetIndex].key);
-        },
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => {
-                const { name, values } = visible[ctx.datasetIndex];
-                const i = ctx.dataIndex;
-                const sum = sumAt(i);
-                const parts = [
-                  assetPct(sum > 0 ? (values[i] ?? 0) / sum : null),
-                ];
-                if (!hide) parts.unshift(assetMoney(values[i] ?? 0));
-                const change = changeMark(values, i);
-                if (change) parts.push(`${unit} 대비 ${change.text}`);
-                return `${name}: ${parts.join(" · ")}`;
-              },
-              footer: (items) =>
-                hide || expand
-                  ? ""
-                  : `합계 ${assetMoney(
-                      items.reduce((n, i) => n + i.parsed.y, 0),
-                    )}`,
-            },
-          },
-        },
-        scales: {
-          x: {
-            stacked: !expand,
-            grid: { display: false },
-            ticks: { maxRotation: 0, maxTicksLimit: 8, font: { size: 11 } },
-          },
-          y: {
-            stacked: !expand,
-            beginAtZero: true,
-            grid: { color: "#e9edf5" },
-            ticks: {
-              display: !hide,
-              maxTicksLimit: 5,
-              font: { size: 11 },
-              callback: (v) =>
-                assetCompact(
-                  expand
-                    ? Math.sign(Number(v)) * (10 ** Math.abs(Number(v)) - 1)
-                    : Number(v),
-                ),
-            },
-          },
-        },
-      },
-      plugins: [segmentLabels, stackTotals],
-    });
-    return () => chart.destroy();
-  }, [periods, series, hidden, expand, onPoint, hide, unit]);
-  return (
-    <div className="asset-plot">
-      <div className="asset-plot-canvas">
-        <canvas
-          ref={ref}
-          role="img"
-          aria-label={`${series.map((s) => s.name).join(", ")} 금액 추이`}
-        />
-      </div>
-      <div className="asset-plot-controls">
-        <div className="asset-legend" aria-label="표시할 항목">
-          {series.map((s) => (
-            <button
-              key={s.key}
-              aria-pressed={!hidden.includes(s.key)}
-              onClick={() =>
-                setHidden(
-                  hidden.includes(s.key)
-                    ? hidden.filter((k) => k !== s.key)
-                    : [...hidden, s.key],
-                )
-              }
-            >
-              <i style={{ background: assetColor(s.key) }} />
-              {s.name}
-            </button>
-          ))}
-        </div>
-        <button
-          className="asset-scale"
-          aria-pressed={expand}
-          onClick={() => setExpand(!expand)}
-        >
-          작은 항목 확대 {expand ? "켜짐" : "꺼짐"}
-        </button>
-      </div>
-      {expand && (
-        <p className="asset-note">
-          항목을 나란히 놓고 대칭 로그 축으로 펼쳤습니다. 작은 항목의 증감을
-          보기 위한 표시이며 정확한 금액은 툴팁과 아래 표에서 확인하세요.
-        </p>
-      )}
-    </div>
-  );
-}
-// 조각 위에 비중을 직접 적는다. 가운데는 작게 뚫어 그 시점의 총자산을 적는다.
-const shareLabels = {
-  id: "assetShareLabels",
-  afterDatasetsDraw(chart: Chart) {
-    const { ctx } = chart;
-    const meta = chart.getDatasetMeta(0);
-    const data = chart.data.datasets[0].data as number[];
-    const total = data.reduce((n, v) => n + Number(v), 0);
-    if (!total) return;
-    const labels = chart.data.labels as string[];
-    ctx.save();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    meta.data.forEach((arc, i) => {
-      const share = Number(data[i]) / total;
-      // 조각이 너무 작으면 글자가 겹친다. 그런 항목은 범례에서 읽는다.
-      if (share < 0.05) return;
-      const { x, y } = (
-        arc as unknown as { getCenterPoint(): { x: number; y: number } }
-      ).getCenterPoint();
-      ctx.fillStyle = "#fff";
-      ctx.strokeStyle = "rgba(0,0,0,.45)";
-      ctx.lineWidth = 2.5;
-      const lines = [labels[i], `${(share * 100).toFixed(1)}%`];
-      lines.forEach((text, row) => {
-        ctx.font = row === 0 ? "600 10px system-ui" : "700 12px system-ui";
-        const dy = y + (row === 0 ? -8 : 7);
-        ctx.strokeText(text, x, dy);
-        ctx.fillText(text, x, dy);
-      });
-    });
-    ctx.restore();
-  },
-};
-// 구멍은 조각 라벨을 밀어내지 않을 만큼만 뚫는다. 총액은 두 줄로 적는다.
-const centerTotal = (hide: boolean) => ({
-  id: "assetCenterTotal",
-  afterDatasetsDraw(chart: Chart) {
-    const { ctx } = chart;
-    const meta = chart.getDatasetMeta(0);
-    const arc = meta.data[0] as unknown as
-      { x: number; y: number; innerRadius: number } | undefined;
-    if (!arc) return;
-    const total = (chart.data.datasets[0].data as number[]).reduce(
-      (n, v) => n + Number(v),
-      0,
-    );
-    if (!total) return;
-    ctx.save();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "#7b8574";
-    ctx.font = "600 9px system-ui";
-    ctx.fillText("총자산", arc.x, arc.y - 9);
-    ctx.fillStyle = "#2f3a2f";
-    ctx.font = "700 14px system-ui";
-    const text = hide ? ASSET_HIDDEN : assetCompact(total);
-    // 구멍보다 글자가 넓으면 줄인다. 잘린 숫자는 없느니만 못하다.
-    const room = arc.innerRadius * 1.8;
-    if (ctx.measureText(text).width > room)
-      ctx.font = `700 ${Math.max(9, Math.floor((14 * room) / ctx.measureText(text).width))}px system-ui`;
-    ctx.fillText(text, arc.x, arc.y + 6);
-    ctx.restore();
-  },
-});
-export function AssetPie({
-  rows,
-  total,
-  onSlice,
-  hide = false,
-}: {
-  rows: { key: string; name: string; amount: number }[];
-  total: number;
-  onSlice?: (key: string) => void;
-  hide?: boolean;
-}) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  const shown = rows.filter((r) => r.amount > 0);
-  useEffect(() => {
-    if (!ref.current || !shown.length) return;
-    const chart = new Chart(ref.current, {
-      type: "doughnut",
-      data: {
-        labels: shown.map((r) => r.name),
         datasets: [
           {
-            data: shown.map((r) => r.amount),
-            backgroundColor: shown.map((r) => assetColor(r.key)),
+            type: "line",
+            label: "총자산",
+            data: totals,
+            yAxisID: "y",
+            borderColor: "#365b43",
+            backgroundColor: "rgba(54,91,67,.08)",
             borderWidth: 2,
-            borderColor: "#fff",
+            fill: "start",
+            tension: 0.2,
+            pointRadius: totals.map((_, i) => (i === selected ? 5 : 2.5)),
+            pointBackgroundColor: totals.map((_, i) =>
+              i === selected ? "#283a32" : "#fff",
+            ),
+            pointBorderColor: "#365b43",
+          },
+          {
+            type: "bar",
+            label: `${unit} 대비 증감`,
+            data: changes,
+            yAxisID: "change",
+            backgroundColor: changes.map(
+              (c, i) => tone(c) + (i === selected ? "" : "8c"),
+            ),
+            borderRadius: 3,
+            barPercentage: 0.62,
+            categoryPercentage: 0.9,
           },
         ],
       },
@@ -401,44 +190,203 @@ export function AssetPie({
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
+        layout: { padding: { top: 18, left: 4, right: 4 } },
+        interaction: { mode: "index", intersect: false },
         onClick: (_, points) => {
-          if (points[0] && onSlice) onSlice(shown[points[0].index].key);
+          if (points[0]) onSelect(points[0].index);
         },
         plugins: {
           legend: { display: false },
           tooltip: {
             callbacks: {
               label: (ctx) => {
-                const share = assetPct(total > 0 ? ctx.parsed / total : null);
+                const i = ctx.dataIndex;
+                if (ctx.datasetIndex === 0)
+                  return hide ? "" : `총자산 ${assetMoney(totals[i])}`;
+                if (changes[i] === null) return `${unit} 비교 없음`;
                 return hide
-                  ? `${ctx.label}: ${share}`
-                  : `${ctx.label}: ${assetMoney(ctx.parsed)} · ${share}`;
+                  ? `${unit} 대비 ${assetSignedPct(rates[i])}`
+                  : `${unit} 대비 ${assetSignedMoney(changes[i])} (${assetSignedPct(rates[i])})`;
               },
             },
           },
         },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { maxRotation: 0, maxTicksLimit: 8, font: { size: 11 } },
+          },
+          // 위 2/3는 총자산 선, 아래 1/3은 순증감 막대다. 같은 stack의 축은 먼저 적은 것이 아래에 놓인다.
+          change: {
+            type: "linear",
+            stack: "net",
+            stackWeight: 1.1,
+            offset: true,
+            grace: "35%",
+            grid: {
+              color: (c) => (c.tick.value === 0 ? "#c9cbbf" : "transparent"),
+            },
+            ticks: { display: false },
+          },
+          // 총자산은 증감이 보이도록 0이 아니라 값 범위에 맞춘다. 막대 차트의 기본값(0부터)을 끈다.
+          y: {
+            type: "linear",
+            stack: "net",
+            stackWeight: 2,
+            beginAtZero: false,
+            grace: "12%",
+            grid: { color: "#eef0ea" },
+            ticks: {
+              display: !hide,
+              maxTicksLimit: 4,
+              font: { size: 10.5 },
+              callback: (v) => assetCompact(Number(v)),
+            },
+          },
+        },
       },
-      plugins: [shareLabels, centerTotal(hide)],
+      plugins: [band, labels],
     });
-    // chart.js의 설정 타입이 doughnut으로 좁혀지지 않아 구멍 크기는 생성 뒤에 지정한다.
-    (chart.options as { cutout?: string }).cutout = "34%";
-    chart.update("none");
     return () => chart.destroy();
-  }, [shown, total, onSlice, hide]);
-  if (!shown.length) return null;
+  }, [periods, totals, selected, onSelect, hide, unit]);
   return (
-    <div className="asset-pie">
-      <div className="asset-pie-canvas">
-        <canvas ref={ref} role="img" aria-label="자산 구성 비중" />
+    <div className="asset-net">
+      <div className="asset-net-canvas">
+        <canvas
+          ref={ref}
+          role="img"
+          aria-label={`총자산과 ${unit} 대비 순증감`}
+        />
       </div>
-      <div className="asset-legend" aria-label="구성 항목">
-        {shown.map((r) => (
-          <button key={r.key} onClick={() => onSlice?.(r.key)}>
-            <i style={{ background: assetColor(r.key) }} />
-            {r.name} {assetPct(total > 0 ? r.amount / total : null)}
+      <p className="asset-note">
+        위는 총자산(세로축 0 아님), 아래는 {unit} 대비 순증감과 증감률입니다.
+        기간을 누르면 아래 항목별 증감이 그 기간으로 바뀝니다.
+      </p>
+    </div>
+  );
+}
+// 면적이 금액인 사각형으로 구성을 본다. 도넛은 조각이 열 개를 넘으면 작은 조각의 비중을 못 읽는다.
+// 배치는 squarified 알고리즘으로 칸을 정사각형에 가깝게 만들고, 실제 크기를 재서 다시 배치한다.
+type TreemapRect = { x: number; y: number; w: number; h: number };
+function squarify(values: number[], width: number, height: number) {
+  const total = values.reduce((n, v) => n + v, 0);
+  const areas = values.map((v) => (v / total) * width * height);
+  const out: TreemapRect[] = [];
+  let [x, y, w, h] = [0, 0, width, height];
+  let row: number[] = [];
+  let index: number[] = [];
+  const worst = (r: number[], side: number) => {
+    const sum = r.reduce((n, v) => n + v, 0);
+    return Math.max(
+      (side * side * Math.max(...r)) / (sum * sum),
+      (sum * sum) / (side * side * Math.min(...r)),
+    );
+  };
+  const lay = () => {
+    const sum = row.reduce((n, v) => n + v, 0);
+    if (w >= h) {
+      const cw = sum / h;
+      let yy = y;
+      row.forEach((a, j) => {
+        out[index[j]] = { x, y: yy, w: cw, h: a / cw };
+        yy += a / cw;
+      });
+      x += cw;
+      w -= cw;
+    } else {
+      const rh = sum / w;
+      let xx = x;
+      row.forEach((a, j) => {
+        out[index[j]] = { x: xx, y, w: a / rh, h: rh };
+        xx += a / rh;
+      });
+      y += rh;
+      h -= rh;
+    }
+    row = [];
+    index = [];
+  };
+  let i = 0;
+  while (i < areas.length) {
+    const side = Math.min(w, h);
+    if (!row.length || worst([...row, areas[i]], side) <= worst(row, side)) {
+      row.push(areas[i]);
+      index.push(i);
+      i++;
+    } else lay();
+  }
+  if (row.length) lay();
+  return out;
+}
+export function AssetTreemap({
+  rows,
+  total,
+  onCell,
+  hide = false,
+}: {
+  rows: { key: string; name: string; amount: number }[];
+  total: number;
+  onCell?: (key: string) => void;
+  // 금액 가리기. 칸에는 비중만 적는다.
+  hide?: boolean;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const shown = rows
+    .filter((r) => r.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
+  const rects =
+    size.w && size.h && shown.length
+      ? squarify(
+          shown.map((r) => r.amount),
+          size.w,
+          size.h,
+        )
+      : [];
+  return (
+    <div className="asset-treemap" ref={box} role="list" aria-label="자산 구성">
+      {rects.map((rect, i) => {
+        const row = shown[i];
+        const share = assetPct(total > 0 ? row.amount / total : null);
+        // 글자가 칸을 넘으면 읽히지 않으므로 칸 크기에 따라 이름·비중·금액 순으로 줄인다.
+        // 못 적은 값은 title로 본다.
+        const fits = rect.w >= 54;
+        const showName = fits && rect.h >= 46;
+        const showShare = rect.w >= 40 && rect.h >= 28;
+        const showAmount = !hide && fits && rect.h >= 62;
+        return (
+          <button
+            key={row.key}
+            role="listitem"
+            style={{
+              left: rect.x,
+              top: rect.y,
+              width: rect.w,
+              height: rect.h,
+              background: assetColor(row.key),
+            }}
+            title={`${row.name} ${share}${hide ? "" : ` · ${assetMoney(row.amount)}`}`}
+            onClick={() => onCell?.(row.key)}
+          >
+            {showName && <b>{row.name}</b>}
+            {showShare && (
+              <span>
+                {share}
+                {showAmount && <small>{assetCompact(row.amount)}</small>}
+              </span>
+            )}
           </button>
-        ))}
-      </div>
+        );
+      })}
     </div>
   );
 }

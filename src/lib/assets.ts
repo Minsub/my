@@ -844,6 +844,22 @@ export const assetSignedMoney = (n: number | null) =>
   n === null ? "—" : `${n >= 0 ? "+" : "-"}${assetCompact(Math.abs(n))}`;
 // 자산현황의 "금액 가리기"에서 비율로 바꿀 수 없는 금액 자리에 적는 말.
 export const ASSET_HIDDEN = "비공개";
+// 증감은 색만으로 읽히면 안 된다. 화살표를 함께 붙여 색을 못 보는 화면에서도 방향이 남게 한다.
+// 부호는 화살표가 이미 말하므로 금액은 절댓값으로 적는다. 색 class는 증가 up(빨강)·하락 down(파랑)이다.
+export const assetChangeTone = (change: number | null) =>
+  !change ? "flat" : change > 0 ? "up" : "down";
+// 금액을 가릴 때는 비율만 적는다. 직전 값이 0이라 비율이 없으면 그 자리는 비공개다.
+export function assetChangeText(
+  change: number | null,
+  rate: number | null,
+  hide = false,
+) {
+  if (change === null) return "—";
+  const arrow = change > 0 ? "▲" : change < 0 ? "▼" : "";
+  const pct = rate === null ? "" : `${Math.abs(rate * 100).toFixed(1)}%`;
+  if (hide) return `${arrow}${pct || ASSET_HIDDEN}`;
+  return `${arrow}${assetCompact(Math.abs(change))}${pct && ` ${pct}`}`;
+}
 // 자산현황의 "자산 복사"가 만드는 글. 메신저·메모에 붙여 넣을 수 있도록 표 없이 줄 단위로 적는다.
 // 최신 기간의 자산 그룹별 비중·금액과 주식 그룹별 전체 종목·그룹 내 비중을 담는다.
 // 금액을 가린 화면에서 복사하면 글에도 금액을 넣지 않는다.
