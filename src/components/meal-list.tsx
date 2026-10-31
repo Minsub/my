@@ -194,7 +194,8 @@ async function command(operation: Operation, input: Record<string, unknown>) {
   });
   const body = await r.json();
   if (!r.ok) throw Error(body.error?.message ?? "저장하지 못했습니다.");
-  return body;
+  // /api/commands는 결과를 { data }로 감싸 돌려준다.
+  return body.data as Record<string, unknown>;
 }
 
 // 쉼표로 적는 입력 + 이미 쓴 이름 제안. 마지막 쉼표 뒤 글자로 제안을 좁히고, 누르면 그 자리를 채운다.
@@ -305,7 +306,7 @@ function MealForm({
       const saved = (await command(
         dish ? "meal_update" : "meal_create",
         input,
-      )) as MealDish;
+      )) as unknown as MealDish;
       onSaved(saved, !dish);
     } catch (err) {
       setError((err as Error).message);

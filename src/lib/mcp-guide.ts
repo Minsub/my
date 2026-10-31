@@ -179,7 +179,7 @@ export const commandGuide = {
     description:
       "집에서 해먹을 요리를 집밥 목록에 추가합니다. 띄어쓰기만 다른 같은 이름이 이미 있으면 거부합니다.",
     input:
-      "title, ingredients(메인 재료만 짧게), category(한식/양식/중식/일식/아시안/분식/기타). 선택: tags, links(YouTube·블로그 등 여러 개), memo, want_to_try(해보고 싶음).",
+      "title, ingredients(메인 재료만 짧게), category(한식/반찬/양식/중식/일식/아시안/분식/기타). 선택: tags, links(YouTube·블로그 등 여러 개), memo, want_to_try(해보고 싶음).",
     result: "추가한 요리와 ID. 고치거나 지우는 것은 웹의 집밥 화면에서 합니다.",
     example:
       "참치김치찌개 추가해줘. 재료는 두부, 김치, 참치이고 한식, 태그는 매움.",

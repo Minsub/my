@@ -3,6 +3,7 @@
 // 칩 순서이자 입력 허용 목록이다. 바꾸려면 여기만 고친다(SQL CHECK 없음).
 export const mealCategories = [
   "한식",
+  "반찬",
   "양식",
   "중식",
   "일식",
