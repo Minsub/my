@@ -16,6 +16,8 @@ import {
   type WineFilters,
 } from "@/lib/wine-cellar";
 import { readAssetHistory, readAssetItems, readAssetOverview } from "./assets";
+import { listMeals } from "./meals";
+import { filterMeals, mealCategories, mealWordCounts } from "@/lib/meals";
 import {
   assetClassificationRules,
   assetGroupName,
@@ -53,6 +55,10 @@ const descriptions: Partial<Record<Operation, string>> = {
   asset_update_item:
     "이미 저장된 기록에서 항목 한 줄의 자산그룹이나 금액만 고칩니다. 나머지 항목은 그대로 둡니다. 분류를 잘못 넣었거나 금액에 오타가 난 한 줄을 바로잡을 때 쓰고, 그 날짜 전체를 다시 보내야 하면 asset_record_snapshot을 씁니다. snapshot_id·item_id는 asset_list_records에서 얻고 expected_version은 그 스냅샷의 version입니다.",
   asset_delete_snapshot: "잘못 등록한 날짜의 자산 기록을 삭제합니다.",
+  meal_create:
+    '집밥 목록에 요리를 추가합니다. ingredients에는 양념을 빼고 메인 재료만 "두부 반 모"가 아니라 "두부"처럼 짧은 이름으로 넣고, 먼저 meal_list로 이미 쓰는 재료·태그 이름을 확인해 같은 표기를 쓰세요. category는 ' +
+    mealCategories.join("·") +
+    " 중 하나입니다. 아직 안 해본 요리면 want_to_try를 true로 보냅니다. 레시피 링크(YouTube·블로그 등)만 받았으면 링크 내용을 읽을 수 있을 때 그 제목·설명으로 이름·재료를 채우고 links에 넣으세요. 띄어쓰기만 다른 같은 이름이 이미 있으면 DUPLICATE_TITLE로 거부하며, 수정·삭제는 웹 화면에서 합니다.",
 };
 // wine_get의 셀러 위치. placements는 wine_set_placement의 expected_placements로 그대로 쓴다.
 function cellarPlacement(wine: Wine, s: Snapshot) {
@@ -536,6 +542,84 @@ export function mcpHandler(actor: Actor) {
             output(await readAssetHistory(actor, { snapshot })),
         );
       }
+      if (actor.scopes.includes("meal:read"))
+        server.registerTool(
+          "meal_list",
+          {
+            description:
+              "집밥 목록(집에서 해먹을 요리)을 조회합니다. 오늘 뭐 해먹을지 고를 때 씁니다. 조건을 모두 만족하는 요리를 최근 추가 순으로 돌려주고, ingredients_in_use·tags_in_use에 지금 쓰는 재료·태그 이름이 많이 쓴 순으로 들어 있습니다. next_cursor가 있으면 다음 페이지를 조회하세요.",
+            inputSchema: z.object({
+              query: z
+                .string()
+                .max(200)
+                .optional()
+                .describe(
+                  "이름·재료·태그·메모 검색. 공백으로 나눈 낱말을 모두 포함",
+                ),
+              category: z.enum(mealCategories).optional(),
+              tag: z
+                .string()
+                .max(200)
+                .optional()
+                .describe("쉼표로 여러 개를 넣으면 모두 가진 요리만"),
+              ingredient: z
+                .string()
+                .max(40)
+                .optional()
+                .describe("이 재료가 들어간 요리만"),
+              want_to_try: z
+                .boolean()
+                .optional()
+                .describe("true면 해보고 싶음으로 표시한 요리만"),
+              cursor: z.number().int().min(0).default(0),
+              limit: z.number().int().min(1).max(100).default(50),
+            }),
+            annotations: { readOnlyHint: true, openWorldHint: false },
+            _meta: {
+              securitySchemes: [{ type: "oauth2", scopes: ["meal:read"] }],
+            },
+          },
+          async (input) => {
+            const all = await listMeals(actor);
+            const rows = filterMeals(all, {
+              q: input.query,
+              category: input.category,
+              tags: (input.tag ?? "")
+                .split(",")
+                .map((t) => t.trim())
+                .filter(Boolean),
+              ingredient: input.ingredient,
+              want: input.want_to_try,
+            });
+            const count = (key: "ingredients" | "tags") =>
+              mealWordCounts(all, key).map((w) => w.name);
+            return output({
+              items: rows
+                .slice(input.cursor, input.cursor + input.limit)
+                .map((d) => ({
+                  id: d.id,
+                  title: d.title,
+                  category: d.category,
+                  ingredients: d.ingredients,
+                  tags: d.tags,
+                  want_to_try: d.want_to_try,
+                  links: d.links,
+                  memo: d.memo,
+                  added_by: d.created_by_name,
+                  created_at: d.created_at,
+                })),
+              next_cursor:
+                input.cursor + input.limit < rows.length
+                  ? input.cursor + input.limit
+                  : null,
+              total: rows.length,
+              categories: mealCategories,
+              ingredients_in_use: count("ingredients"),
+              tags_in_use: count("tags"),
+              url: `${appUrl()}/hobby/meals`,
+            });
+          },
+        );
       server.registerTool(
         "household_get_summary",
         {

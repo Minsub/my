@@ -169,6 +169,8 @@ const scopeLabels: Record<string, string> = {
   "wine:write": "와인 입고·소비·시음 기록",
   "asset:read": "자산 현황·구성원·분류 기준 조회",
   "asset:write": "자산 현황 등록·수정",
+  "meal:read": "집밥 요리 목록 조회",
+  "meal:write": "집밥 요리 추가",
   openid: "내 계정 확인",
   profile: "내 이름 확인",
   email: "내 이메일 확인",

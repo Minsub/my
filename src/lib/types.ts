@@ -5,7 +5,9 @@ export type Scope =
   | "wine:read"
   | "wine:write"
   | "asset:read"
-  | "asset:write";
+  | "asset:write"
+  | "meal:read"
+  | "meal:write";
 export type Actor = {
   userId: string;
   householdId: string;
@@ -161,6 +163,8 @@ export const allScopes: Scope[] = [
   "wine:write",
   "asset:read",
   "asset:write",
+  "meal:read",
+  "meal:write",
 ];
 export const roastOptions = ["약배전", "중배전", "강배전"];
 export const wineTypes = [

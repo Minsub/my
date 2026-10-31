@@ -42,6 +42,7 @@ export default async function Page({
       "/etc/html",
       "/hobby",
       "/hobby/baking",
+      "/hobby/meals",
       "/baby",
       "/baby/pregnancy",
     ].includes(path) &&

@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   CakeSlice,
   Coffee,
+  CookingPot,
   Timer,
   Wine,
   type LucideIcon,
@@ -79,6 +80,12 @@ export const hobbyMenus: HubItem[] = [
     title: "베이킹",
     description: "케이크·구움과자 레시피를 재료·오븐·공정별로 봅니다.",
     icon: CakeSlice,
+  },
+  {
+    path: "/hobby/meals",
+    title: "집밥",
+    description: "집에서 해먹을 요리를 재료·카테고리·태그로 모아보고 고릅니다.",
+    icon: CookingPot,
   },
 ];
 export const kkomiMenus: HubItem[] = [

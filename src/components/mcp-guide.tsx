@@ -46,6 +46,14 @@ const groups = [
     ),
   },
   {
+    title: "집밥",
+    scope: "meal:read · 목록 조회 / meal:write · 요리 추가",
+    entries: [
+      ...Object.entries(readGuide).filter(([id]) => id.startsWith("meal_")),
+      ...Object.entries(commandGuide).filter(([id]) => id.startsWith("meal_")),
+    ],
+  },
+  {
     title: "가족 요약",
     scope: "허용한 조회 권한에 따라 결과 제공",
     entries: Object.entries(readGuide).filter(([id]) =>

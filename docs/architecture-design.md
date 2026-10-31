@@ -28,7 +28,7 @@ flowchart LR
 - Next.js 16 App Router, React 19, TypeScript. Node.js **22.x**, Vercel `sin1`.
 - PostgreSQL + `pg` 풀, 명시적 SQL 트랜잭션. ORM/Drizzle, Redis, 큐, 독립 백엔드는 없다.
 - Better Auth + OAuth Provider로 웹 세션과 MCP 위임 인증을 제공한다. Neon Auth를 사용하는 구조가 아니다.
-- 외부 AI가 질문·추론을 수행한다. 서버는 LLM을 호출하지 않는다. 앱 내 채팅·OCR·자동 웹 이미지 수집·실시간 동기화는 없다.
+- 외부 AI가 질문·추론을 수행한다. 서버는 LLM을 호출하지 않는다. 앱 내 채팅·OCR·자동 웹 이미지 수집·실시간 동기화는 없다(집밥 링크 미리보기는 og 태그를 읽어 보여줄 뿐 저장하지 않는다).
 
 ## 실제 파일 지도
 
@@ -54,6 +54,7 @@ flowchart LR
 | `src/server/cash.ts`, `cash-parser.ts`, `src/lib/cash.ts` | 웹 전용 XLSX 원본 저장·검증·집계. 공통 snapshot과 분리 |
 | `src/lib/pregnancy.ts`, `src/server/pregnancy.ts`, `/api/baby/pregnancy` | 꼬미 임신 기록. 웹 전용, 공통 snapshot·MCP와 분리. 계산 규칙은 lib가 단일 기준 |
 | `src/lib/baking/` | 베이킹 레시피 정적 데이터(`recipes/{id}.ts`)와 등록 목록·합계·검색 함수. DB·API·MCP 없음. 추가 절차는 [베이킹 문서](baking/README.md) |
+| `src/lib/meals.ts`, `src/server/meals.ts`, `src/server/link-preview.ts`, `/api/meals`, `/api/meals/preview` | 집밥 요리 목록. 공통 snapshot과 분리, 쓰기는 execute(`meal_*`), MCP는 추가·조회만. 링크 썸네일은 저장하지 않고 og 태그를 읽는다. [집밥 문서](meals/README.md) |
 | `src/lib/assets.ts` | 자산 그룹 카탈로그·분류 룰·집계 순수 함수. 웹·서버·MCP가 공유하는 단일 기준 |
 | `src/server/assets.ts`, `/api/assets` | 자산 스냅샷 저장·조회. 공통 snapshot과 분리하고 쓰기는 execute 경유 |
 | `src/lib/asset-plans.ts`, `src/server/asset-plans.ts` | 분할매수 전략. 연금저축·IRP 고정 상수와 월급·현금 그룹 저장·조회(`/api/assets?view=plans`) |
@@ -67,7 +68,7 @@ Actor는 `{userId, householdId, role, scopes, channel, clientId?}`다. 입력에
 
 웹은 Better Auth 세션, MCP는 OAuth Bearer token을 사용한다. Google access token을 MCP에 재사용하지 않는다. MCP는 DCR, Authorization Code+PKCE(S256), discovery, resource 검증, refresh를 지원한다. CIMD 전용 연결은 구현하지 않았다. access token 15분, refresh token 30일 설정이다.
 
-scope는 `coffee:read/write`, `wine:read/write`, `asset:read/write`. 명령별 scope는 `src/lib/contracts.ts`의 `commandScopes`가 단일 기준이며 `Record<Operation, Scope | null>`이라 새 명령을 넣지 않으면 타입 검사가 실패한다. 접두사 추론을 쓰면 새 도메인이 `wine:write`로 공개된다. discovery와 401 challenge는 `allScopes`에서 파생한다. 다만 발급되는 access token의 scope는 `oauthResource` 행의 `allowedScopes`와 교집합으로 좁혀지고, 이 행은 `auth.ts`의 `resources` 설정에서 시드된다. 기본 시드 모드가 `insertOnly`라 한번 만들어진 행은 갱신되지 않으므로 `resourceSeedMode: "merge"`를 유지해야 `allScopes`에 추가한 scope가 실제 토큰까지 전달된다. 교집합이 비지 않으면 조용히 깎이므로 오류가 나지 않는다. scope만으로 소유권을 대체하지 않는다. 관리자는 공용 항목을 수정할 수 있고 구성원은 본인이 만든 항목을 수정한다. 평가·세팅은 본인 기록이다. 본인 AI 연결을 해제하면 저장된 동의와 토큰 및 JWT 발급시각 차단으로 기존 토큰이 무효화된다. 매 요청 활성 멤버십을 확인한다.
+scope는 `coffee:read/write`, `wine:read/write`, `asset:read/write`, `meal:read/write`. 명령별 scope는 `src/lib/contracts.ts`의 `commandScopes`가 단일 기준이며 `Record<Operation, Scope | null>`이라 새 명령을 넣지 않으면 타입 검사가 실패한다. 접두사 추론을 쓰면 새 도메인이 `wine:write`로 공개된다. discovery와 401 challenge는 `allScopes`에서 파생한다. 다만 발급되는 access token의 scope는 `oauthResource` 행의 `allowedScopes`와 교집합으로 좁혀지고, 이 행은 `auth.ts`의 `resources` 설정에서 시드된다. 기본 시드 모드가 `insertOnly`라 한번 만들어진 행은 갱신되지 않으므로 `resourceSeedMode: "merge"`를 유지해야 `allScopes`에 추가한 scope가 실제 토큰까지 전달된다. 교집합이 비지 않으면 조용히 깎이므로 오류가 나지 않는다. scope만으로 소유권을 대체하지 않는다. 관리자는 공용 항목을 수정할 수 있고 구성원은 본인이 만든 항목을 수정한다. 평가·세팅은 본인 기록이다. 본인 AI 연결을 해제하면 저장된 동의와 토큰 및 JWT 발급시각 차단으로 기존 토큰이 무효화된다. 매 요청 활성 멤버십을 확인한다.
 
 **로그인 없이 열리는 예외는 와인 목록 공유뿐이다.** `/share/wine/{token}`과 `/api/share/wine/{token}/*`는 Actor 없이 토큰으로 찾은 `wine_shares` 행의 `household_id`·`wine_ids`·만료·끄기 조건만으로 읽고, 투표 쓰기는 sameOrigin·IP 빈도·크기·공유당 인원 상한을 적용한다. 공유 만들기·끄기와 결과 조회는 일반 인증 경계(웹 전용 명령, `/api/wine/shares`) 안에 있다.
 
@@ -100,6 +101,10 @@ UI 숨김은 보안 검사가 아니다. 쿠키 기반 변경은 sameOrigin, 모
 ## 꼬미 기록
 
 `/baby/pregnancy`는 전용 `/api/baby/pregnancy`(조회·create/update/delete/settings)와 `/api/baby/pregnancy/photo/{id}`를 쓰며 008·009·012·013·015·016 migration이 필요하다(015·016은 태동). 공통 snapshot·OAuth scope·MCP에는 넣지 않았다. 진행 중 타이머는 서버가 아니라 입력 기기의 localStorage에 있고, 종료한 기록은 클라이언트가 만든 `request_key`로 재전송해도 한 건만 남는다. 출혈·진료 사진은 `wine-photos.ts`의 `normalizePhoto`로 정규화한 bytea만 저장한다. 자세한 규칙은 [꼬미 문서](kkomi/README.md).
+
+## 집밥
+
+`/hobby/meals`는 018 migration의 `meal_dishes`를 전용 `GET /api/meals`로 읽고 공통 `POST /api/commands`로 쓴다. 자산처럼 공통 snapshot에 넣지 않았다. 링크 미리보기 `GET /api/meals/preview`는 서버가 외부 주소로 요청하는 유일한 사용자 입력 경로라 매 이동마다 사설 주소를 막는다(DNS 확인 뒤 연결하므로 DNS rebinding까지 막지는 못한다). 자세한 규칙은 [집밥 문서](meals/README.md).
 
 ## 가계부 원본 파일
 

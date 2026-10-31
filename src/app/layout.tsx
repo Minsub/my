@@ -4,6 +4,7 @@ import "./cash.css";
 import "./assets.css";
 import "./pregnancy.css";
 import "./baking.css";
+import "./meals.css";
 import "./share.css";
 import "./cellar.css";
 export const metadata: Metadata = {

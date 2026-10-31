@@ -15,6 +15,7 @@ import {
   updateAssetSnapshotItem,
 } from "./assets";
 import { saveAssetBuyPlan } from "./asset-plans";
+import { createMeal, deleteMeal, updateMeal } from "./meals";
 import { createWineShare, revokeWineShare } from "./wine-shares";
 import { releaseForStockDrop, setWinePlacement } from "./wine-placements";
 import type { Actor, Snapshot } from "@/lib/types";
@@ -726,6 +727,24 @@ export async function execute(
         const saved = await saveAssetBuyPlan(client, actor, command.input);
         result = saved;
         label = `${saved.owner.name} ${saved.kind === "cash" ? "현금" : "월급"} 분할매수 전략`;
+        break;
+      }
+      case "meal_create": {
+        const dish = await createMeal(client, actor, command.input);
+        result = dish;
+        label = `집밥 ${dish.title}`;
+        break;
+      }
+      case "meal_update": {
+        const dish = await updateMeal(client, actor, command.input);
+        result = dish;
+        label = `집밥 ${dish.title} 수정`;
+        break;
+      }
+      case "meal_delete": {
+        const removed = await deleteMeal(client, actor, command.input);
+        result = removed;
+        label = `집밥 ${removed.title} 삭제`;
         break;
       }
       case "family_invite": {

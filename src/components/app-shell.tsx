@@ -6,6 +6,7 @@ import { MenuHub, hobbyMenus, kkomiMenus } from "./menu-hub";
 import { PregnancyLog } from "./pregnancy-log";
 import { BakingRecipeList } from "./baking-recipes";
 import { BakingRecipeView } from "./baking-recipe";
+import { MealList } from "./meal-list";
 import { AssetStatus } from "./asset-status";
 import { AssetRecords } from "./asset-records";
 import { AssetPlans } from "./asset-plans";
@@ -1756,13 +1757,22 @@ export function AppShell({
       <MenuHub
         eyebrow="MONO / HOBBY"
         title="취미"
-        description="커피 원두, 와인 셀러, 베이킹 레시피를 한곳에서 엽니다."
+        description="커피 원두, 와인 셀러, 베이킹 레시피, 집밥 요리를 한곳에서 엽니다."
         items={hobbyMenus}
         href={href}
       />
     );
   else if (path === "/hobby/baking")
     content = <BakingRecipeList initialQuery={initialQuery} href={href} />;
+  else if (path === "/hobby/meals")
+    content = (
+      <MealList
+        initialQuery={initialQuery}
+        demo={demo}
+        userId={data.user.id}
+        isOwner={data.user.role === "owner"}
+      />
+    );
   else if (path.startsWith("/hobby/baking/")) {
     const recipe = findBakingRecipe(path.split("/")[3]);
     content = recipe ? (

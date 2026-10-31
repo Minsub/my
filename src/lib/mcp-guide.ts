@@ -174,6 +174,17 @@ export const commandGuide = {
     result: "삭제 여부와 대상 날짜.",
     example: "어제 잘못 등록한 자산 기록을 지워줘.",
   },
+  meal_create: {
+    title: "집밥 요리 추가",
+    description:
+      "집에서 해먹을 요리를 집밥 목록에 추가합니다. 띄어쓰기만 다른 같은 이름이 이미 있으면 거부합니다.",
+    input:
+      "title, ingredients(메인 재료만 짧게), category(한식/양식/중식/일식/아시안/분식/기타). 선택: tags, links(YouTube·블로그 등 여러 개), memo, want_to_try(해보고 싶음).",
+    result: "추가한 요리와 ID. 고치거나 지우는 것은 웹의 집밥 화면에서 합니다.",
+    example:
+      "참치김치찌개 추가해줘. 재료는 두부, 김치, 참치이고 한식, 태그는 매움.",
+  },
+  // meal_update·meal_delete는 웹 전용이다. MCP는 추가·조회만 연다.
   // asset_save_owner·asset_save_buy_plan·wine_share_*는 웹 전용이라 MCP 도구 목록에 없다(contracts.ts의 webOnlyCommands).
 } satisfies Record<
   Exclude<
@@ -185,6 +196,8 @@ export const commandGuide = {
     | "wine_share_create"
     | "wine_share_revoke"
     | "wine_delete"
+    | "meal_update"
+    | "meal_delete"
   >,
   Entry
 >;
@@ -306,6 +319,16 @@ export const readGuide: Record<string, Entry> = {
     input: "선택: snapshot(생략하면 가장 최근 등록 건).",
     result: "snapshots(등록 이력), selected(그 등록 건의 원본 항목 전체).",
     example: "마지막으로 등록한 자산 원본을 그대로 보여줘.",
+  },
+  meal_list: {
+    title: "집밥 목록",
+    description:
+      "집에서 해먹을 요리 목록을 검색합니다. 오늘 뭐 해먹을지 고를 때 씁니다.",
+    input:
+      "선택: query(이름·재료·태그·메모), category, tag(쉼표로 여러 개 = 모두 포함), ingredient, want_to_try, cursor, limit(기본 50).",
+    result:
+      "items(이름·카테고리·재료·태그·해보고 싶음·링크·메모), total, next_cursor, categories, ingredients_in_use·tags_in_use(지금 쓰는 이름).",
+    example: "두부 들어가는 매운 요리 중에 뭐 해먹을까?",
   },
   household_get_summary: {
     title: "가족 컬렉션 요약",

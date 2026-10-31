@@ -1,0 +1,421 @@
+/* 취미 / 집밥. MONO 라이트 팔레트 위에 고추장 빛 포인트와 "해보고 싶음" 노랑만 더한다. */
+.ml-page {
+  --ml-accent: #b4532f;
+  --ml-accent-pale: #f8e7de;
+  --ml-want: #8a6512;
+  --ml-want-pale: #fbf0d2;
+  --ml-faint: #9aa192;
+  max-width: 1080px;
+  word-break: keep-all;
+}
+.ml-page button:not(.button),
+.ml-sheet button:not(.button) {
+  font: inherit;
+  color: inherit;
+}
+
+/* 필터 */
+.ml-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.ml-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 260px;
+  max-width: 420px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  color: var(--ml-faint);
+}
+.ml-search input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--ink);
+  font-size: 14px;
+}
+.ml-search:focus-within {
+  border-color: var(--ml-accent);
+}
+.ml-want-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px dashed #d9c38a;
+  border-radius: 10px;
+  background: white;
+  font-size: 13px;
+  color: var(--ml-want) !important;
+}
+.ml-want-toggle small {
+  color: var(--ml-faint);
+}
+.ml-want-toggle[aria-pressed="true"] {
+  border-style: solid;
+  border-color: var(--ml-want);
+  background: var(--ml-want-pale);
+  font-weight: 700;
+}
+.ml-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.ml-chips button {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: white;
+  font-size: 13px;
+  color: var(--muted) !important;
+}
+.ml-chips button small {
+  margin-left: 2px;
+  color: var(--ml-faint);
+}
+.ml-chips button[aria-pressed="true"],
+.ml-chips button[aria-checked="true"] {
+  border-color: var(--ml-accent);
+  background: var(--ml-accent-pale);
+  color: var(--ml-accent) !important;
+  font-weight: 700;
+}
+.ml-tag-chips {
+  margin-bottom: 18px;
+}
+.ml-tag-chips button {
+  padding: 4px 10px;
+  font-size: 12.5px;
+}
+.ml-chips .ml-more {
+  border-style: dashed;
+}
+
+/* 목록 */
+.ml-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+.ml-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px 15px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+  text-align: left;
+  transition: border-color 0.15s;
+}
+.ml-card:hover {
+  border-color: var(--ml-accent);
+}
+.ml-card-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.ml-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.ml-card-top strong {
+  font-size: 16px;
+}
+.ml-card-ing {
+  font-size: 13px;
+  color: var(--ink);
+  line-height: 1.6;
+}
+.ml-card small {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ml-faint);
+}
+.ml-link-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.ml-category {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--ml-accent-pale);
+  color: var(--ml-accent);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.ml-want-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--ml-want-pale);
+  color: var(--ml-want);
+  font-size: 11.5px;
+  font-weight: 700;
+  width: fit-content;
+}
+.ml-card-thumb,
+.ml-link-thumb {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 9px;
+  background: #f1f2ea;
+  color: #b6bba9;
+}
+.ml-card-thumb {
+  width: 76px;
+  height: 76px;
+}
+.ml-thumb-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ml-empty {
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--ml-faint);
+  font-size: 13px;
+}
+.ml-empty strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--ink);
+  font-size: 15px;
+}
+.ml-empty p {
+  max-width: 420px;
+  margin: 0 auto;
+  line-height: 1.7;
+}
+
+/* 시트 */
+.ml-sheet-body {
+  padding: 26px 28px 24px;
+}
+.ml-form {
+  padding: 0 !important;
+}
+.ml-suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.ml-suggest button {
+  padding: 3px 9px;
+  border: 1px dashed #cfd6c3;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 12px;
+  color: var(--muted) !important;
+}
+.ml-suggest button:hover {
+  border-style: solid;
+  background: white;
+}
+.ml-want {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #ecdcae;
+  border-radius: 10px;
+  background: #fffaf0;
+  color: var(--ml-want, #8a6512);
+  cursor: pointer;
+}
+.ml-want input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #8a6512;
+}
+.ml-want span {
+  display: flex;
+  flex-direction: column;
+}
+.ml-want strong {
+  font-size: 13.5px;
+}
+.ml-want small {
+  font-size: 11.5px;
+  color: #a58c56;
+}
+.ml-link-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ml-link-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ml-link-row input {
+  flex: 1;
+}
+.ml-add-link {
+  align-self: flex-start;
+  border: 0;
+  background: none;
+  padding: 4px 0;
+  font-size: 12.5px;
+  color: var(--green) !important;
+}
+.ml-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.ml-detail section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ml-detail h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ml-faint);
+}
+.ml-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ml-words span {
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: white;
+  border: 1px solid var(--line);
+  font-size: 14px;
+}
+.ml-tags {
+  font-size: 13.5px;
+  color: var(--muted);
+}
+.ml-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ml-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 12px 8px 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  color: var(--ml-faint);
+}
+.ml-link:hover {
+  border-color: var(--ml-accent);
+}
+.ml-link-thumb {
+  width: 96px;
+  height: 56px;
+}
+.ml-link-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ml-link-text strong {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  word-break: break-all;
+}
+.ml-link-text small {
+  overflow: hidden;
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ml-memo {
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.ml-meta {
+  font-size: 12px;
+  color: var(--ml-faint);
+}
+.ml-detail-actions {
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 4px;
+}
+.ml-confirm {
+  margin-right: auto;
+  font-size: 12.5px;
+  color: #a4533a;
+}
+.ml-danger {
+  background: #a4533a;
+  color: white;
+}
+
+@media (max-width: 760px) {
+  .ml-page .page-heading {
+    align-items: flex-start;
+  }
+  .ml-page .page-heading .button {
+    padding: 10px 14px;
+  }
+  .ml-search {
+    max-width: none;
+  }
+  .ml-list {
+    grid-template-columns: 1fr;
+  }
+  .ml-card-thumb {
+    width: 64px;
+    height: 64px;
+  }
+  .ml-sheet-body {
+    padding: 22px 20px calc(22px + env(safe-area-inset-bottom));
+  }
+}

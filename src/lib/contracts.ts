@@ -8,6 +8,12 @@ import {
 } from "./asset-plans";
 import type { Scope } from "./types";
 import {
+  MEAL_MAX_INGREDIENTS,
+  MEAL_MAX_LINKS,
+  MEAL_MAX_TAGS,
+  mealCategories,
+} from "./meals";
+import {
   CELLAR_SHELF_CAPACITY,
   CELLAR_SHELVES,
   WINE_SHARE_MAX_WINES,
@@ -33,6 +39,39 @@ const url = z.union([
     ),
 ]);
 const key = { idempotency_key: id };
+// 집밥 출처 링크. 블로그·영상 등 아무 웹 주소나 받되 http(s)만 허용한다(javascript: 등 차단).
+// 입력 정리(공백·중복 제거)는 서버가 한다. MCP 입력 스키마로 나가므로 transform을 쓰지 않는다.
+const mealLink = z
+  .url()
+  .max(2000)
+  .refine(
+    (v) => ["http:", "https:"].includes(new URL(v).protocol),
+    "http 또는 https 링크만 사용할 수 있습니다.",
+  );
+const meal = {
+  title: z.string().trim().min(1).max(100),
+  category: z.enum(mealCategories),
+  ingredients: z
+    .array(z.string().trim().max(40))
+    .min(1)
+    .max(MEAL_MAX_INGREDIENTS)
+    .describe('메인 재료만 짧은 이름으로. 예: ["두부","김치","참치"]'),
+  tags: z
+    .array(z.string().trim().max(30))
+    .max(MEAL_MAX_TAGS)
+    .default([])
+    .describe('자유 태그. 예: ["매움","국물"]'),
+  links: z
+    .array(mealLink)
+    .max(MEAL_MAX_LINKS)
+    .default([])
+    .describe("레시피 출처 링크(YouTube·블로그 등) 여러 개"),
+  memo: z.string().trim().max(2000).default(""),
+  want_to_try: z
+    .boolean()
+    .default(false)
+    .describe("아직 안 해봤지만 해보고 싶은 요리면 true"),
+};
 const bean = {
   brand_id: id,
   name,
@@ -358,6 +397,11 @@ export const commandSchemas = {
       "고를 수 있는 개수가 와인 수보다 많습니다.",
     ),
   wine_share_revoke: z.object({ ...key, id }).strict(),
+  meal_create: z.object({ ...key, ...meal }).strict(),
+  meal_update: z
+    .object({ ...key, id, expected_version: version, ...meal })
+    .strict(),
+  meal_delete: z.object({ ...key, id, expected_version: version }).strict(),
   family_invite: z
     .object({
       ...key,
@@ -399,6 +443,9 @@ export const commandScopes: Record<Operation, Scope | null> = {
   asset_update_item: "asset:write",
   asset_delete_snapshot: "asset:write",
   asset_save_buy_plan: "asset:write",
+  meal_create: "meal:write",
+  meal_update: "meal:write",
+  meal_delete: "meal:write",
   archive_item: null,
   family_invite: null,
   family_remove: null,
@@ -410,7 +457,10 @@ export const commandScopes: Record<Operation, Scope | null> = {
 // 분할매수 전략은 사람이 화면에서 비중을 맞춰 정하는 값이라 AI 도구로 열지 않는다.
 // 와인 목록 공유는 공개 링크를 만드는 일이라 사람이 화면에서 목록을 보고 정한다.
 // 와인 삭제는 기록까지 지워 되돌릴 수 없으므로 사람이 상세 화면에서 확인하고 실행한다.
+// 집밥은 MCP로 추가·조회만 연다. 고치기·지우기는 웹 화면에서 한다.
 export const webOnlyCommands = new Set<Operation>([
+  "meal_update",
+  "meal_delete",
   "asset_save_owner",
   "asset_save_buy_plan",
   "wine_share_create",
