@@ -21,7 +21,7 @@ import {
   COFFEE_MAX_PRICES,
   beanStatus,
   mainPrice,
-  optionKgPrice,
+  weightLabel,
 } from "@/lib/coffee";
 import { placementLabel, wineFacts, winePlacement } from "@/lib/wine-cellar";
 /* eslint-disable @next/next/no-location-assign-relative-destination -- Full navigation deliberately clears all cached family data when a session ends. */
@@ -274,16 +274,9 @@ export function AppShell({
           )),
     )
     .sort((a, b) => {
-      if (
-        coffeeSort === "price-asc" ||
-        coffeeSort === "price-desc" ||
-        coffeeSort === "kg"
-      ) {
+      if (coffeeSort === "price-asc" || coffeeSort === "price-desc") {
         // 가격 정렬은 목록에 보이는 대표 옵션(가장 비싼 옵션) 기준이다.
-        const price = (x: Bean) =>
-          coffeeSort === "kg"
-            ? optionKgPrice(mainPrice(x))
-            : (mainPrice(x)?.price ?? null);
+        const price = (x: Bean) => mainPrice(x)?.price ?? null;
         const left = price(a);
         const right = price(b);
         if (left === null && right !== null) return 1;
@@ -639,7 +632,6 @@ export function AppShell({
     const preferences = ownPrefs.filter((p) => p.bean_id === bean.id);
     const recommended = recommenders(bean.id);
     const option = mainPrice(bean);
-    const unitPrice = optionKgPrice(option);
     const brand = data.brands.find((b) => b.id === bean.brand_id);
     const status = beanStatus(bean.id, ownPrefs);
     return (
@@ -683,16 +675,15 @@ export function AppShell({
         </div>
         <div className="coffee-price">
           <span className="coffee-column-label">판매 가격</span>
-          <strong>{money(option?.price)}</strong>
-          <span>
-            {option?.weight_g ? `${option.weight_g}g` : "중량 미입력"}
-            {bean.prices.length > 1 && ` · 용량 ${bean.prices.length}개`}
-          </span>
-          <small>
-            {unitPrice !== null
-              ? `${money(unitPrice)} / kg`
-              : "환산 가격 미계산"}
-          </small>
+          <strong>
+            {money(option?.price)}
+            {option?.price != null && option.weight_g != null && (
+              <span className="coffee-price-unit">
+                {" "}
+                / {weightLabel(option.weight_g)}
+              </span>
+            )}
+          </strong>
         </div>
         <div className="coffee-preferences">
           <span className="coffee-column-label">
@@ -702,8 +693,28 @@ export function AppShell({
                 ? "내 평가"
                 : `${memberName(person)}의 평가`}
           </span>
-          <div className="bean-tags">
+          {/* 모바일은 이 한 줄(경험·추천)만 남기고 추천 인원·메모·기록 버튼은 숨긴다. */}
+          <div className="bean-tags coffee-pref-tags">
             <Tag tone={status === "먹어봄" ? "" : "plan"}>{status}</Tag>
+            {preferences.map(
+              (p) =>
+                p.recommendation && (
+                  <Tag
+                    key={p.id}
+                    tone={
+                      p.recommendation === "추천"
+                        ? "green"
+                        : p.recommendation === "비추천"
+                          ? "rose"
+                          : ""
+                    }
+                  >
+                    {person === "all"
+                      ? `${memberName(p.user_id)} ${p.recommendation}`
+                      : p.recommendation}
+                  </Tag>
+                ),
+            )}
             <span
               className={`bean-recommend-count${recommended.length ? " on" : ""}`}
               title={
@@ -716,27 +727,17 @@ export function AppShell({
               추천 {recommended.length}명
             </span>
           </div>
-          {preferences.map((p) => (
-            <div key={p.id}>
-              {person === "all" && <small>{memberName(p.user_id)}</small>}
-              {p.recommendation && (
-                <div className="bean-tags">
-                  <Tag
-                    tone={
-                      p.recommendation === "추천"
-                        ? "green"
-                        : p.recommendation === "비추천"
-                          ? "rose"
-                          : ""
-                    }
-                  >
-                    {p.recommendation}
-                  </Tag>
-                </div>
-              )}
-              {p.note && <p className="coffee-flavor">{p.note}</p>}
-            </div>
-          ))}
+          {preferences.map(
+            (p) =>
+              p.note && (
+                <p className="coffee-flavor coffee-pref-note" key={p.id}>
+                  {person === "all" && (
+                    <small>{memberName(p.user_id)} · </small>
+                  )}
+                  {p.note}
+                </p>
+              ),
+          )}
           <button
             className="coffee-text-button"
             onClick={() => preferenceForm(bean)}
@@ -951,7 +952,6 @@ export function AppShell({
               <option value="brand">브랜드순</option>
               <option value="price-asc">판매 가격 낮은순</option>
               <option value="price-desc">판매 가격 높은순</option>
-              <option value="kg">1kg 가격 낮은순</option>
             </select>
             <button
               className="coffee-text-button"
@@ -988,10 +988,9 @@ export function AppShell({
           )
         )}
         <div className="collection-footnote">
-          판매 가격은 용량별 옵션 중 가장 비싼 포장 기준입니다. 중량을 입력하면
-          1kg 환산 가격으로 비교할 수 있습니다. 가격 미입력 항목은 가격 정렬 시
-          마지막에 표시합니다. 내 평가를 기록하면 먹어봄, 기록이 없으면
-          구매예정입니다.
+          판매 가격은 용량별 옵션 중 가장 비싼 포장 기준입니다. 가격 미입력
+          항목은 가격 정렬 시 마지막에 표시합니다. 내 평가를 기록하면 먹어봄,
+          기록이 없으면 구매예정입니다.
         </div>
       </>
     );
@@ -1090,6 +1089,7 @@ export function AppShell({
   function renderBean(bean: Bean) {
     const p = myPref(bean);
     const option = mainPrice(bean);
+    const brand = data.brands.find((b) => b.id === bean.brand_id);
     return (
       <>
         <Link className="back-link" href={href(coffeeListUrl)}>
@@ -1098,12 +1098,21 @@ export function AppShell({
         </Link>
         <div className="detail-top coffee-detail">
           <div className="detail-copy">
-            <Link
-              className="eyebrow"
-              href={href(`/coffee?brand=${bean.brand_id}`)}
-            >
-              {brandName(bean)} · 원두 보기 <ArrowRight size={13} />
-            </Link>
+            <div className="coffee-detail-brand">
+              {brand && (
+                <BrandMark
+                  brand={brand}
+                  tone={brandIndex(brand.id) % 4}
+                  small
+                />
+              )}
+              <Link
+                className="eyebrow"
+                href={href(`/coffee?brand=${bean.brand_id}`)}
+              >
+                {brandName(bean)} · 원두 보기 <ArrowRight size={13} />
+              </Link>
+            </div>
             <h1>{bean.name}</h1>
             <div className="bean-tags">
               {bean.roast && <Tag>{bean.roast}</Tag>}
@@ -1113,25 +1122,24 @@ export function AppShell({
               {p?.recommendation && <Tag tone="green">{p.recommendation}</Tag>}
             </div>
             <p>{bean.flavor || "이 원두의 맛과 향을 기록해보세요."}</p>
-            {bean.prices.length > 1 ? (
+            {bean.prices.length ? (
               <table className="bean-price-table">
                 <thead>
                   <tr>
                     <th>포장 중량</th>
                     <th>판매 가격</th>
-                    <th>1kg 환산</th>
                   </tr>
                 </thead>
                 <tbody>
                   {bean.prices.map((x, i) => (
-                    <tr key={i} className={x === option ? "main" : ""}>
-                      <td>{x.weight_g ? `${x.weight_g}g` : "중량 미입력"}</td>
+                    <tr
+                      key={i}
+                      className={
+                        bean.prices.length > 1 && x === option ? "main" : ""
+                      }
+                    >
+                      <td>{weightLabel(x.weight_g)}</td>
                       <td>{money(x.price)}</td>
-                      <td>
-                        {optionKgPrice(x) !== null
-                          ? money(optionKgPrice(x))
-                          : "—"}
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1140,21 +1148,7 @@ export function AppShell({
               <dl className="detail-facts">
                 <div>
                   <dt>판매 가격</dt>
-                  <dd>{money(option?.price)}</dd>
-                </div>
-                <div>
-                  <dt>판매 단위</dt>
-                  <dd>
-                    {option?.weight_g ? `${option.weight_g}g` : "중량 미입력"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>1kg 환산 가격</dt>
-                  <dd>
-                    {optionKgPrice(option) !== null
-                      ? money(optionKgPrice(option))
-                      : "가격·중량 입력 후 계산"}
-                  </dd>
+                  <dd>가격 미입력</dd>
                 </div>
               </dl>
             )}

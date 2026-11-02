@@ -4185,6 +4185,15 @@ input[type="checkbox"] {
   align-self: start;
   padding-top: 4px;
 }
+.coffee-pref-note small {
+  font-size: inherit;
+  color: var(--muted);
+}
+.coffee-detail-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .coffee-flavor {
   color: var(--muted);
   font-size: 13px;
@@ -4200,8 +4209,15 @@ input[type="checkbox"] {
   gap: 7px;
   font-size: 13px;
 }
+/* "65,000원 / 1kg": 좁으면 가격과 중량 사이에서만 줄을 바꾼다. */
 .coffee-price strong {
   font-size: 17px;
+  word-break: keep-all;
+}
+.coffee-price-unit {
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--muted);
 }
 .coffee-column-label {
   font-size: 11px;
@@ -4318,7 +4334,7 @@ input[type="checkbox"] {
 @media (max-width: 760px) {
   .coffee-row {
     grid-template-columns: 44px minmax(0, 1.3fr) minmax(0, 1fr);
-    gap: 18px 12px;
+    gap: 4px 12px;
     padding: 22px 0;
   }
   .brand-monogram.small,
@@ -4334,10 +4350,21 @@ input[type="checkbox"] {
     align-items: flex-end;
     text-align: right;
   }
+  /* 모바일 평가는 경험·추천 태그 한 줄만. 넘치면 잘라 줄바꿈하지 않는다. */
   .coffee-preferences {
-    grid-column: 1 / -1;
-    border-top: 1px solid var(--line);
-    padding-top: 12px;
+    grid-column: 2 / -1;
+  }
+  .coffee-preferences > :not(.coffee-pref-tags),
+  .coffee-pref-tags .bean-recommend-count {
+    display: none;
+  }
+  .coffee-pref-tags {
+    flex-wrap: nowrap;
+    overflow: hidden;
+    margin-top: 0;
+  }
+  .coffee-pref-tags .tag {
+    flex: none;
   }
   .coffee-detail .detail-facts {
     flex-wrap: wrap;

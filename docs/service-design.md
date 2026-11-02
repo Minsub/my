@@ -17,7 +17,7 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | `/hobby/meals` | 집밥 요리 목록: 이름·재료·태그·메모 검색, 해보고 싶음 토글, 카테고리·태그 칩, 카드(첫 링크 썸네일), 상세·입력 시트. 상태는 `q`·`category`·`tag`·`want` 쿼리. [집밥 문서](meals/README.md) | meal-list.tsx |
 | `/coffee` | 원두 목록(브랜드 이미지·상품 링크·대표 가격·경험·추천), 가격 정렬·브랜드·경험·추천(사용자 기준/누군가 추천)·사용자·검색, 행마다 추천 인원 집계 | app-shell.tsx renderCoffee |
 | `/coffee/brands` | 브랜드 목록·등록·수정·대표 이미지 올리기(웹 전용)·브랜드별 원두 바로가기 | app-shell.tsx, coffee-brand-photo.tsx |
-| `/coffee/beans/{uuid}` | 상품·용량별 가격·kg 환산 가격·사용자별 평가·추출 설정 | app-shell.tsx |
+| `/coffee/beans/{uuid}` | 브랜드 이미지·상품·용량별 가격·사용자별 평가·추출 설정 | app-shell.tsx |
 | `/wine` | 보유량 대시보드(모바일은 한 줄 요약), 종류·국가·가격 구간·지역·빈티지·품종 다중 선택 칩(같은 항목은 OR)과 상세 필터·정렬, 결과 합계·평균, 세로 사진 카드(기본)/촘촘한 목록 전환(`view=list`), 결과 줄의 "공유"로 지금 목록의 공개 링크 만들기. 입고·소비는 상세에서 | wine-cellar.tsx, wine-share.tsx WineShareCreate |
 | `/wine/{uuid}` | 왼쪽 세로 사진(PC 고정)과 정보(셀러 위치 포함)·입고·소비(꺼낸 층 선택)·취소·시음·위치 수정·사진 | app-shell.tsx, wine-cellar.tsx WineDetailPhoto, wine-photo-upload.tsx |
 | `/wine/glasses` | 와인잔 등록·수정 | app-shell.tsx |
@@ -53,7 +53,7 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 
 `coffee_brands`, `coffee_brand_photos`, `coffee_beans`, `coffee_bean_prices`, `coffee_preferences`, `coffee_machines`, `coffee_brew_settings`를 사용한다. 실제 컬럼/제약은 migrations와 types.ts를 확인한다. 상품과 본인의 평가를 분리하며 세팅은 누적 기록이다. 커피 머신은 공간마다 하나로 운용한다. 등록 화면·MCP 도구가 없고 첫 세팅 기록 때 서버가 `커피 머신`을 만들어 `machine_id`를 채운다.
 
-가격은 원두마다 용량별 옵션(포장 중량 g, 판매 가격 원) 여러 줄로 저장하고 목록은 가장 비싼 옵션 하나를 보여준다. kg 환산은 price×1000/weight_g, 중량 미입력이면 계산하지 않는다. 경험(구매예정/먹어봄)은 저장값이 아니라 취향 기록 여부이고, 원두 보관 기능은 없다. `grind`, `dose`는 기기 설정 숫자이며 실제 g으로 추정하지 않는다. 현재 가격 확인일·가격 이력·원두 재고·자동 상품 수집 기능은 없다. 원두 사진은 없고 브랜드 대표 이미지만 웹에서 올린다. 기존 image_url 값은 보존한다. 세부 동작은 [커피 기능](home-cafe/coffee-features.md)을 따른다.
+가격은 원두마다 용량별 옵션(포장 중량 g, 판매 가격 원) 여러 줄로 저장하고 목록은 가장 비싼 옵션 하나를 `가격 / 중량` 한 줄로 보여준다. kg 환산 가격은 쓰지 않는다. 경험(구매예정/먹어봄)은 저장값이 아니라 취향 기록 여부이고, 원두 보관 기능은 없다. `grind`, `dose`는 기기 설정 숫자이며 실제 g으로 추정하지 않는다. 현재 가격 확인일·가격 이력·원두 재고·자동 상품 수집 기능은 없다. 원두 사진은 없고 브랜드 대표 이미지만 웹에서 올린다. 기존 image_url 값은 보존한다. 세부 동작은 [커피 기능](home-cafe/coffee-features.md)을 따른다.
 
 초기 원본 10개 브랜드·11개 원두는 [원본 요구사항](home-cafe/DESIGN.md)과 seed-data.ts에서 확인한다. 데모와 실제 DB를 혼동하지 않는다. seed는 운영 소유자 생성 뒤 필요할 때만 실행한다.
 

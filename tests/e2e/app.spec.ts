@@ -342,7 +342,6 @@ test("coffee prices without weight, sorting and brand round trips", async ({
     has: page.getByRole("heading", { name: "부산 테스트", exact: true }),
   });
   await expect(busan.locator(".coffee-price strong")).toHaveText("48,000원");
-  await expect(busan).toContainText("중량 미입력");
   await expect(
     page.locator(".coffee-row img, .coffee-row .product-art"),
   ).toHaveCount(0);
@@ -352,10 +351,6 @@ test("coffee prices without weight, sorting and brand round trips", async ({
     "부산 테스트",
     "미입력 테스트",
   ]);
-  await page.getByLabel("원두 정렬").selectOption("kg");
-  await expect(page.locator(".coffee-row").first()).toContainText(
-    "무료 테스트",
-  );
   await page.getByLabel("원두 정렬").selectOption("price-desc");
   await expect(page.locator(".coffee-row h3")).toHaveText([
     "부산 테스트",
@@ -364,7 +359,7 @@ test("coffee prices without weight, sorting and brand round trips", async ({
   ]);
   await busan.getByRole("heading").click();
   await expect(
-    page.locator(".detail-facts").getByText("48,000원", { exact: true }),
+    page.locator(".bean-price-table").getByText("48,000원", { exact: true }),
   ).toBeVisible();
   await page.getByRole("link", { name: "원두 컬렉션", exact: true }).click();
   await expect(page.getByLabel("원두 정렬")).toHaveValue("price-desc");

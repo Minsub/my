@@ -1,9 +1,5 @@
 export const money = (n: number | null | undefined) =>
   n == null ? "가격 미입력" : new Intl.NumberFormat("ko-KR").format(n) + "원";
-export const kgPrice = (price: number | null, weight: number | null) =>
-  price == null || !weight || weight <= 0
-    ? null
-    : Math.round((price * 1000) / weight);
 export const today = () =>
   new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Seoul",

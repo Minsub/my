@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { commandSchemas, commandScopes } from "../src/lib/contracts";
 import { allScopes } from "../src/lib/types";
-import { kgPrice, dateLabel } from "../src/lib/format";
+import { dateLabel } from "../src/lib/format";
 import { hasImportedTasting, parseAirtable } from "../scripts/import";
 import { seedBrands, seedBeans } from "../src/lib/seed-data";
 describe("input and migration semantics", () => {
@@ -9,11 +9,6 @@ describe("input and migration semantics", () => {
     expect(dateLabel("2026-09-08")).toBe("2026.09.08");
     expect(dateLabel("2026-09-07T15:30:00.000Z")).toBe("2026.09.08");
     expect(dateLabel(null)).toBe("날짜 미상");
-  });
-  it("calculates kg price without inventing missing weights", () => {
-    expect(kgPrice(15000, 200)).toBe(75000);
-    expect(kgPrice(15000, null)).toBeNull();
-    expect(kgPrice(0, 200)).toBe(0);
   });
   it("retains original bean quantities and preferences", () => {
     expect(seedBrands).toHaveLength(10);
