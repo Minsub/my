@@ -18,7 +18,7 @@ import { saveAssetBuyPlan } from "./asset-plans";
 import { createMeal, deleteMeal, updateMeal } from "./meals";
 import { createWineShare, revokeWineShare } from "./wine-shares";
 import { releaseForStockDrop, setWinePlacement } from "./wine-placements";
-import type { Actor, Snapshot } from "@/lib/types";
+import type { Actor, BeanPrice, Snapshot } from "@/lib/types";
 const tables = {
   brand: "coffee_brands",
   bean: "coffee_beans",
@@ -58,6 +58,27 @@ async function coffeeMachine(client: PoolClient, actor: Actor) {
     [machine] = await find();
   }
   return machine.id;
+}
+// 용량별 가격은 원두 저장 때 통째로 바꾼다. 빈 줄은 버리고 입력 순서를 position으로 남긴다.
+async function saveBeanPrices(
+  client: PoolClient,
+  actor: Actor,
+  beanId: string,
+  prices: BeanPrice[],
+) {
+  const rows = prices.filter((p) => p.weight_g !== null || p.price !== null);
+  await query(
+    "DELETE FROM coffee_bean_prices WHERE household_id=$1 AND bean_id=$2",
+    [actor.householdId, beanId],
+    client,
+  );
+  for (const [position, p] of rows.entries())
+    await query(
+      "INSERT INTO coffee_bean_prices(household_id,bean_id,position,weight_g,price) VALUES($1,$2,$3,$4,$5)",
+      [actor.householdId, beanId, position, p.weight_g, p.price],
+      client,
+    );
+  return rows;
 }
 function canEdit(
   actor: Actor,
@@ -231,7 +252,7 @@ export async function execute(
             u.expected_version,
           );
           [result] = await query(
-            "UPDATE coffee_beans SET brand_id=$3,name=$4,product_url=$5,image_url=$6,roast=$7,flavor=$8,price=$9,weight_g=$10,version=version+1 WHERE household_id=$1 AND id=$2 RETURNING *",
+            "UPDATE coffee_beans SET brand_id=$3,name=$4,product_url=$5,image_url=$6,roast=$7,flavor=$8,version=version+1 WHERE household_id=$1 AND id=$2 RETURNING id,brand_id,name,product_url,image_url,roast,flavor,version,created_by",
             [
               actor.householdId,
               u.id,
@@ -241,14 +262,12 @@ export async function execute(
               d.image_url,
               d.roast,
               d.flavor,
-              d.price,
-              d.weight_g,
             ],
             client,
           );
         } else
           [result] = await query(
-            "INSERT INTO coffee_beans(household_id,brand_id,name,product_url,image_url,roast,flavor,price,weight_g,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *",
+            "INSERT INTO coffee_beans(household_id,brand_id,name,product_url,image_url,roast,flavor,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,brand_id,name,product_url,image_url,roast,flavor,version,created_by",
             [
               actor.householdId,
               d.brand_id,
@@ -257,12 +276,16 @@ export async function execute(
               d.image_url,
               d.roast,
               d.flavor,
-              d.price,
-              d.weight_g,
               actor.userId,
             ],
             client,
           );
+        result.prices = await saveBeanPrices(
+          client,
+          actor,
+          String(result.id),
+          d.prices,
+        );
         label = d.name;
         break;
       }
@@ -281,12 +304,12 @@ export async function execute(
             409,
           );
         [result] = await query(
-          "INSERT INTO coffee_preferences(household_id,bean_id,user_id,status,recommendation,note) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(household_id,bean_id,user_id) DO UPDATE SET status=EXCLUDED.status,recommendation=EXCLUDED.recommendation,note=EXCLUDED.note,version=coffee_preferences.version+1 RETURNING *",
+          // 취향을 기록하면 먹어봄이다. 경험은 따로 고르지 않는다.
+          "INSERT INTO coffee_preferences(household_id,bean_id,user_id,status,recommendation,note) VALUES($1,$2,$3,'먹어봄',$4,$5) ON CONFLICT(household_id,bean_id,user_id) DO UPDATE SET status=EXCLUDED.status,recommendation=EXCLUDED.recommendation,note=EXCLUDED.note,version=coffee_preferences.version+1 RETURNING *",
           [
             actor.householdId,
             d.bean_id,
             actor.userId,
-            d.status,
             d.recommendation,
             d.note,
           ],
@@ -660,20 +683,15 @@ export async function execute(
       }
       case "archive_item": {
         const d = command.input;
-        const kind = d.domain === "coffee" ? "bean" : "wine";
-        const row = await record(client, actor, kind, d.id);
+        const row = await record(client, actor, "wine", d.id);
         canEdit(actor, row, d.expected_version);
-        if (
-          d.domain === "wine" &&
-          d.archived &&
-          (await stock(client, actor, d.id)) > 0
-        )
+        if (d.archived && (await stock(client, actor, d.id)) > 0)
           throw new AppError(
             "IN_STOCK",
             "재고가 있는 와인은 보관할 수 없습니다.",
           );
         [result] = await query(
-          `UPDATE ${tables[kind]} SET archived=$3,version=version+1 WHERE household_id=$1 AND id=$2 RETURNING *`,
+          "UPDATE wines SET archived=$3,version=version+1 WHERE household_id=$1 AND id=$2 RETURNING *",
           [actor.householdId, d.id, d.archived],
           client,
         );
@@ -858,8 +876,21 @@ export async function snapshot(actor: Actor): Promise<Snapshot> {
     const data = {
       household,
       user: { id: actor.userId, name: member.name, role: member.role },
-      brands: coffee ? await read("coffee_brands", "name") : [],
-      beans: coffee ? await read("coffee_beans", "created_at DESC,id") : [],
+      brands: coffee
+        ? await query(
+            "SELECT b.*,EXISTS(SELECT 1 FROM coffee_brand_photos ph WHERE ph.brand_id=b.id) AS has_photo FROM coffee_brands b WHERE b.household_id=$1 ORDER BY b.name",
+            [actor.householdId],
+            client,
+          )
+        : [],
+      // price·weight_g·archived 열은 이전 코드 호환용으로만 남아 있어 내보내지 않는다(019).
+      beans: coffee
+        ? await query(
+            "SELECT b.id,b.brand_id,b.name,b.product_url,b.image_url,b.roast,b.flavor,b.version,b.created_by,COALESCE((SELECT json_agg(json_build_object('weight_g',p.weight_g,'price',p.price) ORDER BY p.position) FROM coffee_bean_prices p WHERE p.bean_id=b.id),'[]') AS prices FROM coffee_beans b WHERE b.household_id=$1 ORDER BY b.created_at DESC,b.id",
+            [actor.householdId],
+            client,
+          )
+        : [],
       preferences: coffee ? await read("coffee_preferences") : [],
       brews: coffee
         ? await read("coffee_brew_settings", "created_at DESC,id")

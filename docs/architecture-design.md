@@ -60,7 +60,7 @@ flowchart LR
 | `src/lib/asset-plans.ts`, `src/server/asset-plans.ts` | 분할매수 전략. 연금저축·IRP 고정 상수와 월급·현금 그룹 저장·조회(`/api/assets?view=plans`) |
 | `db/migrations/*.sql` | 적용 순서가 있는 실제 도메인 스키마 |
 
-`(family)`는 URL에 포함되지 않는다. 별도 `(family)/layout.tsx`나 `modules/*/repository.ts`, `/api/coffee/*`는 현재 없다. 새 페이지 파일 하나를 추가하는 것만으로 기존 공통 메뉴가 자동 연결되지는 않는다.
+`(family)`는 URL에 포함되지 않는다. 별도 `(family)/layout.tsx`나 `modules/*/repository.ts`, `/api/coffee/*`는 브랜드 이미지(`/api/coffee/brands/{id}/photo`)만 있다. 새 페이지 파일 하나를 추가하는 것만으로 기존 공통 메뉴가 자동 연결되지는 않는다.
 
 ## 인증과 접근 경계
 
@@ -88,7 +88,7 @@ UI 숨김은 보안 검사가 아니다. 쿠키 기반 변경은 sameOrigin, 모
 
 와인 사진은 `wine_photos.content`의 bytea다. 원본 최대 약 2MB를 검증하고 최대 1,000px/300KB WebP로 축소, EXIF/위치정보를 제거한다. 원본은 보관하지 않는다. `wine_photo_requests`로 멱등성을 처리한다. `/api/wine/{id}/photo`는 세션 또는 wine:read 토큰을 검사한다. `?v=version` 요청은 `private, max-age=31536000, immutable`, 그 외는 private/no-store로 반환한다. 공유 링크의 사진은 별도 `/api/share/wine/{token}/photo/{id}`가 공유에 든 와인만 private 1시간 캐시로 반환한다. 목록에는 has_photo만 넣는다.
 
-원두 image_url은 외부 HTTPS 주소다. 와인 사진과 혼동하지 않는다. Vercel Blob/S3는 현재 필요 없으며 서버리스 파일시스템에는 영구 데이터를 저장하지 않는다. 사진 저장 방식을 바꿀 기준과 절차는 [사진 저장 방식](image-storage.md)에 있다. `db:export`는 사진 base64도 포함하지만 인증·이관 원본까지 복원하는 도구는 아니다.
+커피 브랜드 대표 이미지는 `coffee_brand_photos.content`의 bytea이며 같은 `normalizePhoto`를 쓴다. `/api/coffee/brands/{id}/photo`는 웹 세션만 받는다(업로드·조회 모두 MCP 토큰 불가). 브랜드 version으로 캐시 주소를 바꾼다. 원두 image_url은 외부 HTTPS 주소다. 와인 사진과 혼동하지 않는다. Vercel Blob/S3는 현재 필요 없으며 서버리스 파일시스템에는 영구 데이터를 저장하지 않는다. 사진 저장 방식을 바꿀 기준과 절차는 [사진 저장 방식](image-storage.md)에 있다. `db:export`는 사진 base64도 포함하지만 인증·이관 원본까지 복원하는 도구는 아니다.
 
 ## 환경과 변경 정책
 

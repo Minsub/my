@@ -36,7 +36,7 @@ function output(data: unknown) {
 }
 const descriptions: Partial<Record<Operation, string>> = {
   coffee_create_bean:
-    "원두 상품을 등록합니다. 확인하지 못한 가격·배전은 null로 남깁니다.",
+    "원두 상품을 등록합니다. 같은 원두를 용량별로 팔면 prices에 [{weight_g, price}]를 여러 개 넣습니다. 확인하지 못한 가격·배전은 null로 남깁니다.",
   coffee_log_brew_setting:
     "원두에 대한 내 머신의 분쇄도·용량 설정 숫자를 기록합니다. 머신은 공간에 하나라 고르지 않습니다. g 단위로 추정하지 마세요.",
   wine_receive_stock: "구매일·가격을 보존하고 와인 재고를 입고합니다.",
@@ -48,7 +48,8 @@ const descriptions: Partial<Record<Operation, string>> = {
     "실제 병 수와 기록이 다를 때 보유 수량을 quantity로 맞춥니다. 입고·소비가 아닌 단순 정정에만 씁니다. wine_get의 현재 stock을 expected_stock으로 보내며, 그 사이 재고가 바뀌었으면 거부합니다. 차이만큼 조정 기록이 남고 wine_reverse_event로 취소할 수 있습니다. 줄일 때 셀러 위치 규칙은 wine_consume의 shelf와 같습니다.",
   wine_set_placement:
     "와인이 셀러 몇 층에 몇 병 있는지 정합니다. 셀러는 14층(1층이 맨 아래)이고 층마다 최대 8병입니다. placements는 그 와인의 위치 전체([{shelf, quantity}])이며 빈 배열이면 셀러에서 모두 뺍니다. expected_placements에는 wine_get의 placements를 그대로 보냅니다. 재고는 바꾸지 않고, 보유 병 수보다 많이 넣거나 층이 가득 차면 거부합니다.",
-  coffee_save_preference: "인증된 사용자 본인의 원두 취향을 저장합니다.",
+  coffee_save_preference:
+    "인증된 사용자 본인의 원두 취향(추천·메모)을 저장합니다. 기록이 있으면 그 사용자에게 먹어봄, 없으면 구매예정입니다.",
   wine_log_tasting: "재고 변화 없이 시음을 기록합니다.",
   asset_record_snapshot:
     "한 사람의 그 날짜 자산 현황 전체를 저장합니다. 원본 자산 목록의 한 줄이 items 한 개입니다. 그룹별로 합산하지 말고 종목명을 그대로 name에 넣으세요. 같은 사람·같은 날짜로 저장하면 기존 값을 통째로 교체하므로 항상 전체 포트폴리오를 한 번에 보냅니다. 금액은 원화 환산 정수이며 group_key는 asset_get_classification_rules의 값을 사용합니다.",
@@ -631,7 +632,7 @@ export function mcpHandler(actor: Actor) {
           const s = await snapshot(actor);
           return output({
             ...(actor.scopes.includes("coffee:read")
-              ? { coffee_beans: s.beans.filter((b) => !b.archived).length }
+              ? { coffee_beans: s.beans.length }
               : {}),
             ...(actor.scopes.includes("wine:read")
               ? { wine_bottles: s.wines.reduce((n, w) => n + w.stock, 0) }

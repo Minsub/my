@@ -8,13 +8,14 @@
 |---|---|---|
 | 와인 사진 | `wine_photos` (와인당 1장) | `/api/wine/{id}/photo?v={version}` |
 | 꼬미 출혈 사진 | `pregnancy_photos` (기록당 최대 4장) | `/api/baby/pregnancy/photo/{id}` |
+| 커피 브랜드 대표 이미지 | `coffee_brand_photos` (브랜드당 1장, 웹 전용) | `/api/coffee/brands/{id}/photo?v={version}` |
 
 - 업로드 경로는 모두 같다. 브라우저가 1200px JPEG로 줄여 보낸다. 서버는 `src/server/wine-photos.ts`의 `normalizePhoto`로 검증하고, 회전 보정 후 1000px WebP(q75)로 바꾼다. 결과가 300KB를 넘으면 거부한다(DB CHECK도 300KB).
 - 원본과 EXIF/위치정보는 저장하지 않는다.
 - 새 페이지에서 사진을 받을 때도 `normalizePhoto`를 재사용하고 같은 300KB 상한을 지킨다.
 - 조회는 인증된 라우트만 거친다. 공개 URL은 없다.
 - 브라우저 캐시는 `private, max-age=31536000, immutable`이다. 같은 주소의 내용이 바뀌지 않기 때문이다.
-  - 와인은 사진을 바꾸면 version이 올라 주소가 바뀐다. `?v=` 없이 요청하면 `no-store`다.
+  - 와인·커피 브랜드는 사진을 바꾸면 version이 올라 주소가 바뀐다. `?v=` 없이 요청하면 `no-store`다.
   - 출혈 사진은 수정할 때 새 id로 저장한다.
   - 삭제한 사진이 이미 본 기기의 브라우저 캐시에 남을 수 있다. 공유 캐시(CDN)에는 남지 않는다.
 - 목록 썸네일(`ProductArt`)은 `loading="lazy"`로 화면에 가까운 사진만 요청한다. 다만 88px 칸에 1000px 원본을 받으므로, 저장소를 옮길 때 목록용 썸네일을 함께 만든다.

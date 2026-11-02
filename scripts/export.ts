@@ -15,6 +15,10 @@ async function main() {
     "SELECT p.wine_id,encode(p.content,'base64') image_base64,p.content_hash,p.updated_at FROM wine_photos p JOIN wines w ON w.id=p.wine_id WHERE w.household_id=$1",
     [data.household.id],
   );
+  const brandPhotos = await query(
+    "SELECT p.brand_id,encode(p.content,'base64') image_base64,p.content_hash,p.updated_at FROM coffee_brand_photos p JOIN coffee_brands b ON b.id=p.brand_id WHERE b.household_id=$1",
+    [data.household.id],
+  );
   const path =
     process.argv[2] ??
     `backups/collection-${new Date().toISOString().replaceAll(":", "-")}.json`;
@@ -27,6 +31,7 @@ async function main() {
         exported_at: new Date().toISOString(),
         data,
         photos,
+        brand_photos: brandPhotos,
       },
       null,
       2,

@@ -23,7 +23,10 @@ export type Brand = {
   description: string;
   version: number;
   created_by: string | null;
+  has_photo?: boolean;
 };
+// 용량별 판매 가격 한 줄. 중량 또는 가격 중 하나는 있다.
+export type BeanPrice = { weight_g: number | null; price: number | null };
 export type Bean = {
   id: string;
   brand_id: string;
@@ -32,11 +35,9 @@ export type Bean = {
   image_url: string | null;
   roast: string | null;
   flavor: string;
-  price: number | null;
-  weight_g: number | null;
+  prices: BeanPrice[];
   version: number;
   created_by: string | null;
-  archived: boolean;
 };
 export type Preference = {
   id: string;

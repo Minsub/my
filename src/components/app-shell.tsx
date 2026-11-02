@@ -16,6 +16,13 @@ import { WineCellar, WineDetailPhoto } from "./wine-cellar";
 import { WineShares } from "./wine-share";
 import { WinePhotoUpload } from "./wine-photo-upload";
 import { PlacementEditor, WineCellarMap } from "./wine-cellar-map";
+import { BrandMark, BrandPhotoButton } from "./coffee-brand-photo";
+import {
+  COFFEE_MAX_PRICES,
+  beanStatus,
+  mainPrice,
+  optionKgPrice,
+} from "@/lib/coffee";
 import { placementLabel, wineFacts, winePlacement } from "@/lib/wine-cellar";
 /* eslint-disable @next/next/no-location-assign-relative-destination -- Full navigation deliberately clears all cached family data when a session ends. */
 import Link from "next/link";
@@ -39,7 +46,6 @@ import {
   Settings,
   Shapes,
   Baby,
-  SlidersHorizontal,
   Users,
   Wine as WineIcon,
   X,
@@ -55,7 +61,7 @@ import { findHtmlPage } from "@/lib/html-pages";
 import { findBakingRecipe } from "@/lib/baking";
 import type { Bean, Purchase, Snapshot, Wine } from "@/lib/types";
 import { wineTypes, glassTypes } from "@/lib/types";
-import { money, kgPrice, today, dateLabel, vintageLabel } from "@/lib/format";
+import { money, today, dateLabel, vintageLabel } from "@/lib/format";
 import type { Operation } from "@/lib/contracts";
 import { RecordForm, type FormSpec, type Field } from "./record-form";
 import { ConnectionSettings } from "./connections";
@@ -141,7 +147,6 @@ export function AppShell({
     [status, setStatus] = useState(initialQuery.status ?? ""),
     [person, setPerson] = useState(initialQuery.person ?? initial.user.id),
     [stockOnly, setStockOnly] = useState(initialQuery.stock !== "all"),
-    [archived, setArchived] = useState(initialQuery.archived === "true"),
     [coffeeSort, setCoffeeSort] = useState(initialQuery.sort ?? "name");
   const active =
     path.startsWith("/hobby") ||
@@ -169,7 +174,6 @@ export function AppShell({
     recommend,
     status,
     person,
-    archived: String(archived),
     sort: coffeeSort,
   }).toString();
   const coffeeListUrl = `/coffee?${coffeeQuery}`;
@@ -244,10 +248,9 @@ export function AppShell({
     data.preferences.filter(
       (p) => p.bean_id === beanId && p.recommendation === "추천",
     );
-  const myBrew = (bean: Bean) =>
-    data.brews.find((b) => b.bean_id === bean.id && b.user_id === data.user.id);
   const brandName = (bean: Bean) =>
     data.brands.find((b) => b.id === bean.brand_id)?.name ?? "";
+  const brandIndex = (id: string) => data.brands.findIndex((b) => b.id === id);
   const memberName = (id: string) =>
     data.members.find((m) => m.user_id === id)?.name ?? "가족";
   const editAllowed = (row: { created_by?: string | null }) =>
@@ -257,19 +260,17 @@ export function AppShell({
   const beans = data.beans
     .filter(
       (b) =>
-        b.archived === archived &&
         (!search ||
           (b.name + " " + brandName(b) + " " + b.flavor)
             .toLowerCase()
             .includes(search.toLowerCase())) &&
         (!brand || b.brand_id === brand) &&
         (!anyRecommend || recommenders(b.id).length > 0) &&
-        ((!ownRecommend && !status) ||
+        // 경험은 선택한 평가 사용자의 취향 기록 여부다(사용자 전체면 누군가의 기록).
+        (!status || beanStatus(b.id, ownPrefs) === status) &&
+        (!ownRecommend ||
           ownPrefs.some(
-            (p) =>
-              p.bean_id === b.id &&
-              (!ownRecommend || p.recommendation === ownRecommend) &&
-              (!status || p.status === status),
+            (p) => p.bean_id === b.id && p.recommendation === ownRecommend,
           )),
     )
     .sort((a, b) => {
@@ -278,10 +279,13 @@ export function AppShell({
         coffeeSort === "price-desc" ||
         coffeeSort === "kg"
       ) {
-        const left =
-          coffeeSort === "kg" ? kgPrice(a.price, a.weight_g) : a.price;
-        const right =
-          coffeeSort === "kg" ? kgPrice(b.price, b.weight_g) : b.price;
+        // 가격 정렬은 목록에 보이는 대표 옵션(가장 비싼 옵션) 기준이다.
+        const price = (x: Bean) =>
+          coffeeSort === "kg"
+            ? optionKgPrice(mainPrice(x))
+            : (mainPrice(x)?.price ?? null);
+        const left = price(a);
+        const right = price(b);
         if (left === null && right !== null) return 1;
         if (right === null && left !== null) return -1;
         if (left !== null && right !== null && left !== right)
@@ -316,16 +320,34 @@ export function AppShell({
           type: "url",
           value: bean?.product_url,
         },
-        number("price", "판매 가격 (원)", bean?.price),
-        { ...number("weight_g", "포장 중량 (g)", bean?.weight_g), min: 1 },
+        {
+          name: "prices",
+          label: "용량별 가격",
+          type: "rows",
+          columns: [
+            { name: "weight_g", label: "포장 중량 (g)" },
+            { name: "price", label: "판매 가격 (원)" },
+          ],
+          rows: bean?.prices,
+          max: COFFEE_MAX_PRICES,
+          hint: "같은 원두를 용량별로 팔면 줄을 추가하세요. 목록에는 가장 비싼 옵션이 보입니다.",
+        },
         options("roast", "배전", ["약배전", "중배전", "강배전"], bean?.roast),
         area("flavor", "맛과 향", bean?.flavor),
       ],
-      transform: (v) => ({
-        ...v,
-        roast: v.roast || null,
-        image_url: bean?.image_url ?? null,
-      }),
+      transform: (v) => {
+        const prices = (v.prices as Record<string, number | null>[]).filter(
+          (p) => p.weight_g !== null || p.price !== null,
+        );
+        if (prices.some((p) => p.weight_g !== null && p.weight_g <= 0))
+          throw Error("포장 중량은 1g 이상으로 입력해주세요.");
+        return {
+          ...v,
+          prices,
+          roast: v.roast || null,
+          image_url: bean?.image_url ?? null,
+        };
+      },
     });
   }
   function preferenceForm(bean: Bean) {
@@ -334,9 +356,8 @@ export function AppShell({
       title: "내 취향 기록",
       operation: "coffee_save_preference",
       extra: { bean_id: bean.id, expected_version: p?.version ?? null },
-      description: bean.name,
+      description: `${bean.name} · 기록하면 먹어봄으로 표시됩니다.`,
       fields: [
-        options("status", "경험", ["구매예정", "먹어봄"], p?.status),
         options(
           "recommendation",
           "내 추천",
@@ -347,13 +368,14 @@ export function AppShell({
       ],
       transform: (v) => ({
         ...v,
-        status: v.status || null,
         recommendation: v.recommendation || null,
       }),
     });
   }
   function brewForm(bean: Bean) {
-    const b = myBrew(bean);
+    const b = data.brews.find(
+      (x) => x.bean_id === bean.id && x.user_id === data.user.id,
+    );
     open({
       title: "내 머신 세팅",
       description: "분쇄도와 용량은 머신에 표시되는 설정 숫자입니다.",
@@ -599,7 +621,7 @@ export function AppShell({
       }),
     });
   }
-  function archiveForm(row: Bean | Wine, domain: "coffee" | "wine") {
+  function archiveForm(row: Wine, domain: "wine") {
     open({
       title: row.archived ? "보관 해제" : "목록에서 보관하기",
       description: row.name,
@@ -616,10 +638,22 @@ export function AppShell({
   function coffeeCard(bean: Bean) {
     const preferences = ownPrefs.filter((p) => p.bean_id === bean.id);
     const recommended = recommenders(bean.id);
-    const brew = myBrew(bean);
-    const unitPrice = kgPrice(bean.price, bean.weight_g);
+    const option = mainPrice(bean);
+    const unitPrice = optionKgPrice(option);
+    const brand = data.brands.find((b) => b.id === bean.brand_id);
+    const status = beanStatus(bean.id, ownPrefs);
     return (
       <article className="coffee-row" key={bean.id}>
+        {brand && (
+          <Link
+            className="coffee-brand-mark"
+            href={href(`/coffee/brands?${coffeeQuery}#brand-${bean.brand_id}`)}
+            aria-hidden
+            tabIndex={-1}
+          >
+            <BrandMark brand={brand} tone={brandIndex(brand.id) % 4} small />
+          </Link>
+        )}
         <div className="coffee-identity">
           <Link
             className="brand-label"
@@ -627,16 +661,33 @@ export function AppShell({
           >
             {brandName(bean)}
           </Link>
-          <Link href={href(`/coffee/beans/${bean.id}?${coffeeQuery}`)}>
-            <h3>{bean.name}</h3>
-          </Link>
+          <div className="coffee-title">
+            <Link href={href(`/coffee/beans/${bean.id}?${coffeeQuery}`)}>
+              <h3>{bean.name}</h3>
+            </Link>
+            {bean.product_url && (
+              <a
+                className="icon-button coffee-product-link"
+                href={bean.product_url}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`${bean.name} 상품 페이지 열기`}
+                title="상품 페이지"
+              >
+                <ExternalLink size={15} />
+              </a>
+            )}
+          </div>
           <p className="coffee-flavor">{bean.flavor || "맛과 향 미입력"}</p>
           {bean.roast && <Tag>{bean.roast}</Tag>}
         </div>
         <div className="coffee-price">
           <span className="coffee-column-label">판매 가격</span>
-          <strong>{money(bean.price)}</strong>
-          <span>{bean.weight_g ? `${bean.weight_g}g` : "중량 미입력"}</span>
+          <strong>{money(option?.price)}</strong>
+          <span>
+            {option?.weight_g ? `${option.weight_g}g` : "중량 미입력"}
+            {bean.prices.length > 1 && ` · 용량 ${bean.prices.length}개`}
+          </span>
           <small>
             {unitPrice !== null
               ? `${money(unitPrice)} / kg`
@@ -651,65 +702,47 @@ export function AppShell({
                 ? "내 평가"
                 : `${memberName(person)}의 평가`}
           </span>
-          <span
-            className={`bean-recommend-count${recommended.length ? " on" : ""}`}
-            title={
-              recommended.length
-                ? `${recommended.map((p) => memberName(p.user_id)).join(", ")} 추천`
-                : "아직 추천한 사용자가 없어요."
-            }
-          >
-            <Heart size={12} />
-            추천 {recommended.length}명
-          </span>
-          {preferences.length ? (
-            preferences.map((p) => (
-              <div key={p.id}>
-                {person === "all" && <small>{memberName(p.user_id)}</small>}
+          <div className="bean-tags">
+            <Tag tone={status === "먹어봄" ? "" : "plan"}>{status}</Tag>
+            <span
+              className={`bean-recommend-count${recommended.length ? " on" : ""}`}
+              title={
+                recommended.length
+                  ? `${recommended.map((p) => memberName(p.user_id)).join(", ")} 추천`
+                  : "아직 추천한 사용자가 없어요."
+              }
+            >
+              <Heart size={12} />
+              추천 {recommended.length}명
+            </span>
+          </div>
+          {preferences.map((p) => (
+            <div key={p.id}>
+              {person === "all" && <small>{memberName(p.user_id)}</small>}
+              {p.recommendation && (
                 <div className="bean-tags">
-                  {p.status && <Tag>{p.status}</Tag>}
-                  {p.recommendation && (
-                    <Tag
-                      tone={
-                        p.recommendation === "추천"
-                          ? "green"
-                          : p.recommendation === "비추천"
-                            ? "rose"
-                            : ""
-                      }
-                    >
-                      {p.recommendation}
-                    </Tag>
-                  )}
+                  <Tag
+                    tone={
+                      p.recommendation === "추천"
+                        ? "green"
+                        : p.recommendation === "비추천"
+                          ? "rose"
+                          : ""
+                    }
+                  >
+                    {p.recommendation}
+                  </Tag>
                 </div>
-                {p.note && <p className="coffee-flavor">{p.note}</p>}
-              </div>
-            ))
-          ) : (
-            <span className="muted small">아직 평가 없음</span>
-          )}
+              )}
+              {p.note && <p className="coffee-flavor">{p.note}</p>}
+            </div>
+          ))}
           <button
             className="coffee-text-button"
             onClick={() => preferenceForm(bean)}
             aria-label={`${bean.name} 내 평가`}
           >
             내 평가 기록
-          </button>
-        </div>
-        <div className="coffee-brew">
-          <span className="coffee-column-label">내 최근 머신 세팅</span>
-          {brew && (
-            <small>
-              분쇄 {brew.grind ?? "—"} · 용량 {brew.dose ?? "—"}
-            </small>
-          )}
-          <button
-            className="setting-pill"
-            onClick={() => brewForm(bean)}
-            aria-label={`${bean.name} 머신 세팅`}
-          >
-            <SlidersHorizontal size={13} />
-            {brew ? "세팅 기록" : "세팅 추가"}
           </button>
         </div>
       </article>
@@ -777,7 +810,7 @@ export function AppShell({
           {domain === "coffee" ? "원두 컬렉션" : "나의 셀러"}{" "}
           <span>
             {domain === "coffee"
-              ? data.beans.filter((b) => !b.archived).length
+              ? data.beans.length
               : data.wines.filter((w) => !w.archived).length}
           </span>
         </Link>
@@ -823,7 +856,7 @@ export function AppShell({
         {pageHeading(
           "THE COFFEE COLLECTION",
           "커피",
-          "원두와 브랜드를 관리하고 평가와 추출 설정을 기록합니다.",
+          "먹어본 원두를 돌아보고 다음에 살 원두를 고릅니다.",
           () => beanForm(),
           "원두 등록",
         )}
@@ -905,17 +938,6 @@ export function AppShell({
             ))}
           </div>
           <div className="view-controls">
-            <label>
-              <input
-                type="checkbox"
-                checked={archived}
-                onChange={(e) => {
-                  setArchived(e.target.checked);
-                  updateFilter("archived", String(e.target.checked));
-                }}
-              />{" "}
-              보관함
-            </label>
             <span>{beans.length}개</span>
             <select
               aria-label="원두 정렬"
@@ -939,7 +961,6 @@ export function AppShell({
                 setRecommend("");
                 setStatus("");
                 setPerson(data.user.id);
-                setArchived(false);
                 setCoffeeSort("name");
                 for (const key of [
                   "q",
@@ -947,7 +968,6 @@ export function AppShell({
                   "recommend",
                   "status",
                   "person",
-                  "archived",
                   "sort",
                 ])
                   updateFilter(key, "");
@@ -968,9 +988,10 @@ export function AppShell({
           )
         )}
         <div className="collection-footnote">
-          판매 가격은 한 포장 기준입니다. 중량을 입력하면 1kg 환산 가격으로
-          비교할 수 있습니다. 가격 미입력 항목은 가격 정렬 시 마지막에
-          표시합니다.
+          판매 가격은 용량별 옵션 중 가장 비싼 포장 기준입니다. 중량을 입력하면
+          1kg 환산 가격으로 비교할 수 있습니다. 가격 미입력 항목은 가격 정렬 시
+          마지막에 표시합니다. 내 평가를 기록하면 먹어봄, 기록이 없으면
+          구매예정입니다.
         </div>
       </>
     );
@@ -998,9 +1019,7 @@ export function AppShell({
         <div className="brand-grid">
           {data.brands.map((b, i) => (
             <article className="brand-card" key={b.id} id={`brand-${b.id}`}>
-              <div className={`brand-monogram tone-${i % 4}`}>
-                {b.name.slice(0, 1)}
-              </div>
+              <BrandMark brand={b} tone={i % 4} />
               <div>
                 <Link href={href(`/coffee?brand=${b.id}`)}>
                   <h3>{b.name}</h3>
@@ -1010,11 +1029,7 @@ export function AppShell({
                   href={href(`/coffee?brand=${b.id}`)}
                   aria-label={`${b.name} 원두 보기`}
                 >
-                  원두{" "}
-                  {
-                    data.beans.filter((x) => x.brand_id === b.id && !x.archived)
-                      .length
-                  }
+                  원두 {data.beans.filter((x) => x.brand_id === b.id).length}
                   개 보기 <ArrowRight size={13} />
                 </Link>
               </div>
@@ -1028,6 +1043,14 @@ export function AppShell({
                   >
                     <ArrowUpRight size={20} />
                   </a>
+                )}
+                {editAllowed(b) && (
+                  <BrandPhotoButton
+                    brand={b}
+                    onUpdated={reload}
+                    onMessage={inform}
+                    demo={demo}
+                  />
                 )}
                 {editAllowed(b) && (
                   <button
@@ -1066,6 +1089,7 @@ export function AppShell({
   }
   function renderBean(bean: Bean) {
     const p = myPref(bean);
+    const option = mainPrice(bean);
     return (
       <>
         <Link className="back-link" href={href(coffeeListUrl)}>
@@ -1083,28 +1107,57 @@ export function AppShell({
             <h1>{bean.name}</h1>
             <div className="bean-tags">
               {bean.roast && <Tag>{bean.roast}</Tag>}
+              <Tag tone={p ? "" : "plan"}>
+                {beanStatus(bean.id, p ? [p] : [])}
+              </Tag>
               {p?.recommendation && <Tag tone="green">{p.recommendation}</Tag>}
-              {bean.archived && <Tag>보관 중</Tag>}
             </div>
             <p>{bean.flavor || "이 원두의 맛과 향을 기록해보세요."}</p>
-            <dl className="detail-facts">
-              <div>
-                <dt>판매 가격</dt>
-                <dd>{money(bean.price)}</dd>
-              </div>
-              <div>
-                <dt>판매 단위</dt>
-                <dd>{bean.weight_g ? `${bean.weight_g}g` : "중량 미입력"}</dd>
-              </div>
-              <div>
-                <dt>1kg 환산 가격</dt>
-                <dd>
-                  {kgPrice(bean.price, bean.weight_g) !== null
-                    ? money(kgPrice(bean.price, bean.weight_g))
-                    : "가격·중량 입력 후 계산"}
-                </dd>
-              </div>
-            </dl>
+            {bean.prices.length > 1 ? (
+              <table className="bean-price-table">
+                <thead>
+                  <tr>
+                    <th>포장 중량</th>
+                    <th>판매 가격</th>
+                    <th>1kg 환산</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bean.prices.map((x, i) => (
+                    <tr key={i} className={x === option ? "main" : ""}>
+                      <td>{x.weight_g ? `${x.weight_g}g` : "중량 미입력"}</td>
+                      <td>{money(x.price)}</td>
+                      <td>
+                        {optionKgPrice(x) !== null
+                          ? money(optionKgPrice(x))
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <dl className="detail-facts">
+                <div>
+                  <dt>판매 가격</dt>
+                  <dd>{money(option?.price)}</dd>
+                </div>
+                <div>
+                  <dt>판매 단위</dt>
+                  <dd>
+                    {option?.weight_g ? `${option.weight_g}g` : "중량 미입력"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>1kg 환산 가격</dt>
+                  <dd>
+                    {optionKgPrice(option) !== null
+                      ? money(optionKgPrice(option))
+                      : "가격·중량 입력 후 계산"}
+                  </dd>
+                </div>
+              </dl>
+            )}
             <div className="button-row">
               <button
                 className="button primary"
@@ -1128,10 +1181,6 @@ export function AppShell({
                 <button onClick={() => beanForm(bean)}>
                   <Pencil size={13} />
                   정보 수정
-                </button>
-                <button onClick={() => archiveForm(bean, "coffee")}>
-                  <Archive size={13} />
-                  {bean.archived ? "보관 해제" : "보관하기"}
                 </button>
               </div>
             )}

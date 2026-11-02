@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import type { Wine } from "@/lib/types";
-async function photoBase64(file: File) {
+export async function photoBase64(file: File) {
   if (file.size > 20000000) throw Error("20MB 이하의 사진을 선택해주세요.");
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, 1200 / Math.max(bitmap.width, bitmap.height));

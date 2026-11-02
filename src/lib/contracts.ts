@@ -13,6 +13,7 @@ import {
   MEAL_MAX_TAGS,
   mealCategories,
 } from "./meals";
+import { COFFEE_MAX_PRICES } from "./coffee";
 import {
   CELLAR_SHELF_CAPACITY,
   CELLAR_SHELVES,
@@ -79,8 +80,28 @@ const bean = {
   image_url: url.nullable().default(null),
   roast: z.enum(["약배전", "중배전", "강배전"]).nullable().default(null),
   flavor: text.default(""),
-  price: amount.default(null),
-  weight_g: z.number().int().positive().max(100000).nullable().default(null),
+  // 같은 원두를 용량별로 따로 판다. 수정할 때도 남길 옵션 전체를 보낸다. 빈 줄 정리는 서버가 한다.
+  prices: z
+    .array(
+      z
+        .object({
+          weight_g: z
+            .number()
+            .int()
+            .positive()
+            .max(100000)
+            .nullable()
+            .default(null)
+            .describe("포장 중량(g)"),
+          price: amount.default(null).describe("그 포장의 판매 가격(원)"),
+        })
+        .strict(),
+    )
+    .max(COFFEE_MAX_PRICES)
+    .default([])
+    .describe(
+      '용량별 판매 가격. 예: [{"weight_g":200,"price":18000},{"weight_g":1000,"price":65000}]',
+    ),
 };
 const wine = {
   name,
@@ -144,7 +165,6 @@ export const commandSchemas = {
       ...key,
       bean_id: id,
       expected_version: version.nullable(),
-      status: z.enum(["구매예정", "먹어봄"]).nullable(),
       recommendation: z.enum(["추천", "보통", "비추천"]).nullable(),
       note: text.default(""),
     })
@@ -237,7 +257,8 @@ export const commandSchemas = {
   archive_item: z
     .object({
       ...key,
-      domain: z.enum(["coffee", "wine"]),
+      // 원두 보관은 없앴다. domain은 호환을 위해 남긴다.
+      domain: z.enum(["wine"]),
       id,
       expected_version: version,
       archived: z.boolean(),

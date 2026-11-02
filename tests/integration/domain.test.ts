@@ -247,7 +247,6 @@ describe("family and domain integrity", () => {
       idempotency_key: key(),
       bean_id: bean.id,
       expected_version: null,
-      status: null,
       recommendation: "추천",
     };
     await execute(owner, "coffee_save_preference", input);

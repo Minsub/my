@@ -1666,6 +1666,42 @@ input[type="checkbox"] {
 .field-wide {
   grid-column: 1/-1;
 }
+.rows-field {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.rows-field legend {
+  font-size: 11px;
+  color: #748665;
+  padding: 0;
+  margin-bottom: 7px;
+}
+.rows-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 36px;
+  gap: 8px;
+  align-items: end;
+}
+.rows-field-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.rows-field-row label span {
+  font-size: 10px;
+  color: #98a688;
+}
+.rows-field-row + .rows-field-row label span {
+  display: none;
+}
+.rows-field-row .icon-button {
+  height: 42px;
+}
+.rows-field .text-button {
+  align-self: flex-start;
+}
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
@@ -4120,9 +4156,10 @@ input[type="checkbox"] {
 }
 .coffee-row {
   display: grid;
-  grid-template-columns:
-    minmax(0, 2fr) minmax(120px, 0.85fr) minmax(0, 1.3fr)
-    minmax(130px, 1fr);
+  grid-template-columns: 52px minmax(0, 2fr) minmax(120px, 0.9fr) minmax(
+      0,
+      1.4fr
+    );
   gap: 24px;
   padding: 24px 8px;
   border-bottom: 1px solid var(--line);
@@ -4135,6 +4172,19 @@ input[type="checkbox"] {
   font-size: 19px;
   overflow-wrap: anywhere;
 }
+.coffee-title {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.coffee-product-link {
+  flex: none;
+  color: var(--green);
+}
+.coffee-brand-mark {
+  align-self: start;
+  padding-top: 4px;
+}
 .coffee-flavor {
   color: var(--muted);
   font-size: 13px;
@@ -4143,7 +4193,6 @@ input[type="checkbox"] {
   overflow-wrap: anywhere;
 }
 .coffee-price,
-.coffee-brew,
 .coffee-preferences {
   display: flex;
   flex-direction: column;
@@ -4200,14 +4249,83 @@ input[type="checkbox"] {
 .brand-card {
   scroll-margin-top: 24px;
 }
+/* 브랜드 대표 이미지. 없으면 첫 글자 모노그램 */
+.brand-monogram.has-photo {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f4f1ea;
+}
+.brand-monogram.small,
+.brand-monogram.small.has-photo {
+  width: 48px;
+  height: 48px;
+  font-size: 18px;
+}
+.brand-monogram.small.has-photo {
+  border-radius: 9px;
+}
+.brand-monogram img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.brand-photo-button {
+  cursor: pointer;
+  position: relative;
+}
+.brand-photo-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.brand-photo-button.busy {
+  opacity: 0.5;
+}
+.tag.plan {
+  background: #f6efe3;
+  color: #a7845f;
+}
+.bean-price-table {
+  width: 100%;
+  max-width: 480px;
+  border-collapse: collapse;
+  margin: 23px 0;
+  font-size: 13px;
+}
+.bean-price-table th {
+  font-size: 10px;
+  font-weight: 400;
+  color: #a4ad95;
+  text-align: left;
+  padding: 0 8px 6px 0;
+}
+.bean-price-table td {
+  border-top: 1px solid var(--line);
+  padding: 9px 8px 9px 0;
+  color: #627855;
+}
+.bean-price-table tr.main td {
+  font-weight: 600;
+}
 .brand-card:target {
   outline: 2px solid var(--green);
 }
 @media (max-width: 760px) {
   .coffee-row {
-    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-    gap: 18px 16px;
+    grid-template-columns: 44px minmax(0, 1.3fr) minmax(0, 1fr);
+    gap: 18px 12px;
     padding: 22px 0;
+  }
+  .brand-monogram.small,
+  .brand-monogram.small.has-photo {
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
   }
   .coffee-row h3 {
     font-size: 18px;
@@ -4216,8 +4334,8 @@ input[type="checkbox"] {
     align-items: flex-end;
     text-align: right;
   }
-  .coffee-preferences,
-  .coffee-brew {
+  .coffee-preferences {
+    grid-column: 1 / -1;
     border-top: 1px solid var(--line);
     padding-top: 12px;
   }
@@ -4238,7 +4356,6 @@ input[type="checkbox"] {
   color: var(--green);
 }
 @media (max-width: 760px) {
-  .coffee-row .setting-pill,
   .coffee-row .coffee-text-button,
   .brand-card .coffee-text-button,
   .view-controls > .coffee-text-button,

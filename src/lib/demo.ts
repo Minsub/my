@@ -18,11 +18,9 @@ export function demoSnapshot(): Snapshot {
     image_url: null,
     roast: null,
     flavor: "",
-    price: null,
-    weight_g: null,
+    prices: [],
     version: 1,
     created_by: uid,
-    archived: false,
   }));
   return {
     household: { id: "demo", name: "우리 집" },
@@ -36,7 +34,7 @@ export function demoSnapshot(): Snapshot {
               id: `pref-${i}`,
               bean_id: `bean-${i}`,
               user_id: uid,
-              status: null,
+              status: "먹어봄",
               recommendation: b.recommendation,
               note: b.note,
               version: 1,

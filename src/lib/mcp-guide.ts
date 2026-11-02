@@ -25,26 +25,27 @@ export const commandGuide = {
   coffee_create_bean: {
     title: "원두 등록",
     description:
-      "브랜드에 원두 상품을 추가합니다. 확인하지 못한 가격·배전은 비워둡니다.",
+      "브랜드에 원두 상품을 추가합니다. 확인하지 못한 가격·배전은 비워둡니다. 등록한 원두는 취향을 기록하기 전까지 구매예정입니다.",
     input:
-      "brand_id, name. 선택: product_url, image_url, roast, flavor, price(원), weight_g(g).",
+      "brand_id, name. 선택: product_url, image_url, roast, flavor, prices(용량별 가격 [{weight_g(g), price(원)}] 여러 개).",
     result:
       "등록된 원두 ID와 버전. 원두 image_url은 외부 HTTPS 링크이며 와인 사진 업로드와 저장 방식이 다릅니다.",
-    example: "이 브랜드에 200g, 18,000원짜리 원두를 등록해줘.",
+    example: "이 브랜드에 200g 18,000원, 1kg 65,000원짜리 원두를 등록해줘.",
   },
   coffee_update_bean: {
     title: "원두 수정",
-    description: "원두의 상품 정보와 가격 등을 수정합니다.",
-    input: "id, expected_version, brand_id, name과 유지할 기존 상품 정보 전체.",
+    description: "원두의 상품 정보와 용량별 가격 등을 수정합니다.",
+    input:
+      "id, expected_version, brand_id, name과 유지할 기존 상품 정보 전체. prices는 남길 옵션 전체로 바꿉니다.",
     result: "수정된 원두와 새 버전.",
     example: "이 원두 가격을 19,000원으로 바꿔줘.",
   },
   coffee_save_preference: {
     title: "내 원두 취향 기록",
     description:
-      "연결한 본인 계정의 구매 예정·경험·추천 여부와 메모를 저장합니다.",
+      "연결한 본인 계정의 추천 여부와 메모를 저장합니다. 기록하면 그 원두는 먹어봄이 됩니다.",
     input:
-      "bean_id, expected_version(첫 기록은 null), status(구매예정/먹어봄/null), recommendation(추천/보통/비추천/null). 선택: note.",
+      "bean_id, expected_version(첫 기록은 null), recommendation(추천/보통/비추천/null). 선택: note.",
     result: "본인의 취향 기록과 버전.",
     example: "이 원두는 먹어봤고 추천해. 산미가 좋았다고 기록해줘.",
   },
@@ -211,9 +212,10 @@ export const readGuide: Record<string, Entry> = {
   },
   coffee_list_beans: {
     title: "원두 목록",
-    description: "보관 처리하지 않은 원두 목록과 상품 정보를 조회합니다.",
+    description: "원두 목록과 상품 정보를 조회합니다.",
     input: "선택: query(원두 이름), cursor, limit.",
-    result: "원두 목록·가격·상세 화면 링크와 다음 페이지 위치.",
+    result:
+      "원두 목록·prices(용량별 가격)·상세 화면 링크와 다음 페이지 위치. 경험은 coffee_get_bean의 preferences로 판단합니다(기록 있으면 먹어봄).",
     example: "우리 집 원두 목록을 보여줘.",
   },
   coffee_get_bean: {
@@ -335,7 +337,7 @@ export const readGuide: Record<string, Entry> = {
     description: "연결 시 허용한 도메인의 집계를 조회합니다.",
     input: "없음.",
     result:
-      "coffee_beans(보관함 제외 원두 종류 수), wine_bottles(보관함 포함 전체 와인 재고 합), asset_total·asset_as_of(최신 자산 총액과 기준일). 조회 권한 없는 도메인은 생략합니다.",
+      "coffee_beans(원두 종류 수), wine_bottles(보관함 포함 전체 와인 재고 합), asset_total·asset_as_of(최신 자산 총액과 기준일). 조회 권한 없는 도메인은 생략합니다.",
     example: "우리 원두 종류와 와인 병수, 자산 총액을 알려줘.",
   },
 };

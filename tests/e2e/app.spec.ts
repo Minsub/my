@@ -66,7 +66,6 @@ test("platform navigation, filters, details and preferences", async ({
   await page.getByRole("button", { name: "내 평가 남기기" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await dialog.getByLabel("경험", { exact: true }).selectOption("먹어봄");
   await dialog
     .getByLabel("나의 평가")
     .fill(`브라우저 ${info.project.name}에서 기록한 취향`);
@@ -331,8 +330,7 @@ test("coffee prices without weight, sorting and brand round trips", async ({
     await command("coffee_create_bean", {
       brand_id: brandId,
       name,
-      price,
-      weight_g,
+      prices: price === null && weight_g === null ? [] : [{ price, weight_g }],
     });
   }
   await page.goto("/coffee/brands");

@@ -24,7 +24,7 @@ export function WorkspaceHome({
       eyebrow: "COFFEE",
       description: "원두, 브랜드, 추출 설정을 한곳에서.",
       icon: Coffee,
-      value: `${data.beans.filter((b) => !b.archived).length}종의 원두`,
+      value: `${data.beans.length}종의 원두`,
     },
     {
       path: "/wine",
