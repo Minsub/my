@@ -118,3 +118,9 @@ UI 숨김은 보안 검사가 아니다. 쿠키 기반 변경은 sameOrigin, 모
 ## 단일 HTML 실행
 
 `/cash/old`는 보호된 `/api/html-pages/cash-old` 소스를 `SingleHtmlPage`가 opaque-origin sandbox iframe으로 실행한다. 서버 등록 목록의 HTML만 사용한다. 부모 앱은 인증된 파일 API에서 엑셀을 한 번씩 받아 지정 iframe에 전달하고, iframe은 앱 저장소/인증/API/외부 네트워크에 직접 접근하지 않는다. 기존 frame 보안 헤더는 유지한다. 라이브러리는 로컬 패키지를 인라인으로 공급하며 Vercel tracing에 명시한다. [추가 절차와 제한](single-html-pages.md).
+
+## 홈 화면 설치(PWA)
+
+설치만 지원한다. `src/app/manifest.ts`가 `/manifest.webmanifest`(standalone, 시작 `/`)를 내고, 아이콘은 `public/icons/`(192·512·maskable 512)와 Next 파일 규칙의 `src/app/icon.png`·`apple-icon.png`(180, iOS 홈 화면)다. 아이콘은 사이드바 `M` 마크와 같은 모양의 PNG다. `layout.tsx`의 `appleWebApp`이 iOS 이름·상태바(`default`, 내용이 상태바 아래에서 시작)를 정하고, viewport `viewport-fit=cover`로 하단 홈 막대 영역까지 쓰므로 하단에 붙는 요소는 `env(safe-area-inset-bottom)` 여백을 준다(사이드바·본문·모바일 하단 내비게이션 반영).
+
+service worker는 없다. 로그인·재고 version·금액을 다루므로 HTML/API 오프라인 캐시를 두지 않고, 푸시도 쓰지 않는다. 화면은 항상 서버에서 받으며 배포 후에는 앱을 다시 열거나 새로 고치면 반영된다. iOS 홈 화면 앱은 Safari와 쿠키가 분리되어 설치 후 앱 안에서 한 번 더 로그인한다. 세션은 30일이며 사용 중 하루 단위로 연장된다(`server/auth.ts`). 화면 꺼짐 방지는 앱 전체가 아니라 필요한 페이지에서 Screen Wake Lock으로 처리한다.

@@ -221,7 +221,7 @@ input[type="checkbox"] {
   width: var(--sidebar);
   background: #fdfdfa;
   border-right: 1px solid var(--line);
-  padding: 35px 22px 20px;
+  padding: 35px 22px calc(20px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   z-index: 30;
@@ -427,7 +427,7 @@ input[type="checkbox"] {
   display: none;
 }
 .main-content {
-  padding: 36px 46px 0;
+  padding: 36px 46px env(safe-area-inset-bottom);
   max-width: 1550px;
   margin: auto;
 }
@@ -2023,13 +2023,13 @@ input[type="checkbox"] {
     --sidebar: 205px;
   }
   .sidebar {
-    padding: 28px 16px 18px;
+    padding: 28px 16px calc(18px + env(safe-area-inset-bottom));
   }
   .topbar {
     padding: 0 29px;
   }
   .main-content {
-    padding: 29px 29px 0;
+    padding: 29px 29px env(safe-area-inset-bottom);
   }
   .home-hero {
     padding: 30px;
@@ -2168,7 +2168,7 @@ input[type="checkbox"] {
     height: 27px;
   }
   .main-content {
-    padding: 25px 20px 76px;
+    padding: 25px 20px calc(76px + env(safe-area-inset-bottom));
   }
   .mobile-nav {
     display: flex;
