@@ -119,6 +119,8 @@ export type PregnancyEvent = {
 };
 export type PregnancySettings = {
   due_date: string | null;
+  // 실제 분만하기로 정한 날(유도분만·제왕절개 등). 비어 있으면 D-day는 출산예정일 기준.
+  birth_date: string | null;
   pre_weight_kg: number | null;
   version: number;
 };
@@ -206,6 +208,31 @@ export function pregnancyWeek(dueDate: string | null, now: number) {
   if (days < 0 || days > 44 * 7) return null;
   return { weeks: Math.floor(days / 7), days: days % 7 };
 }
+
+// 출산일(없으면 출산예정일)까지 남은 날. 기기 시간대의 자정 기준으로 센다. 지났으면 음수.
+export function birthDDay(settings: PregnancySettings, now: number) {
+  const date = settings.birth_date ?? settings.due_date;
+  if (!date) return null;
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(date + "T00:00:00").getTime();
+  return {
+    date,
+    planned: settings.birth_date !== null,
+    days: Math.round((target - today.getTime()) / 86400000),
+  };
+}
+export const dDayText = (days: number) =>
+  days > 0 ? `D-${days}일` : days === 0 ? "D-Day" : `D+${-days}일`;
+
+// 출산 정보 팝업의 병원 연락처. 번호는 tel: 링크로 바로 건다.
+export const birthHospital = {
+  name: "서울대병원",
+  contacts: [
+    { label: "분만장", tel: "031-787-3500" },
+    { label: "예약", tel: "1588-3369" },
+  ],
+} as const;
 
 // 배뭉침·통증을 하나의 증상으로 볼 때의 단위. 시간이 겹치는 기록(배뭉침 중에 통증 시작 등)은
 // 한 번의 증상으로 묶는다. 간격은 증상 시작 → 다음 증상 시작이며 SESSION_GAP_MIN보다 길면 새 구간이다.

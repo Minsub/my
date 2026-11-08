@@ -90,6 +90,7 @@ export function demoPregnancy(now: number): PregnancyData {
   return {
     settings: {
       due_date: `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`,
+      birth_date: null,
       pre_weight_kg: 55.2,
       version: 1,
     },

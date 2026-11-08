@@ -83,7 +83,7 @@ async function eventById(
 export async function readPregnancy(actor: Actor): Promise<PregnancyData> {
   const role = await access(actor);
   const [settings] = await query(
-    "SELECT due_date, pre_weight_kg::float8 AS pre_weight_kg, version FROM pregnancy_settings WHERE household_id=$1",
+    "SELECT due_date, birth_date, pre_weight_kg::float8 AS pre_weight_kg, version FROM pregnancy_settings WHERE household_id=$1",
     [actor.householdId],
   );
   // 배뭉침·통증·출혈은 최근 5000건, 태동은 따로 최근 5000건만 읽는다. 태동은 하루에도 여러 번 쌓여
@@ -105,10 +105,11 @@ export async function readPregnancy(actor: Actor): Promise<PregnancyData> {
     settings: settings
       ? {
           due_date: settings.due_date,
+          birth_date: settings.birth_date,
           pre_weight_kg: settings.pre_weight_kg,
           version: settings.version,
         }
-      : { due_date: null, pre_weight_kg: null, version: 0 },
+      : { due_date: null, birth_date: null, pre_weight_kg: null, version: 0 },
     events: rows.map((r) => toEvent(r, role, actor)),
   };
 }
@@ -185,6 +186,10 @@ const settingsSchema = z
   .object({
     action: z.literal("settings"),
     due_date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .nullable(),
+    birth_date: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .nullable(),
@@ -381,13 +386,15 @@ export async function runPregnancyCommand(actor: Actor, raw: unknown) {
           409,
         );
       const [row] = await query(
-        `INSERT INTO pregnancy_settings(household_id,due_date,pre_weight_kg,updated_by) VALUES($1,$2,$3,$4)
-         ON CONFLICT(household_id) DO UPDATE SET due_date=excluded.due_date, pre_weight_kg=excluded.pre_weight_kg,
+        `INSERT INTO pregnancy_settings(household_id,due_date,birth_date,pre_weight_kg,updated_by) VALUES($1,$2,$3,$4,$5)
+         ON CONFLICT(household_id) DO UPDATE SET due_date=excluded.due_date, birth_date=excluded.birth_date,
+         pre_weight_kg=excluded.pre_weight_kg,
          updated_by=excluded.updated_by, version=pregnancy_settings.version+1, updated_at=now()
-         RETURNING due_date, pre_weight_kg::float8 AS pre_weight_kg, version`,
+         RETURNING due_date, birth_date, pre_weight_kg::float8 AS pre_weight_kg, version`,
         [
           actor.householdId,
           input.due_date,
+          input.birth_date,
           input.pre_weight_kg === null
             ? null
             : Math.round(input.pre_weight_kg * 10) / 10,
@@ -398,6 +405,7 @@ export async function runPregnancyCommand(actor: Actor, raw: unknown) {
       return {
         settings: {
           due_date: row.due_date,
+          birth_date: row.birth_date,
           pre_weight_kg: row.pre_weight_kg,
           version: row.version,
         },

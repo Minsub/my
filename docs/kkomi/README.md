@@ -6,7 +6,7 @@
 
 | 영역 | 동작 |
 |---|---|
-| 상단 | 출산예정일로 계산한 주수(40주 0일 = 예정일). 누르면 "임신 정보" 시트에서 출산예정일과 임신 전 몸무게(kg, 30~200, 소수 한 자리)를 함께 설정 |
+| 상단 | 출산예정일로 계산한 주수(40주 0일 = 예정일). 누르면 "임신 정보" 시트에서 출산예정일·출산일(선택, 유도분만·제왕절개처럼 분만할 날을 정했을 때)·임신 전 몸무게(kg, 30~200, 소수 한 자리)를 함께 설정. 주수 옆에 출산일(없으면 출산예정일)까지의 `D-N일`(당일 `D-Day`, 지나면 `D+N일`, 기기 자정 기준). D-day를 누르면 "출산 정보" 시트(저장 없음): 출산일·예정일과 그날의 주수, 병원 연락처(서울대병원 분만장 031-787-3500, 예약 1588-3369 — 누르면 `tel:` 전화, `birthHospital` 상수), 바로 분만장에 연락할 때(규칙적 진통 첫 출산 5분·경산 10분 간격 1시간, 양수, 선홍색 출혈, 태동 감소, 전자간증 증상), 출발할 때 챙길 것 |
 | 지금 기록 · 태동 카드 | 왼쪽 열 맨 위(배뭉침·통증 요약·타일보다 위). 큰 "태동" 버튼을 누르면 그 시각으로 바로 저장한다(시작·종료 타이머 없음, 지속 0). 오른쪽에 오늘 횟수, 아래에 평소 이 시각까지 횟수·최근 2시간 횟수·직접 입력(태동으로 열림), 상태 안내, "태동이 줄었거나 평소와 다르게 느껴져요" 버튼(누르면 고정 안내 시트, 저장 없음) |
 | 지금 기록 · 요약 | 최근 1시간의 배뭉침·통증 횟수, 평균 간격, 평균 지속, 상태 표시와 안내 문구 |
 | 지금 기록 · 타일 | 배뭉침·통증 타일을 누르면 시작, 다시 누르면 종료. 두 타입은 따로 돌아 동시에 켤 수 있다 |
@@ -95,11 +95,11 @@
 
 ## 데이터
 
-`db/migrations/008_pregnancy.sql`, `009_pregnancy_checkup.sql`(진료·검사 타입·필드, 메모 한도), `012_pregnancy_body.sql`(산모 타입, 몸무게·배둘레, 임신 전 몸무게), `013_pregnancy_fetal_weight.sql`(진료·검사의 아기 몸무게), `015_pregnancy_movement.sql`(태동 타입, 태동 조회 인덱스), `016_pregnancy_movement_point.sql`(태동을 한 시점 기록으로: 기존 태동의 종료를 시작으로 맞춤).
+`db/migrations/008_pregnancy.sql`, `009_pregnancy_checkup.sql`(진료·검사 타입·필드, 메모 한도), `012_pregnancy_body.sql`(산모 타입, 몸무게·배둘레, 임신 전 몸무게), `013_pregnancy_fetal_weight.sql`(진료·검사의 아기 몸무게), `015_pregnancy_movement.sql`(태동 타입, 태동 조회 인덱스), `016_pregnancy_movement_point.sql`(태동을 한 시점 기록으로: 기존 태동의 종료를 시작으로 맞춤), `020_pregnancy_birth_date.sql`(설정의 출산일).
 
 | 테이블 | 내용 |
 |---|---|
-| `pregnancy_settings` | 공간당 1행. `due_date`, `pre_weight_kg`(numeric(4,1), 30~200), `version` |
+| `pregnancy_settings` | 공간당 1행. `due_date`, `birth_date`(출산일, 선택), `pre_weight_kg`(numeric(4,1), 30~200), `version` |
 | `pregnancy_events` | `kind`(`tightening`·`pain`·`bleeding`·`checkup`·`body`·`movement`), `started_at`, `ended_at`, `intensity`(1~3), `bleeding`(`none`·`spotting`·`light`·`moderate`·`heavy`), `bleeding_color`(`brown`·`pink`·`red`·`dark`), `cervix_length_cm`(numeric(4,2)), `amniotic_fluid`(`enough`·`low`), `fetal_heart_rate`(smallint), `fetal_weight_g`(smallint, 1~7000), `weight_kg`(numeric(4,1), 30~200), `belly_cm`(numeric(4,1), 40~200), `memo`(진료 2000자, 그 외 500자), `request_key`, `version`, 작성·수정자 |
 | `pregnancy_photos` | 출혈·진료 사진. 와인 사진과 같은 `normalizePhoto`(회전 보정·1000px·WebP·300KB 이하)를 거친 결과만 저장. 원본은 저장하지 않는다 |
 

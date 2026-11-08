@@ -11,6 +11,7 @@ import {
   Droplet,
   Footprints,
   Pencil,
+  Phone,
   Plus,
   RefreshCw,
   SlidersHorizontal,
@@ -27,11 +28,14 @@ import {
   BELLY_MIN_CM,
   bleedingAmounts,
   bleedingColors,
+  birthDDay,
+  birthHospital,
   bleedingLabel,
   bodyFacts,
   CALL_PER_20_MIN,
   CALL_PER_HOUR,
   CERVIX_MAX_CM,
+  dDayText,
   checkupFacts,
   colorLabel,
   tapKinds,
@@ -141,6 +145,8 @@ type Sheet =
   // 추이에서 고른 날짜(YYYY-MM-DD, 기기 시간대)의 진료·검사와 산모 기록.
   | { type: "day"; day: string }
   | { type: "settings" }
+  // D-day를 눌렀을 때의 출산 정보·병원 연락처. 저장하지 않는다.
+  | { type: "birth" }
   // 태동이 줄었다고 느낄 때의 안내. 저장하지 않는다.
   | { type: "movementLess" }
   // back: 사진을 닫으면 돌아갈 시트(진료 상세에서 연 경우).
@@ -648,7 +654,12 @@ export function PregnancyLog({
   if (!data)
     return (
       <div className="pg-page">
-        <Heading data={null} now={now} onSettings={() => {}} />
+        <Heading
+          data={null}
+          now={now}
+          onSettings={() => {}}
+          onBirth={() => {}}
+        />
         <div className="panel pg-state">
           {loadError ? (
             <>
@@ -676,6 +687,7 @@ export function PregnancyLog({
         data={data}
         now={now}
         onSettings={() => setSheet({ type: "settings" })}
+        onBirth={() => setSheet({ type: "birth" })}
       />
       <div className="pg-tabs" role="tablist" aria-label="보기 전환">
         {(
@@ -898,6 +910,14 @@ export function PregnancyLog({
           onClose={() => setSheet(null)}
         />
       )}
+      {sheet?.type === "birth" && (
+        <BirthSheet
+          settings={data.settings}
+          now={now}
+          onSettings={() => setSheet({ type: "settings" })}
+          onClose={() => setSheet(null)}
+        />
+      )}
       {sheet?.type === "movementLess" && (
         <MovementLessSheet onClose={() => setSheet(null)} />
       )}
@@ -973,12 +993,15 @@ function Heading({
   data,
   now,
   onSettings,
+  onBirth,
 }: {
   data: PregnancyData | null;
   now: number;
   onSettings: () => void;
+  onBirth: () => void;
 }) {
   const week = data ? pregnancyWeek(data.settings.due_date, now) : null;
+  const dday = data ? birthDDay(data.settings, now) : null;
   return (
     <div className="page-heading pg-heading">
       <div>
@@ -992,10 +1015,20 @@ function Heading({
           <button type="button" className="pg-week" onClick={onSettings}>
             {week ? `${week.weeks}주 ${week.days}일` : "출산예정일 입력"}
           </button>
+          {dday && (
+            <button
+              type="button"
+              className="pg-dday"
+              aria-label={`${dday.planned ? "출산일" : "출산예정일"}까지 ${dDayText(dday.days)}, 출산 정보 보기`}
+              onClick={onBirth}
+            >
+              {dDayText(dday.days)}
+            </button>
+          )}
           <button
             type="button"
             className="icon-button"
-            aria-label="출산예정일·임신 전 몸무게 설정"
+            aria-label="출산예정일·출산일·임신 전 몸무게 설정"
             onClick={onSettings}
           >
             <SlidersHorizontal size={17} />
@@ -2619,6 +2652,107 @@ function StopSheet({
 }
 
 // 태동이 줄었다고 느낄 때. 앱의 숫자보다 엄마의 느낌이 우선이므로 숫자와 관계없이 같은 안내를 보인다.
+const telHref = (tel: string) => `tel:${tel.replace(/[^0-9+]/g, "")}`;
+const dateLabel = (day: string) => dayLabel(`${day}T00:00:00`);
+
+// D-day를 눌렀을 때의 출산 정보. 병원 번호는 누르면 바로 전화한다.
+// 연락 기준은 국내 병원 안내에서 흔히 쓰는 값이며, 다니는 병원 안내가 우선이다.
+function BirthSheet({
+  settings,
+  now,
+  onSettings,
+  onClose,
+}: {
+  settings: PregnancyData["settings"];
+  now: number;
+  onSettings: () => void;
+  onClose: () => void;
+}) {
+  const dday = birthDDay(settings, now);
+  return (
+    <SheetFrame
+      title="출산 정보"
+      sub="진통이나 이상이 있으면 앱 기준보다 병원 안내를 먼저 따르세요"
+    >
+      <div className="pg-birth-dates">
+        {settings.birth_date && (
+          <div>
+            <span>출산일</span>
+            <b>{dateLabel(settings.birth_date)}</b>
+            <small>
+              {weekText(settings.due_date, dayStart(settings.birth_date))}
+            </small>
+          </div>
+        )}
+        {settings.due_date && (
+          <div>
+            <span>출산예정일</span>
+            <b>{dateLabel(settings.due_date)}</b>
+            <small>40주 0일</small>
+          </div>
+        )}
+        {dday && (
+          <strong className="pg-birth-dday">{dDayText(dday.days)}</strong>
+        )}
+      </div>
+      <section
+        className="pg-hospital"
+        aria-label={`${birthHospital.name} 연락처`}
+      >
+        <h3>{birthHospital.name}</h3>
+        {birthHospital.contacts.map((c) => (
+          <a key={c.tel} className="pg-tel" href={telHref(c.tel)}>
+            <span className="pg-tel-icon">
+              <Phone size={16} />
+            </span>
+            <span className="pg-tel-label">{c.label}</span>
+            <b>{c.tel}</b>
+          </a>
+        ))}
+      </section>
+      <h3 className="pg-birth-h">바로 분만장에 연락할 때</h3>
+      <ul className="pg-steps">
+        <li>
+          <b>진통이 규칙적일 때</b> — 첫 출산은 5분 간격, 출산 경험이 있으면
+          10분 간격으로 1시간 넘게 이어질 때
+        </li>
+        <li>
+          <b>양수가 흐르거나 샐 때</b> — 진통이 없어도 바로. 시각과
+          색(맑음·초록· 갈색)을 기억하고 패드를 대고 이동합니다.
+        </li>
+        <li>
+          <b>생리처럼 선홍색 피가 나올 때</b> — 피가 조금 섞인 끈적한 이슬은
+          분만이 가까워지는 신호일 수 있습니다.
+        </li>
+        <li>
+          <b>태동이 줄었다고 느낄 때</b> — 횟수와 관계없이 느낌이 기준입니다.
+        </li>
+        <li>
+          <b>심한 두통, 눈앞이 흐림, 갑자기 붓는 얼굴·손, 명치 통증</b>
+        </li>
+      </ul>
+      <h3 className="pg-birth-h">출발할 때 챙길 것</h3>
+      <ul className="pg-birth-list">
+        <li>산모수첩·신분증, 입원 가방</li>
+        <li>진통 시작 시각과 간격(지금 기록 탭), 양수가 나온 시각</li>
+        <li>진통 중에는 무거운 식사를 피하고, 직접 운전하지 않습니다</li>
+      </ul>
+      <div className="pg-actions">
+        <button
+          type="button"
+          className="pg-btn ghost muted"
+          onClick={onSettings}
+        >
+          날짜 수정
+        </button>
+        <button type="button" className="pg-btn primary" onClick={onClose}>
+          확인
+        </button>
+      </div>
+    </SheetFrame>
+  );
+}
+
 function MovementLessSheet({ onClose }: { onClose: () => void }) {
   return (
     <SheetFrame
@@ -3436,6 +3570,7 @@ function SettingsSheet({
   onClose: () => void;
 }) {
   const [due, setDue] = useState(data.settings.due_date ?? "");
+  const [birth, setBirth] = useState(data.settings.birth_date ?? "");
   const [weight, setWeight] = useState(
     data.settings.pre_weight_kg != null
       ? String(data.settings.pre_weight_kg)
@@ -3455,6 +3590,7 @@ function SettingsSheet({
       const r = await post({
         action: "settings",
         due_date: due || null,
+        birth_date: birth || null,
         pre_weight_kg: kg,
         expected_version: data.settings.version,
       });
@@ -3468,7 +3604,7 @@ function SettingsSheet({
   return (
     <SheetFrame
       title="임신 정보"
-      sub="출산예정일로 주수를 표시하고 37주부터는 분만 진통 안내를 함께 보여줍니다. 임신 전 몸무게는 몸무게 추이의 기준선이 됩니다. 같은 공간의 구성원 모두에게 적용됩니다."
+      sub="출산예정일로 주수를 표시하고 37주부터는 분만 진통 안내를 함께 보여줍니다. 출산일은 유도분만·제왕절개처럼 분만할 날을 정했을 때 입력하며, D-day는 출산일(없으면 출산예정일)까지 셉니다. 임신 전 몸무게는 몸무게 추이의 기준선이 됩니다. 같은 공간의 구성원 모두에게 적용됩니다."
     >
       <div className="pg-field-row">
         <div className="pg-field">
@@ -3480,6 +3616,17 @@ function SettingsSheet({
             onChange={(e) => setDue(e.target.value)}
           />
         </div>
+        <div className="pg-field">
+          <label htmlFor="pg-birth">출산일 (정해졌다면)</label>
+          <input
+            id="pg-birth"
+            type="date"
+            value={birth}
+            onChange={(e) => setBirth(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="pg-field-row">
         <div className="pg-field">
           <label htmlFor="pg-pre-weight">임신 전 몸무게 (kg)</label>
           <input
