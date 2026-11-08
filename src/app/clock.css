@@ -1,0 +1,146 @@
+/* 취미 / 시계: 앱 화면 위를 덮는 검정 전체 화면. 크기는 화면 너비(cqw) 기준 */
+html.clock-open,
+html.clock-open body {
+  overflow: hidden;
+  background: #000;
+}
+.clock-screen {
+  --clock-digit: #f4f4f1;
+  --clock-sub: #8c8c88;
+  --clock-rule: #2a2a28;
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  container-type: inline-size;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  padding: calc(3.2cqw + env(safe-area-inset-top)) 4.6cqw
+    calc(2cqw + env(safe-area-inset-bottom));
+  background: #000;
+  color: var(--clock-digit);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue",
+    "Noto Sans KR", sans-serif;
+  letter-spacing: -0.02em;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+  overflow: hidden;
+}
+.clock-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 4cqw;
+}
+.clock-date {
+  font-size: 2.6cqw;
+  font-weight: 500;
+  color: var(--clock-sub);
+  padding-top: 0.6cqw;
+}
+.clock-weather {
+  display: flex;
+  align-items: center;
+  gap: 2cqw;
+  min-height: 7.2cqw;
+}
+.clock-icon {
+  width: 7.2cqw;
+  height: 7.2cqw;
+  flex-shrink: 0;
+  color: var(--clock-digit);
+}
+.clock-cond {
+  font-size: 3.6cqw;
+  font-weight: 500;
+  line-height: 1.1;
+}
+.clock-cond small {
+  display: block;
+  font-size: 1.6cqw;
+  font-weight: 400;
+  color: var(--clock-sub);
+  margin-top: 0.5cqw;
+}
+.clock-temps {
+  display: flex;
+  gap: 2.6cqw;
+  margin-left: 1.4cqw;
+  padding-left: 2.6cqw;
+  border-left: 0.15cqw solid var(--clock-rule);
+}
+.clock-temps > span {
+  display: grid;
+  gap: 0.4cqw;
+}
+.clock-temps small {
+  font-size: 1.5cqw;
+  color: var(--clock-sub);
+}
+.clock-temps b {
+  font-size: 6cqw;
+  font-weight: 200;
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.clock-face {
+  align-self: center;
+  justify-self: center;
+  position: relative;
+}
+.clock-time {
+  font-weight: 200;
+  line-height: 0.78;
+  letter-spacing: -0.035em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.clock-colon {
+  display: inline-block;
+  transform: translateY(-0.04em);
+}
+.clock-ampm {
+  position: absolute;
+  right: 100%;
+  top: 6%;
+  margin-right: 1.6cqw;
+  font-size: 2.8cqw;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--clock-sub);
+}
+.clock-controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px max(24px, env(safe-area-inset-right))
+    calc(16px + env(safe-area-inset-bottom))
+    max(24px, env(safe-area-inset-left));
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.85) 40%);
+  font-size: 14px;
+}
+.clock-exit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid #3a3a37;
+  border-radius: 999px;
+  color: var(--clock-digit);
+}
+.clock-wake {
+  color: var(--clock-sub);
+  text-align: right;
+}
+.clock-wake.off,
+.clock-wake.unsupported {
+  color: #d9a066;
+}

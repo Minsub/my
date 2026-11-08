@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   ArrowUpRight,
   CakeSlice,
+  Clock,
   Coffee,
   CookingPot,
   Refrigerator,
@@ -94,6 +95,13 @@ export const hobbyMenus: HubItem[] = [
     description:
       "냉장·냉동실에 있는 재료와 그걸로 해먹을 집밥을 한 화면에서 봅니다.",
     icon: Refrigerator,
+  },
+  {
+    path: "/hobby/clock",
+    title: "시계",
+    description:
+      "iPad를 켜두고 보는 큰 시계와 오늘 날씨를 검정 화면에 띄웁니다.",
+    icon: Clock,
   },
 ];
 export const kkomiMenus: HubItem[] = [

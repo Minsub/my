@@ -6,6 +6,7 @@ import "./pregnancy.css";
 import "./baking.css";
 import "./meals.css";
 import "./fridge.css";
+import "./clock.css";
 import "./share.css";
 import "./cellar.css";
 export const metadata: Metadata = {

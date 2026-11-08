@@ -124,3 +124,7 @@ UI 숨김은 보안 검사가 아니다. 쿠키 기반 변경은 sameOrigin, 모
 설치만 지원한다. `src/app/manifest.ts`가 `/manifest.webmanifest`(standalone, 시작 `/`)를 내고, 아이콘은 `public/icons/`(192·512·maskable 512)와 Next 파일 규칙의 `src/app/icon.png`·`apple-icon.png`(180, iOS 홈 화면)다. 아이콘은 사이드바 `M` 마크와 같은 모양의 PNG다. `layout.tsx`의 `appleWebApp`이 iOS 이름·상태바(`default`, 내용이 상태바 아래에서 시작)를 정하고, viewport `viewport-fit=cover`로 하단 홈 막대 영역까지 쓰므로 하단에 붙는 요소는 `env(safe-area-inset-bottom)` 여백을 준다(사이드바·본문·모바일 하단 내비게이션 반영).
 
 service worker는 없다. 로그인·재고 version·금액을 다루므로 HTML/API 오프라인 캐시를 두지 않고, 푸시도 쓰지 않는다. 화면은 항상 서버에서 받으며 배포 후에는 앱을 다시 열거나 새로 고치면 반영된다. iOS 홈 화면 앱은 Safari와 쿠키가 분리되어 설치 후 앱 안에서 한 번 더 로그인한다. 세션은 30일이며 사용 중 하루 단위로 연장된다(`server/auth.ts`). 화면 꺼짐 방지는 앱 전체가 아니라 필요한 페이지에서 Screen Wake Lock으로 처리한다.
+
+## 시계와 날씨
+
+`/hobby/clock`은 catch-all의 AppShell 안에서 `ClockScreen`이 `position: fixed` 검정 화면으로 셸을 덮는다(새 스키마·scope 없음, 이 경로만 `generateViewport`로 theme-color 검정). 날씨는 `GET /api/weather`가 로그인 확인 후 `server/weather.ts`에서 Open-Meteo(키 없음)의 오늘 최고·최저·WMO 코드를 받아 `lib/weather.ts`의 네 상태로 묶는다. 지역은 `weatherPlace`(용인 수지 좌표) 한 곳으로 고정이다. 값은 서버 인스턴스 메모리에 30분, 날짜가 바뀌면 새로 받고, 실패 시 같은 날 값이 있으면 그대로 쓴다. 화면은 30분마다·자정·앱 복귀(10분 경과) 때 다시 읽고 데모는 API를 부르지 않는 예시 값이다. 화면 꺼짐 방지는 Screen Wake Lock을 쓰며 거부되면 iPad 자동 잠금을 끄라고 안내한다. 시계는 기기 시각을 쓴다.

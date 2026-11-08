@@ -1,3 +1,4 @@
+import type { Viewport } from "next";
 import { headers } from "next/headers";
 import { redirect, notFound } from "next/navigation";
 import { configured } from "@/server/auth";
@@ -8,6 +9,15 @@ import { findHtmlPage } from "@/lib/html-pages";
 import { findBakingRecipe } from "@/lib/baking";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+// 시계는 검정 전체 화면이라 브라우저·홈 화면 앱 상단 색도 검정으로 맞춘다.
+export async function generateViewport({
+  params,
+}: {
+  params: Promise<{ path?: string[] }>;
+}): Promise<Viewport> {
+  const { path: parts = [] } = await params;
+  return parts.join("/") === "hobby/clock" ? { themeColor: "#000000" } : {};
+}
 export default async function Page({
   params,
   searchParams,
@@ -44,6 +54,7 @@ export default async function Page({
       "/hobby/baking",
       "/hobby/meals",
       "/hobby/fridge",
+      "/hobby/clock",
       "/baby",
       "/baby/pregnancy",
     ].includes(path) &&

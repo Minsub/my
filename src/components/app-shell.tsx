@@ -8,6 +8,7 @@ import { BakingRecipeList } from "./baking-recipes";
 import { BakingRecipeView } from "./baking-recipe";
 import { MealList } from "./meal-list";
 import { FridgeBoard } from "./fridge-board";
+import { ClockScreen } from "./clock-screen";
 import { AssetStatus } from "./asset-status";
 import { AssetRecords } from "./asset-records";
 import { AssetPlans } from "./asset-plans";
@@ -1801,7 +1802,7 @@ export function AppShell({
       <MenuHub
         eyebrow="MONO / HOBBY"
         title="취미"
-        description="커피 원두, 와인 셀러, 베이킹 레시피, 집밥 요리, 냉장고를 한곳에서 엽니다."
+        description="커피 원두, 와인 셀러, 베이킹 레시피, 집밥 요리, 냉장고, 시계를 한곳에서 엽니다."
         items={hobbyMenus}
         href={href}
       />
@@ -1810,6 +1811,8 @@ export function AppShell({
     content = <BakingRecipeList initialQuery={initialQuery} href={href} />;
   else if (path === "/hobby/fridge")
     content = <FridgeBoard demo={demo} href={href} />;
+  else if (path === "/hobby/clock")
+    content = <ClockScreen demo={demo} href={href} />;
   else if (path === "/hobby/meals")
     content = (
       <MealList

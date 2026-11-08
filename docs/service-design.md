@@ -11,11 +11,12 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | URL | 현재 역할 | 구현 위치 |
 |---|---|---|
 | `/` | 도구 진입 카드, 모듈별 요약, 최근 활동, MCP 안내 이동 | workspace-home.tsx |
-| `/hobby` | 취미 하위 화면 목록(커피 원두·와인 셀러·베이킹·집밥·냉장고). 항목은 menu-hub.tsx의 hobbyMenus | menu-hub.tsx |
+| `/hobby` | 취미 하위 화면 목록(커피 원두·와인 셀러·베이킹·집밥·냉장고·시계). 항목은 menu-hub.tsx의 hobbyMenus | menu-hub.tsx |
 | `/hobby/baking` | 베이킹 레시피 목록: 이름·재료 검색, 분류 칩, 카드(분류·구성·오븐 온도·총 무게). 검색어·분류는 `q`·`category` 쿼리 | baking-recipes.tsx |
 | `/hobby/baking/{id}` | 레시피 상세: 배율 ×0.5~×2, 계량 체크(화면 메모리), 전체 재료 합계(구성 2개 이상), 오븐 타임라인, 구성별 재료 계량 목록(이름 ····· 양)·공정, 손글씨 메모 표시, 상자별 접기(브라우저 localStorage). 없는 id는 404 | baking-recipe.tsx |
 | `/hobby/meals` | 집밥 요리 목록: 이름·재료·태그·메모 검색, 해보고 싶음 토글, 카테고리·태그 칩, 카드(첫 링크 썸네일), 상세·입력 시트. 상태는 `q`·`category`·`tag`·`want` 쿼리. [집밥 문서](meals/README.md) | meal-list.tsx |
 | `/hobby/fridge` | 냉장고: 냉장·냉동 두 칸을 재료·반찬·간편식 묶음으로 나눈 타일(이름·넣은 날, 오래 둔 순), 누르면 이름·종류 고치기, 꾹 눌러 끌어서 다 먹음·버림·칸 옮기기, 넣기 시트(이름별 종류 짐작, 자주 넣는 것·집밥 재료 칩), 되돌리기, 반찬·간편식을 모은 "바로 먹을 것", 집밥 메인 재료로 맞춘 "이걸로 해먹기". 아이패드 가로 한 화면 기준. [냉장고 문서](fridge/README.md) | fridge-board.tsx |
+| `/hobby/clock` | 시계: 앱 화면을 덮는 검정 전체 화면. 왼쪽 위 날짜, 오른쪽 위 오늘 날씨(용인 수지, 맑음·흐림·비·눈 아이콘과 최저·최고), 가운데 화면 너비에 맞춘 큰 12시간제 시계와 시 왼쪽의 AM/PM. 화면 켜짐 유지(Wake Lock), 누르면 "취미로"와 켜짐 상태가 5초 보임. 아이패드 가로로 켜두는 용도 | clock-screen.tsx, api/weather, server/weather.ts |
 | `/coffee` | 원두 목록(브랜드 이미지·상품 링크·대표 가격·경험·추천), 가격 정렬·브랜드·경험·추천(사용자 기준/누군가 추천)·사용자·검색, 행마다 추천 인원 집계 | app-shell.tsx renderCoffee |
 | `/coffee/brands` | 브랜드 목록·등록·수정·대표 이미지 올리기(웹 전용)·브랜드별 원두 바로가기 | app-shell.tsx, coffee-brand-photo.tsx |
 | `/coffee/beans/{uuid}` | 브랜드 이미지·상품·용량별 가격·사용자별 평가·추출 설정 | app-shell.tsx |
