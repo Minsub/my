@@ -59,7 +59,9 @@ export function useClockSettings(demo = false) {
   };
   return {
     settings,
-    update: (patch: Partial<ClockSettings>) => save({ ...settings, ...patch }),
+    // 화면이 다시 그려지기 전에 연달아 바꿔도 앞 변경이 덮이지 않게 저장된 최신 값에 합친다.
+    update: (patch: Partial<ClockSettings>) =>
+      save({ ...snapshot(demo), ...patch }),
     reset: () => save(null),
   };
 }

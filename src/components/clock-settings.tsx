@@ -3,8 +3,12 @@ import Link from "next/link";
 import { Maximize2, RotateCcw } from "lucide-react";
 import {
   clockColors,
+  clockFontLook,
   clockFonts,
   clockSecondsModes,
+  clockSizeRange,
+  clockSpacings,
+  clockStretchRange,
   clockWeights,
   defaultClockSettings,
   type ClockSettings,
@@ -72,7 +76,9 @@ export function ClockSettingsPage({
               <button
                 key={f.id}
                 className="clock-font-chip"
-                {...choice("font", f.id)}
+                type="button"
+                aria-pressed={settings.font === f.id}
+                onClick={() => update({ font: f.id, ...clockFontLook(f.id) })}
               >
                 <b
                   style={{ fontFamily: f.family, fontWeight: settings.weight }}
@@ -127,13 +133,45 @@ export function ClockSettingsPage({
           </div>
         </div>
         <div className="clock-set-row">
-          <span>콜론 깜빡임</span>
+          <span>
+            숫자 간격<small>좁게·보통·넓게는 화면을 꽉 채워요</small>
+          </span>
           <div className="clock-options">
-            <button className="clock-chip" {...choice("blink", true)}>
-              깜빡임
+            {clockSpacings.map((g) => (
+              <button
+                key={g.value}
+                className="clock-chip"
+                {...choice("spacing", g.value)}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <RangeRow
+          id="clock-size"
+          label="크기"
+          note="100%가 화면 너비를 꽉 채운 크기"
+          range={clockSizeRange}
+          value={settings.size}
+          onChange={(size) => update({ size })}
+        />
+        <RangeRow
+          id="clock-stretch"
+          label="세로 늘이기"
+          note="너비는 그대로 숫자만 위아래로 늘여요"
+          range={clockStretchRange}
+          value={settings.stretch}
+          onChange={(stretch) => update({ stretch })}
+        />
+        <div className="clock-set-row">
+          <span>가운데 줄</span>
+          <div className="clock-options">
+            <button className="clock-chip" {...choice("centerLine", false)}>
+              없음
             </button>
-            <button className="clock-chip" {...choice("blink", false)}>
-              항상 켜기
+            <button className="clock-chip" {...choice("centerLine", true)}>
+              플립 시계처럼
             </button>
           </div>
         </div>
@@ -155,6 +193,43 @@ export function ClockSettingsPage({
         Safari와 저장 공간이 따로라서, 홈 화면 앱 안에서 설정해 주세요.
         {demo && " 둘러보기에서는 바꿔 볼 수만 있고 저장되지 않아요."}
       </p>
+    </div>
+  );
+}
+
+function RangeRow({
+  id,
+  label,
+  note,
+  range,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  note: string;
+  range: { min: number; max: number; step: number };
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div className="clock-set-row">
+      <label htmlFor={id}>
+        {label}
+        <small>{note}</small>
+      </label>
+      <div className="clock-range">
+        <input
+          id={id}
+          type="range"
+          min={range.min}
+          max={range.max}
+          step={range.step}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+        />
+        <output htmlFor={id}>{value}%</output>
+      </div>
     </div>
   );
 }

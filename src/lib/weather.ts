@@ -1,5 +1,5 @@
 // 시계 화면의 날씨. 지역은 한 곳으로 고정하고, 상태는 맑음·흐림·비·눈 네 가지로만 묶는다.
-// 상태와 현재 기온은 지금 시각 기준, 최저·최고는 오늘 하루 기준이다.
+// 날씨앱의 시간별 예보처럼 오늘 0~23시 값을 받아 두고, 화면이 지금 시각의 칸을 골라 쓴다.
 export const weatherPlace = {
   label: "용인 수지",
   latitude: 37.3222,
@@ -8,10 +8,17 @@ export const weatherPlace = {
 
 export type WeatherKind = "clear" | "cloudy" | "rain" | "snow";
 
+export type WeatherHour = {
+  hour: number; // 0~23, Asia/Seoul
+  temp: number; // °C, 반올림
+  kind: WeatherKind;
+  isDay: boolean;
+};
+
 export type TodayWeather = {
   date: string; // Asia/Seoul YYYY-MM-DD
   place: string;
-  now: { temp: number; kind: WeatherKind; isDay: boolean }; // °C, 반올림
+  hours: WeatherHour[];
   min: number;
   max: number;
   updatedAt: string;
@@ -32,10 +39,22 @@ export function weatherKind(code: number): WeatherKind {
   return "rain";
 }
 
+// 지금 시각의 칸. 없으면 가장 가까운 앞 시간을 쓴다.
+export function weatherAt(weather: TodayWeather, hour: number) {
+  let pick: WeatherHour | undefined;
+  for (const h of weather.hours) if (h.hour <= hour) pick = h;
+  return pick ?? weather.hours[0];
+}
+
 export const demoWeather = (date: string): TodayWeather => ({
   date,
   place: weatherPlace.label,
-  now: { temp: 9, kind: "clear", isDay: true },
+  hours: Array.from({ length: 24 }, (_, hour) => ({
+    hour,
+    temp: Math.round(9.5 - 5.5 * Math.cos(((hour - 3) / 24) * 2 * Math.PI)),
+    kind: hour >= 15 && hour < 19 ? "cloudy" : "clear",
+    isDay: hour >= 7 && hour < 18,
+  })),
   min: 4,
   max: 15,
   updatedAt: new Date().toISOString(),

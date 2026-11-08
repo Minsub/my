@@ -89,13 +89,19 @@ html.clock-open body {
   color: var(--clock-sub);
 }
 .clock-temps b {
-  font-size: 5.4cqw;
+  font-size: 5.6cqw;
+}
+.clock-temp-now b {
+  color: var(--clock-info);
 }
 .clock-face {
   align-self: center;
   justify-self: center;
   display: flex;
   align-items: flex-start;
+}
+.clock-face.ink {
+  align-items: center;
 }
 .clock-ampm {
   writing-mode: vertical-rl;
@@ -107,16 +113,20 @@ html.clock-open body {
   color: var(--clock-ampm);
 }
 .clock-time {
+  position: relative;
   font-family: var(--clock-font);
   font-weight: var(--clock-weight);
   line-height: 0.78;
   white-space: nowrap;
   color: var(--clock-digit);
+  transform: scaleY(var(--stretch, 1));
+  transform-origin: 50% var(--middle, 50%);
 }
+/* 칸이 글자 폭보다 좁아도 가운데에 두고 양옆으로 넘치게 한다 */
 .clock-d,
 .clock-colon {
-  display: inline-block;
-  text-align: center;
+  display: inline-flex;
+  justify-content: center;
 }
 .clock-d {
   width: var(--cell, 0.6em);
@@ -125,11 +135,21 @@ html.clock-open body {
   width: var(--colon, 0.3em);
   transform: translateY(-0.04em);
 }
-.clock-colon.off {
-  opacity: 0;
+.clock-face.ink .clock-ampm {
+  margin: 0 1cqw 0 0;
 }
 .clock-sec.small {
   font-size: 0.5em;
+}
+.clock-time.lined::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--middle, 50%);
+  height: max(2px, 0.012em);
+  transform: translateY(-50%);
+  background: #000;
 }
 
 /* 시계 보기: 앱 화면을 덮는 전체 화면 */
@@ -221,10 +241,12 @@ html.clock-open body {
   padding: 16px 0;
   border-top: 1px solid var(--line);
 }
-.clock-set-row > span {
+.clock-set-row > span,
+.clock-set-row > label {
   font-weight: 600;
 }
-.clock-set-row > span small {
+.clock-set-row > span small,
+.clock-set-row > label small {
   display: block;
   margin-top: 3px;
   color: var(--muted);
@@ -301,6 +323,23 @@ html.clock-open body {
   border-radius: 50%;
   background: none;
   cursor: pointer;
+}
+.clock-range {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 420px;
+}
+.clock-range input {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--green);
+  height: 32px;
+}
+.clock-range output {
+  min-width: 48px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 .clock-set-note {
   color: var(--muted);

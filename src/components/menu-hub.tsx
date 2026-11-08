@@ -118,7 +118,7 @@ export const clockMenus: HubItem[] = [
     path: "/hobby/clock/settings",
     title: "시계 설정",
     description:
-      "시계 글꼴·굵기·색, 초 표시와 콜론 깜빡임을 이 기기에 맞춥니다.",
+      "시계 글꼴·굵기·색·크기, 세로 늘이기와 초 표시를 이 기기에 맞춥니다.",
     icon: SlidersHorizontal,
   },
 ];
