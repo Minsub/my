@@ -43,6 +43,7 @@ export default async function Page({
       "/hobby",
       "/hobby/baking",
       "/hobby/meals",
+      "/hobby/fridge",
       "/baby",
       "/baby/pregnancy",
     ].includes(path) &&

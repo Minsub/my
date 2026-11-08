@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>1안 · 두 칸 보드</title>
+<style>
+:root{
+  --paper:#f8f7f3; --ink:#283a32; --muted:#68725f; --faint:#9aa192; --green:#365b43; --green-pale:#eef2e9; --line:#e6e7de;
+  --rust:#b4532f; --rust-pale:#f8e7de; --ice:#3f6f8a; --ice-pale:#e9f1f5; --ice-line:#cfe0e8;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;font-size:15px;letter-spacing:-.025em;-webkit-font-smoothing:antialiased;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+button{font:inherit;color:inherit;letter-spacing:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.app{display:grid;grid-template-columns:1.3fr 1fr 290px;grid-template-rows:auto 1fr;height:100vh;padding:18px 22px 20px;gap:14px}
+
+.top{grid-column:1/4;display:flex;align-items:center;gap:12px}
+.top h1{margin:0;font-size:26px;font-weight:700;letter-spacing:-.06em}
+.top .date{color:var(--muted);font-size:14px}
+.top .tip{font-size:13px;color:var(--faint);margin-left:6px}
+.spacer{flex:1}
+.add-btn{height:48px;padding:0 22px;border:0;border-radius:13px;background:var(--green);color:#fff;font-weight:700;font-size:16px}
+
+/* 냉장·냉동 칸 */
+.box{position:relative;display:flex;flex-direction:column;min-height:0;border-radius:20px;background:#fff;border:1px solid var(--line);padding:14px 12px 12px}
+.box.frz{background:var(--ice-pale);border-color:var(--ice-line)}
+.box-head{display:flex;align-items:center;gap:8px;padding:0 4px 12px}
+.box-head b{font-size:18px}
+.box-head .n{font-size:14px;color:var(--muted)}
+.box-head .sort{margin-left:auto;font-size:12px;color:var(--faint)}
+.box-head .plus{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--paper);font-size:18px;line-height:1}
+.box.frz .box-head .plus{background:#fff;border-color:var(--ice-line)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:8px;overflow:auto;align-content:start;min-height:0;padding:2px;scrollbar-width:none}
+.tiles::-webkit-scrollbar{display:none}
+.tile{height:96px;border-radius:15px;background:var(--paper);border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px;touch-action:manipulation;transition:opacity .2s,transform .15s,box-shadow .15s}
+.box.frz .tile{background:#fff;border-color:var(--ice-line)}
+.tile .em{font-size:32px;line-height:1.1}
+.tile .nm{font-size:14px;font-weight:600;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .dt{font-size:12px;color:var(--faint)}
+.tile.new{animation:pop .45s ease}
+@keyframes pop{0%{transform:scale(.6);opacity:0}70%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+.tile.pressing{transform:scale(.94)}
+.tile.lifted{opacity:.25}
+.tile.hit{box-shadow:0 0 0 3px var(--green);background:#fff}
+.tiles.focus .tile:not(.hit){opacity:.3}
+
+/* 집밥 */
+.side{display:flex;flex-direction:column;min-height:0;background:#fff;border:1px solid var(--line);border-radius:20px;padding:14px}
+.side h3{margin:0;font-size:17px}
+.side .d{margin:3px 0 10px;color:var(--muted);font-size:12.5px}
+.meals{overflow:auto;min-height:0;display:flex;flex-direction:column;gap:7px;scrollbar-width:none}
+.meals::-webkit-scrollbar{display:none}
+.sec{font-size:12.5px;font-weight:700;color:var(--muted);margin:8px 2px 2px}
+.sec:first-child{margin-top:0}
+.meal{border:1px solid var(--line);border-radius:13px;padding:10px 12px;background:var(--paper);text-align:left;width:100%}
+.meal.on{border-color:var(--green);box-shadow:0 0 0 2px var(--green);background:#fff}
+.meal .t{display:flex;align-items:baseline;gap:6px;font-weight:700;font-size:15px}
+.meal .t small{margin-left:auto;font-weight:500;color:var(--faint);font-size:12px}
+.ing{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.ing span{font-size:12px;padding:3px 7px;border-radius:6px;background:#fff;border:1px solid var(--line)}
+.ing span.ice{background:var(--ice-pale);border-color:var(--ice-line);color:var(--ice)}
+.ing span.base{color:var(--faint);background:transparent}
+.ing span.miss{color:var(--rust);border-style:dashed;background:transparent}
+.staples{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:12px;color:var(--faint)}
+.staples b{color:var(--muted);font-weight:600}
+
+/* 드래그 */
+.ghost{position:fixed;left:0;top:0;z-index:40;pointer-events:none;width:110px;height:104px;border-radius:16px;background:#fff;box-shadow:0 18px 40px rgba(0,0,0,.25);display:flex;flex-direction:column;align-items:center;justify-content:center;transform:translate(-50%,-50%) scale(1.08);transition:transform .12s}
+.ghost .em{font-size:38px}
+.ghost .nm{font-weight:700;font-size:14px}
+.ghost.over{transform:translate(-50%,-50%) scale(.75)}
+.dim-layer{position:fixed;inset:0;background:rgba(30,40,34,.18);z-index:20;opacity:0;pointer-events:none;transition:opacity .2s}
+body.dragging .dim-layer{opacity:1}
+.drops{position:fixed;left:22px;right:22px;bottom:20px;height:170px;display:grid;grid-template-columns:2fr 1fr;gap:12px;z-index:30;transform:translateY(220px);transition:transform .22s cubic-bezier(.2,.8,.2,1)}
+body.dragging .drops{transform:translateY(0)}
+.drop{border-radius:24px;border:3px dashed rgba(255,255,255,.7);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#fff;font-weight:700;font-size:20px;transition:transform .12s,filter .12s}
+.drop .ic{font-size:54px;line-height:1}
+.drop small{font-size:13px;font-weight:500;opacity:.85}
+.drop.eat{background:var(--green)}
+.drop.waste{background:var(--rust)}
+.drop.over{transform:scale(1.04);filter:brightness(1.12);border-style:solid;border-color:#fff}
+.box .move-hint{position:absolute;inset:0;border-radius:20px;display:none;align-items:center;justify-content:center;flex-direction:column;gap:6px;font-size:18px;font-weight:700;z-index:25;background:rgba(255,255,255,.88);border:3px dashed var(--green);color:var(--green)}
+.box.frz .move-hint{border-color:var(--ice);color:var(--ice)}
+.box .move-hint .ic{font-size:40px}
+body.dragging .box.can-move .move-hint{display:flex}
+.box .move-hint.over{background:#fff;border-style:solid;transform:scale(1.01)}
+
+/* 넣기 시트 */
+.scrim{position:fixed;inset:0;background:rgba(30,40,34,.32);display:none;align-items:center;justify-content:center;z-index:50}
+.scrim.open{display:flex}
+.sheet{width:740px;max-width:calc(100vw - 32px);background:#fff;border-radius:24px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.18)}
+.sheet h2{margin:0;font-size:22px}
+.where{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:14px 0}
+.where button{height:56px;border-radius:14px;border:1px solid var(--line);background:var(--paper);font-size:17px;font-weight:600}
+.where button.on{background:var(--green);border-color:var(--green);color:#fff}
+.where button.on.frz{background:var(--ice);border-color:var(--ice)}
+.sheet input{width:100%;height:54px;border:1px solid var(--line);border-radius:14px;padding:0 16px;font:inherit;font-size:17px}
+.chip-sec{font-size:12.5px;font-weight:700;color:var(--muted);margin:14px 0 6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{height:42px;padding:0 12px;border-radius:11px;border:1px solid var(--line);background:var(--paper);display:flex;align-items:center;gap:5px;font-size:14.5px}
+.chips button .em{font-size:19px}
+.chips button.on{background:var(--green-pale);border-color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
+.foot{display:flex;align-items:center;gap:8px;margin-top:18px}
+.foot .sum{flex:1;color:var(--muted);font-size:14px}
+.btn{height:52px;padding:0 24px;border-radius:13px;border:1px solid var(--line);background:#fff;font-weight:600;font-size:15px}
+.btn.primary{background:var(--green);color:#fff;border-color:var(--green)}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:var(--ink);color:#fff;border-radius:14px;padding:0 8px 0 18px;height:54px;display:flex;align-items:center;gap:10px;font-size:15px;transition:transform .25s;z-index:60;white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast button{border:0;background:rgba(255,255,255,.14);color:#fff;height:40px;padding:0 14px;border-radius:10px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1>냉장고</h1>
+    <span class="date">11월 2일 월요일</span>
+    <span class="tip">꾹 누른 채로 끌어서 빼기 · 반대 칸에 놓으면 옮기기</span>
+    <div class="spacer"></div>
+    <button class="add-btn" data-add="cold">＋ 넣기</button>
+  </header>
+
+  <section class="box" data-drop="cold" id="box-cold">
+    <div class="box-head"><b>냉장실</b><span class="n" id="n-cold"></span><span class="sort">오래 둔 것부터</span><button class="plus" data-add="cold">＋</button></div>
+    <div class="tiles" id="t-cold"></div>
+    <div class="move-hint" data-drop="cold"><span class="ic">🧊→🥬</span>냉장실로 옮기기</div>
+  </section>
+  <section class="box frz" data-drop="frozen" id="box-frozen">
+    <div class="box-head"><b>냉동실</b><span class="n" id="n-frozen"></span><span class="sort">오래 둔 것부터</span><button class="plus" data-add="frozen">＋</button></div>
+    <div class="tiles" id="t-frozen"></div>
+    <div class="move-hint" data-drop="frozen"><span class="ic">❄︎</span>냉동실로 옮기기</div>
+  </section>
+
+  <aside class="side">
+    <h3>🍳 이걸로 해먹기</h3>
+    <p class="d">집밥 요리의 메인 재료로 찾았어요. 누르면 냉장고에서 재료를 짚어 줘요.</p>
+    <div class="meals" id="meals"></div>
+    <div class="staples"><b>늘 있는 재료</b> · 김치 · 된장 · 마늘 · 참치 · 두반장 <span style="float:right">설정</span></div>
+  </aside>
+</div>
+
+<div class="dim-layer"></div>
+<div class="drops">
+  <div class="drop eat" data-drop="eat"><span class="ic">🍽️</span>다 먹었어요<small>목록에서 빠져요</small></div>
+  <div class="drop waste" data-drop="waste"><span class="ic">🗑️</span>버렸어요<small>버린 기록에 남아요</small></div>
+</div>
+
+<div class="scrim" id="addScrim">
+  <div class="sheet">
+    <h2>무엇을 넣나요?</h2>
+    <div class="where" id="where"><button data-w="cold">🥬 냉장실</button><button data-w="frozen" class="frz">❄︎ 냉동실</button></div>
+    <input id="addIn" placeholder="쉼표로 여러 개: 두부, 대파, 삼겹살" autocomplete="off">
+    <div class="chip-sec">최근에 다 먹은 것 · 다시 넣기</div>
+    <div class="chips" id="c-recent"></div>
+    <div class="chip-sec">집밥에 나오는 재료</div>
+    <div class="chips" id="c-meal"></div>
+    <div class="foot"><span class="sum" id="addSum"></span><button class="btn" data-close>취소</button><button class="btn primary" id="doAdd">넣기</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span id="toastMsg"></span><button id="undo">되돌리기</button></div>
+
+<script>
+const TODAY = new Date(2026,10,2);
+const EMOJI = [['두부','⬜'],['대파','🥬'],['양파','🧅'],['당근','🥕'],['오이','🥒'],['애호박','🥒'],['버섯','🍄'],['양배추','🥬'],['상추','🥬'],['고추','🌶️'],['계란','🥚'],['우유','🥛'],['돼지','🥩'],['소고기','🥩'],['삼겹살','🥓'],['닭','🍗'],['나물','🥗'],['찌개','🍲'],['국','🍲'],['토마토','🍅'],['요거트','🍶'],['명란','🫙'],['숙주','🌱'],['밥','🍚'],['만두','🥟'],['새우','🦐'],['고등어','🐟'],['생선','🐟'],['빵','🍞'],['떡','🍡'],['브로콜리','🥦'],['아이스크림','🍦'],['감자','🥔'],['무','🥬'],['어묵','🍢'],['쌀국수','🍜'],['치즈','🧀'],['사과','🍎']];
+const emojiOf = n => (EMOJI.find(([k])=>n.includes(k))||[,'🥡'])[1];
+const day = (m,d) => Math.round((TODAY - new Date(2026,m-1,d))/864e5);
+let items = [
+  ['두부','cold',10,29],['대파','cold',10,28],['양파','cold',10,31],['당근','cold',10,25],['오이','cold',10,27],['표고버섯','cold',10,27],
+  ['양배추','cold',10,24],['청양고추','cold',10,23],['계란','cold',10,29],['우유','cold',10,30],['돼지고기','cold',10,31],['닭고기','cold',11,1],
+  ['애호박','cold',11,1],['시금치나물','cold',10,30],['김치찌개 남은 것','cold',10,31],['방울토마토','cold',10,29],['요거트','cold',10,28],['명란젓','cold',10,24],
+  ['냉동밥','frozen',10,27],['만두','frozen',10,3],['새우','frozen',9,23],['고등어','frozen',9,8],['소고기 국거리','frozen',8,14],['다진 돼지고기','frozen',10,21],
+  ['식빵','frozen',10,19],['떡','frozen',10,12],['브로콜리','frozen',10,8],['아이스크림','frozen',10,13],
+].map(([name,where,m,d],i)=>({id:i+1,name,where,ago:day(m,d)}));
+const MEALS = [
+  ['참치김치찌개','한식',['김치','두부','참치']],['된장찌개','한식',['된장','두부','애호박']],['김치볶음밥','한식',['김치','밥','계란']],
+  ['마파두부','중식',['두부','돼지고기','두반장']],['오야코동','일식',['닭고기','계란','양파']],['감바스','양식',['새우','마늘']],
+  ['팟타이','아시안',['쌀국수','새우','숙주']],['제육볶음','한식',['돼지고기','양파','대파']],['애호박전','반찬',['애호박','계란']],
+  ['만둣국','한식',['만두','계란','대파']],['고등어조림','한식',['고등어','무','양파']],['떡볶이','분식',['떡','어묵']],
+].map(([t,cat,ing])=>({t,cat,ing}));
+const STAPLES = ['김치','된장','마늘','참치','두반장'];
+let recent = ['상추','감자','삼겹살','숙주'];
+let wasted = 0, nextId = 100, undoState = null, selectedMeal = null;
+
+function when(ago){
+  if (ago===0) return '오늘';
+  if (ago===1) return '어제';
+  const d = new Date(TODAY); d.setDate(d.getDate()-ago);
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+const findItem = ing => items.find(i=>i.name===ing) || items.find(i=>i.name.includes(ing)||ing.includes(i.name));
+
+function render(){
+  for (const w of ['cold','frozen']){
+    const list = items.filter(i=>i.where===w).sort((a,b)=>b.ago-a.ago);
+    document.getElementById('n-'+w).textContent = `${list.length}가지`;
+    const box = document.getElementById('t-'+w);
+    box.innerHTML = list.map(i=>`<button class="tile ${i.fresh?'new':''}" data-id="${i.id}"><span class="em">${emojiOf(i.name)}</span><span class="nm">${i.name}</span><span class="dt">${when(i.ago)}</span></button>`).join('');
+    list.forEach(i=>delete i.fresh);
+  }
+  document.querySelectorAll('.tile').forEach(bindDrag);
+  renderMeals();
+  applyHighlight();
+}
+function renderMeals(){
+  const rows = MEALS.map(m=>{
+    const parts = m.ing.map(n=>{ if (STAPLES.includes(n)) return {n,c:'base'}; const it=findItem(n); return it?{n,c:it.where==='frozen'?'ice':''}:{n,c:'miss'}; });
+    return {...m,parts,miss:parts.filter(p=>p.c==='miss').length};
+  });
+  const ready = rows.filter(r=>r.miss===0), one = rows.filter(r=>r.miss===1);
+  const card = r=>`<button class="meal ${selectedMeal===r.t?'on':''}" data-meal="${r.t}"><div class="t">${r.t}<small>${r.cat}</small></div>
+    <div class="ing">${r.parts.map(p=>`<span class="${p.c}">${p.c==='ice'?'❄︎ ':''}${p.n}${p.c==='miss'?' 없음':''}</span>`).join('')}</div></button>`;
+  document.getElementById('meals').innerHTML =
+    (ready.length?`<div class="sec">지금 바로 · ${ready.length}</div>${ready.map(card).join('')}`:'') +
+    (one.length?`<div class="sec">하나만 있으면 · ${one.length}</div>${one.map(card).join('')}`:'');
+  document.querySelectorAll('[data-meal]').forEach(b=>b.onclick=()=>{ selectedMeal = selectedMeal===b.dataset.meal?null:b.dataset.meal; renderMeals(); applyHighlight(); });
+}
+function applyHighlight(){
+  const m = MEALS.find(x=>x.t===selectedMeal);
+  const ids = new Set(m?m.ing.map(findItem).filter(Boolean).map(i=>i.id):[]);
+  document.querySelectorAll('.tiles').forEach(t=>t.classList.toggle('focus',!!m));
+  document.querySelectorAll('.tile').forEach(t=>t.classList.toggle('hit',ids.has(+t.dataset.id)));
+}
+
+/* 꾹 눌러 끌기 */
+let drag = null;
+document.addEventListener('touchmove',e=>{ if(drag) e.preventDefault(); },{passive:false});
+function bindDrag(el){
+  let timer=null,sx=0,sy=0;
+  el.addEventListener('pointerdown',e=>{
+    if (e.button>0) return;
+    sx=e.clientX; sy=e.clientY; el.classList.add('pressing');
+    timer=setTimeout(()=>{ timer=null; el.classList.remove('pressing'); startDrag(el,sx,sy); },380);
+  });
+  el.addEventListener('pointermove',e=>{ if(timer && Math.hypot(e.clientX-sx,e.clientY-sy)>8){ clearTimeout(timer); timer=null; el.classList.remove('pressing'); } });
+  const stop=()=>{ if(timer){ clearTimeout(timer); timer=null; } el.classList.remove('pressing'); };
+  el.addEventListener('pointerup',stop); el.addEventListener('pointercancel',stop);
+  el.addEventListener('contextmenu',e=>e.preventDefault());
+}
+function startDrag(el,x,y){
+  if (drag) return;
+  const it = items.find(i=>i.id===+el.dataset.id);
+  const g = document.createElement('div'); g.className='ghost';
+  g.innerHTML = `<span class="em">${emojiOf(it.name)}</span><span class="nm">${it.name}</span>`;
+  document.body.appendChild(g);
+  drag = {it,el,g,over:null};
+  el.classList.add('lifted');
+  document.getElementById(it.where==='cold'?'box-frozen':'box-cold').classList.add('can-move');
+  document.body.classList.add('dragging');
+  moveGhost(x,y);
+}
+function moveGhost(x,y){
+  drag.g.style.left=x+'px'; drag.g.style.top=y+'px';
+  const t = document.elementFromPoint(x,y);
+  let over = t && t.closest('[data-drop]');
+  if (over && over.closest('.box') && !over.classList.contains('move-hint')) over = over.closest('.box').querySelector('.move-hint');
+  if (over && over.classList.contains('move-hint') && !over.closest('.box').classList.contains('can-move')) over = null;
+  if (drag.over!==over){ drag.over&&drag.over.classList.remove('over'); over&&over.classList.add('over'); drag.over=over; }
+  drag.g.classList.toggle('over',!!over);
+}
+document.addEventListener('pointermove',e=>{ if(drag) moveGhost(e.clientX,e.clientY); });
+document.addEventListener('pointerup',endDrag);
+document.addEventListener('pointercancel',endDrag);
+function endDrag(){
+  if (!drag) return;
+  const {it,el,g,over} = drag; drag=null;
+  g.remove(); el.classList.remove('lifted'); over&&over.classList.remove('over');
+  document.body.classList.remove('dragging');
+  document.querySelectorAll('.box').forEach(b=>b.classList.remove('can-move'));
+  if (!over) return;
+  const a = over.dataset.drop;
+  if (a==='eat'){ snap(`${it.name} 다 먹었어요`); items=items.filter(i=>i!==it); recent=[it.name,...recent.filter(n=>n!==it.name)].slice(0,8); }
+  if (a==='waste'){ snap(`${it.name} 버림 · 이번 달 ${++wasted}개째`); items=items.filter(i=>i!==it); }
+  if (a==='cold'||a==='frozen'){ snap(`${it.name} ${a==='frozen'?'냉동실':'냉장실'}로 옮김`); it.where=a; it.fresh=true; }
+  render();
+}
+
+/* 넣기 */
+let addWhere='cold', picked=new Set();
+function renderAdd(){
+  document.querySelectorAll('#where button').forEach(b=>b.classList.toggle('on',b.dataset.w===addWhere));
+  const chip = n=>`<button data-c="${n}" class="${picked.has(n)?'on':''}"><span class="em">${emojiOf(n)}</span>${n}</button>`;
+  document.getElementById('c-recent').innerHTML = recent.map(chip).join('');
+  const mealIng = [...new Set(MEALS.flatMap(m=>m.ing))].filter(n=>!STAPLES.includes(n)&&!findItem(n)&&!recent.includes(n));
+  document.getElementById('c-meal').innerHTML = mealIng.map(chip).join('');
+  document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{ picked.has(b.dataset.c)?picked.delete(b.dataset.c):picked.add(b.dataset.c); renderAdd(); });
+  const all = names();
+  document.getElementById('addSum').textContent = all.length?`${addWhere==='cold'?'냉장실':'냉동실'}에 ${all.join(', ')} · 오늘 날짜로`:'';
+}
+const names = ()=>[...new Set([...picked,...document.getElementById('addIn').value.split(/[,，\n]/).map(s=>s.trim()).filter(Boolean)])];
+document.getElementById('addIn').oninput=renderAdd;
+document.querySelectorAll('#where button').forEach(b=>b.onclick=()=>{ addWhere=b.dataset.w; renderAdd(); });
+document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{ addWhere=b.dataset.add; picked.clear(); document.getElementById('addIn').value=''; renderAdd(); document.getElementById('addScrim').classList.add('open'); });
+document.getElementById('doAdd').onclick=()=>{
+  const ns = names(); if(!ns.length) return;
+  snap(`${ns.join(', ')} 넣었어요`);
+  for (const n of ns) items.push({id:nextId++,name:n,where:addWhere,ago:0,fresh:true});
+  recent = recent.filter(n=>!ns.includes(n));
+  closeSheet(); render();
+};
+
+/* 공통 */
+function snap(msg){ undoState = JSON.stringify({items,recent,wasted}); toast(msg); }
+let tt;
+function toast(msg){ const t=document.getElementById('toast'); document.getElementById('toastMsg').textContent=msg; t.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('show'),4500); }
+document.getElementById('undo').onclick=()=>{ if(undoState){ ({items,recent,wasted}=JSON.parse(undoState)); undoState=null; render(); } document.getElementById('toast').classList.remove('show'); };
+function closeSheet(){ document.getElementById('addScrim').classList.remove('open'); }
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=closeSheet);
+document.getElementById('addScrim').onclick=e=>{ if(e.target.id==='addScrim') closeSheet(); };
+render();
+</script>
+</body>
+</html>

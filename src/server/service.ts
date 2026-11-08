@@ -16,6 +16,14 @@ import {
 } from "./assets";
 import { saveAssetBuyPlan } from "./asset-plans";
 import { createMeal, deleteMeal, updateMeal } from "./meals";
+import {
+  addFridgeItems,
+  deleteFridgeItems,
+  moveFridgeItem,
+  removeFridgeItem,
+  restoreFridgeItem,
+} from "./fridge";
+import { fridgePlaceLabels } from "@/lib/fridge";
 import { createWineShare, revokeWineShare } from "./wine-shares";
 import { releaseForStockDrop, setWinePlacement } from "./wine-placements";
 import type { Actor, BeanPrice, Snapshot } from "@/lib/types";
@@ -763,6 +771,36 @@ export async function execute(
         const removed = await deleteMeal(client, actor, command.input);
         result = removed;
         label = `집밥 ${removed.title} 삭제`;
+        break;
+      }
+      case "fridge_add": {
+        const items = await addFridgeItems(client, actor, command.input);
+        result = { items };
+        label = `냉장고 ${fridgePlaceLabels[command.input.place]}에 ${items.map((i) => i.name).join(", ")}`;
+        break;
+      }
+      case "fridge_remove": {
+        const item = await removeFridgeItem(client, actor, command.input);
+        result = item;
+        label = `냉장고 ${item.name} ${command.input.reason === "eaten" ? "다 먹음" : "버림"}`;
+        break;
+      }
+      case "fridge_restore": {
+        const item = await restoreFridgeItem(client, actor, command.input);
+        result = item;
+        label = `냉장고 ${item.name} 되돌림`;
+        break;
+      }
+      case "fridge_move": {
+        const item = await moveFridgeItem(client, actor, command.input);
+        result = item;
+        label = `냉장고 ${item.name} ${fridgePlaceLabels[item.place]}로 옮김`;
+        break;
+      }
+      case "fridge_delete": {
+        const removed = await deleteFridgeItems(client, actor, command.input);
+        result = removed;
+        label = `냉장고 ${removed.names.join(", ")} 넣기 취소`;
         break;
       }
       case "family_invite": {

@@ -13,6 +13,7 @@ import {
   MEAL_MAX_TAGS,
   mealCategories,
 } from "./meals";
+import { FRIDGE_MAX_ADD, FRIDGE_NAME_MAX, fridgePlaces } from "./fridge";
 import { COFFEE_MAX_PRICES } from "./coffee";
 import {
   CELLAR_SHELF_CAPACITY,
@@ -73,6 +74,9 @@ const meal = {
     .default(false)
     .describe("아직 안 해봤지만 해보고 싶은 요리면 true"),
 };
+// 냉장고 재료 한 건을 가리키는 값. 같은 재료를 동시에 바꾸면 version으로 막는다.
+const fridgeRef = { id, expected_version: version };
+const fridgePlace = z.enum(fridgePlaces);
 const bean = {
   brand_id: id,
   name,
@@ -423,6 +427,27 @@ export const commandSchemas = {
     .object({ ...key, id, expected_version: version, ...meal })
     .strict(),
   meal_delete: z.object({ ...key, id, expected_version: version }).strict(),
+  fridge_add: z
+    .object({
+      ...key,
+      place: fridgePlace,
+      names: z
+        .array(z.string().trim().min(1).max(FRIDGE_NAME_MAX))
+        .min(1)
+        .max(FRIDGE_MAX_ADD),
+    })
+    .strict(),
+  fridge_remove: z
+    .object({ ...key, ...fridgeRef, reason: z.enum(["eaten", "wasted"]) })
+    .strict(),
+  fridge_restore: z.object({ ...key, ...fridgeRef }).strict(),
+  fridge_move: z.object({ ...key, ...fridgeRef, place: fridgePlace }).strict(),
+  fridge_delete: z
+    .object({
+      ...key,
+      items: z.array(z.object(fridgeRef).strict()).min(1).max(FRIDGE_MAX_ADD),
+    })
+    .strict(),
   family_invite: z
     .object({
       ...key,
@@ -467,6 +492,12 @@ export const commandScopes: Record<Operation, Scope | null> = {
   meal_create: "meal:write",
   meal_update: "meal:write",
   meal_delete: "meal:write",
+  // 냉장고는 집밥과 같은 부엌 영역이라 집밥 scope를 같이 쓴다(새 scope면 기존 AI 연결을 다시 승인해야 한다).
+  fridge_add: "meal:write",
+  fridge_remove: "meal:write",
+  fridge_restore: "meal:write",
+  fridge_move: "meal:write",
+  fridge_delete: "meal:write",
   archive_item: null,
   family_invite: null,
   family_remove: null,
@@ -479,9 +510,15 @@ export const commandScopes: Record<Operation, Scope | null> = {
 // 와인 목록 공유는 공개 링크를 만드는 일이라 사람이 화면에서 목록을 보고 정한다.
 // 와인 삭제는 기록까지 지워 되돌릴 수 없으므로 사람이 상세 화면에서 확인하고 실행한다.
 // 집밥은 MCP로 추가·조회만 연다. 고치기·지우기는 웹 화면에서 한다.
+// 냉장고는 냉장고 앞 화면에서 넣고 빼는 기록이라 지금은 MCP 도구로 열지 않는다.
 export const webOnlyCommands = new Set<Operation>([
   "meal_update",
   "meal_delete",
+  "fridge_add",
+  "fridge_remove",
+  "fridge_restore",
+  "fridge_move",
+  "fridge_delete",
   "asset_save_owner",
   "asset_save_buy_plan",
   "wine_share_create",

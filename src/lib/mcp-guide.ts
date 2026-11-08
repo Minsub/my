@@ -187,10 +187,12 @@ export const commandGuide = {
   },
   // meal_update·meal_delete는 웹 전용이다. MCP는 추가·조회만 연다.
   // asset_save_owner·asset_save_buy_plan·wine_share_*는 웹 전용이라 MCP 도구 목록에 없다(contracts.ts의 webOnlyCommands).
+  // 냉장고(fridge_*)는 모두 웹 전용이다.
 } satisfies Record<
   Exclude<
     Operation,
     | `family_${string}`
+    | `fridge_${string}`
     | "archive_item"
     | "asset_save_owner"
     | "asset_save_buy_plan"
