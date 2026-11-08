@@ -2,13 +2,14 @@
 import { CashOld } from "./cash-old";
 import { CashDashboard } from "./cash-dashboard";
 import { AssetHub } from "./asset-hub";
-import { MenuHub, hobbyMenus, kkomiMenus } from "./menu-hub";
+import { MenuHub, clockMenus, hobbyMenus, kkomiMenus } from "./menu-hub";
 import { PregnancyLog } from "./pregnancy-log";
 import { BakingRecipeList } from "./baking-recipes";
 import { BakingRecipeView } from "./baking-recipe";
 import { MealList } from "./meal-list";
 import { FridgeBoard } from "./fridge-board";
 import { ClockScreen } from "./clock-screen";
+import { ClockSettingsPage } from "./clock-settings";
 import { AssetStatus } from "./asset-status";
 import { AssetRecords } from "./asset-records";
 import { AssetPlans } from "./asset-plans";
@@ -1812,7 +1813,19 @@ export function AppShell({
   else if (path === "/hobby/fridge")
     content = <FridgeBoard demo={demo} href={href} />;
   else if (path === "/hobby/clock")
+    content = (
+      <MenuHub
+        eyebrow="MONO / HOBBY / CLOCK"
+        title="시계"
+        description="iPad를 켜두고 보는 큰 시계와 지금 날씨. 글꼴과 색은 설정에서 바꿉니다."
+        items={clockMenus}
+        href={href}
+      />
+    );
+  else if (path === "/hobby/clock/view")
     content = <ClockScreen demo={demo} href={href} />;
+  else if (path === "/hobby/clock/settings")
+    content = <ClockSettingsPage demo={demo} href={href} />;
   else if (path === "/hobby/meals")
     content = (
       <MealList

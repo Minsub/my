@@ -16,7 +16,9 @@ export async function generateViewport({
   params: Promise<{ path?: string[] }>;
 }): Promise<Viewport> {
   const { path: parts = [] } = await params;
-  return parts.join("/") === "hobby/clock" ? { themeColor: "#000000" } : {};
+  return parts.join("/") === "hobby/clock/view"
+    ? { themeColor: "#000000" }
+    : {};
 }
 export default async function Page({
   params,
@@ -55,6 +57,8 @@ export default async function Page({
       "/hobby/meals",
       "/hobby/fridge",
       "/hobby/clock",
+      "/hobby/clock/view",
+      "/hobby/clock/settings",
       "/baby",
       "/baby/pregnancy",
     ].includes(path) &&

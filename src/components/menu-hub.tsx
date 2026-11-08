@@ -4,6 +4,8 @@ import {
   ArrowUpRight,
   CakeSlice,
   Clock,
+  Maximize2,
+  SlidersHorizontal,
   Coffee,
   CookingPot,
   Refrigerator,
@@ -100,8 +102,24 @@ export const hobbyMenus: HubItem[] = [
     path: "/hobby/clock",
     title: "시계",
     description:
-      "iPad를 켜두고 보는 큰 시계와 오늘 날씨를 검정 화면에 띄웁니다.",
+      "iPad를 켜두고 보는 큰 시계와 지금 날씨를 검정 화면에 띄웁니다.",
     icon: Clock,
+  },
+];
+export const clockMenus: HubItem[] = [
+  {
+    path: "/hobby/clock/view",
+    title: "시계 보기",
+    description:
+      "날짜·지금 날씨와 초까지 나오는 큰 시계를 검정 전체 화면으로 켭니다.",
+    icon: Maximize2,
+  },
+  {
+    path: "/hobby/clock/settings",
+    title: "시계 설정",
+    description:
+      "시계 글꼴·굵기·색, 초 표시와 콜론 깜빡임을 이 기기에 맞춥니다.",
+    icon: SlidersHorizontal,
   },
 ];
 export const kkomiMenus: HubItem[] = [

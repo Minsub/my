@@ -1,64 +1,74 @@
-/* 취미 / 시계: 앱 화면 위를 덮는 검정 전체 화면. 크기는 화면 너비(cqw) 기준 */
+/* 취미 / 시계. 시계 화면(clock-display)은 자기 너비(cqw) 기준으로 그려 전체 화면과 설정 미리보기가 같다 */
 html.clock-open,
 html.clock-open body {
   overflow: hidden;
   background: #000;
 }
-.clock-screen {
-  --clock-digit: #f4f4f1;
-  --clock-sub: #8c8c88;
-  --clock-rule: #2a2a28;
-  position: fixed;
-  inset: 0;
-  z-index: 150;
+.clock-display {
+  --clock-sub: color-mix(in srgb, var(--clock-info) 58%, #000);
+  --clock-ampm: color-mix(in srgb, var(--clock-digit) 62%, #000);
   container-type: inline-size;
+  position: relative;
+  width: 100%;
+  height: 100%;
   display: grid;
   grid-template-rows: auto 1fr;
-  padding: calc(3.2cqw + env(safe-area-inset-top)) 4.6cqw
-    calc(2cqw + env(safe-area-inset-bottom));
+  padding: 3cqw 0 2cqw;
   background: #000;
-  color: var(--clock-digit);
+  color: var(--clock-info);
   font-family:
     -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue",
     "Noto Sans KR", sans-serif;
   letter-spacing: -0.02em;
+  overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
-  cursor: default;
-  overflow: hidden;
 }
 .clock-head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 4cqw;
+  padding: 0 4.4cqw;
 }
 .clock-date {
-  font-size: 2.6cqw;
+  font-size: 3.3cqw;
   font-weight: 500;
   color: var(--clock-sub);
-  padding-top: 0.6cqw;
+  padding-top: 0.8cqw;
+  white-space: nowrap;
 }
 .clock-weather {
   display: flex;
   align-items: center;
-  gap: 2cqw;
-  min-height: 7.2cqw;
+  gap: 1.8cqw;
+  min-height: 8.6cqw;
 }
 .clock-icon {
-  width: 7.2cqw;
-  height: 7.2cqw;
+  width: 8.6cqw;
+  height: 8.6cqw;
   flex-shrink: 0;
-  color: var(--clock-digit);
+}
+.clock-now,
+.clock-temps b {
+  font-family: var(--clock-font);
+  font-weight: var(--clock-weight);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 0.9;
+}
+.clock-now {
+  font-size: 8.4cqw;
 }
 .clock-cond {
-  font-size: 3.6cqw;
-  font-weight: 500;
+  font-size: 4.2cqw;
+  font-weight: 600;
   line-height: 1.1;
+  white-space: nowrap;
 }
 .clock-cond small {
   display: block;
-  font-size: 1.6cqw;
+  font-size: 2cqw;
   font-weight: 400;
   color: var(--clock-sub);
   margin-top: 0.5cqw;
@@ -66,50 +76,71 @@ html.clock-open body {
 .clock-temps {
   display: flex;
   gap: 2.6cqw;
-  margin-left: 1.4cqw;
+  margin-left: 1cqw;
   padding-left: 2.6cqw;
-  border-left: 0.15cqw solid var(--clock-rule);
+  border-left: 0.15cqw solid color-mix(in srgb, var(--clock-info) 22%, #000);
 }
 .clock-temps > span {
   display: grid;
-  gap: 0.4cqw;
+  gap: 0.5cqw;
 }
 .clock-temps small {
-  font-size: 1.5cqw;
+  font-size: 1.9cqw;
   color: var(--clock-sub);
 }
 .clock-temps b {
-  font-size: 6cqw;
-  font-weight: 200;
-  line-height: 0.9;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
+  font-size: 5.4cqw;
 }
 .clock-face {
   align-self: center;
   justify-self: center;
-  position: relative;
-}
-.clock-time {
-  font-weight: 200;
-  line-height: 0.78;
-  letter-spacing: -0.035em;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-.clock-colon {
-  display: inline-block;
-  transform: translateY(-0.04em);
+  display: flex;
+  align-items: flex-start;
 }
 .clock-ampm {
-  position: absolute;
-  right: 100%;
-  top: 6%;
-  margin-right: 1.6cqw;
-  font-size: 2.8cqw;
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  margin: 0.6cqw 1.2cqw 0 0;
+  font-size: 2.5cqw;
   font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--clock-sub);
+  letter-spacing: 0.08em;
+  color: var(--clock-ampm);
+}
+.clock-time {
+  font-family: var(--clock-font);
+  font-weight: var(--clock-weight);
+  line-height: 0.78;
+  white-space: nowrap;
+  color: var(--clock-digit);
+}
+.clock-d,
+.clock-colon {
+  display: inline-block;
+  text-align: center;
+}
+.clock-d {
+  width: var(--cell, 0.6em);
+}
+.clock-colon {
+  width: var(--colon, 0.3em);
+  transform: translateY(-0.04em);
+}
+.clock-colon.off {
+  opacity: 0;
+}
+.clock-sec.small {
+  font-size: 0.5em;
+}
+
+/* 시계 보기: 앱 화면을 덮는 전체 화면 */
+.clock-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  background: #000;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+  cursor: default;
 }
 .clock-controls {
   position: absolute;
@@ -119,12 +150,18 @@ html.clock-open body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 12px 16px;
   padding: 16px max(24px, env(safe-area-inset-right))
     calc(16px + env(safe-area-inset-bottom))
     max(24px, env(safe-area-inset-left));
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.85) 40%);
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.88) 40%);
   font-size: 14px;
+  color: #f4f4f1;
+}
+.clock-control-links {
+  display: flex;
+  gap: 10px;
 }
 .clock-exit {
   display: inline-flex;
@@ -134,13 +171,145 @@ html.clock-open body {
   padding: 0 16px;
   border: 1px solid #3a3a37;
   border-radius: 999px;
-  color: var(--clock-digit);
+  color: #f4f4f1;
 }
 .clock-wake {
-  color: var(--clock-sub);
+  color: #8c8c88;
   text-align: right;
 }
 .clock-wake.off,
 .clock-wake.unsupported {
   color: #d9a066;
+}
+
+/* 시계 설정 */
+.clock-set {
+  display: grid;
+  gap: 24px;
+  max-width: 980px;
+}
+.clock-set-top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+}
+.clock-set-actions {
+  display: flex;
+  gap: 8px;
+}
+.clock-preview {
+  width: 100%;
+  max-width: 820px;
+  aspect-ratio: 1180 / 820;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 0 0 6px #232524;
+  margin: 6px;
+}
+.clock-set-list {
+  display: grid;
+  max-width: 820px;
+}
+.clock-set-row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 12px 16px;
+  align-items: center;
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+.clock-set-row > span {
+  font-weight: 600;
+}
+.clock-set-row > span small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 12px;
+}
+.clock-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.clock-chip {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--white);
+}
+.clock-chip[aria-pressed="true"] {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+.clock-font-chip {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 84px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--white);
+}
+.clock-font-chip b {
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+.clock-font-chip small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.clock-font-chip[aria-pressed="true"] {
+  border-color: var(--green);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+.clock-swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid var(--white);
+  box-shadow: 0 0 0 1px var(--line);
+}
+.clock-swatch[aria-pressed="true"] {
+  box-shadow: 0 0 0 2px var(--ink);
+}
+.clock-custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px 0 6px;
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.clock-custom input {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+}
+.clock-set-note {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  max-width: 70ch;
+}
+@media (max-width: 600px) {
+  .clock-set-row {
+    grid-template-columns: 1fr;
+  }
 }

@@ -1,7 +1,7 @@
 import { webActor, errorResponse, rateLimit } from "@/server/security";
 import { todayWeather } from "@/server/weather";
 export const runtime = "nodejs";
-// 취미 / 시계의 오늘 날씨. 로그인한 사용자만 부르며 값은 서버 메모리에 30분 둔다.
+// 취미 / 시계의 날씨(지금 기온·상태, 오늘 최저·최고). 로그인한 사용자만 부르며 값은 서버 메모리에 15분 둔다.
 export async function GET(request: Request) {
   try {
     const actor = await webActor(request.headers);

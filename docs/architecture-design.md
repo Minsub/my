@@ -127,4 +127,8 @@ service worker는 없다. 로그인·재고 version·금액을 다루므로 HTML
 
 ## 시계와 날씨
 
-`/hobby/clock`은 catch-all의 AppShell 안에서 `ClockScreen`이 `position: fixed` 검정 화면으로 셸을 덮는다(새 스키마·scope 없음, 이 경로만 `generateViewport`로 theme-color 검정). 날씨는 `GET /api/weather`가 로그인 확인 후 `server/weather.ts`에서 Open-Meteo(키 없음)의 오늘 최고·최저·WMO 코드를 받아 `lib/weather.ts`의 네 상태로 묶는다. 지역은 `weatherPlace`(용인 수지 좌표) 한 곳으로 고정이다. 값은 서버 인스턴스 메모리에 30분, 날짜가 바뀌면 새로 받고, 실패 시 같은 날 값이 있으면 그대로 쓴다. 화면은 30분마다·자정·앱 복귀(10분 경과) 때 다시 읽고 데모는 API를 부르지 않는 예시 값이다. 화면 꺼짐 방지는 Screen Wake Lock을 쓰며 거부되면 iPad 자동 잠금을 끄라고 안내한다. 시계는 기기 시각을 쓴다.
+`/hobby/clock`은 시계 메뉴(MenuHub), `/hobby/clock/view`는 `ClockScreen`이 `position: fixed` 검정 화면으로 셸을 덮는 시계, `/hobby/clock/settings`는 설정이다. 셋 다 catch-all의 AppShell 안이며 새 스키마·scope는 없다. 보기 경로만 `generateViewport`로 theme-color를 검정으로 둔다. 화면 본체 `ClockDisplay`는 자기 너비(cqw) 기준으로 그려 전체 화면과 설정 미리보기가 같은 모양이다. 숫자는 칸마다 그 글꼴의 가장 넓은 숫자 폭으로 고정해 초가 바뀌어도 흔들리지 않고, "12:00:00"(초 설정 반영)과 세로 AM/PM이 화면 너비 97%를 채우는 크기로 맞춘다. 0.5초마다 다시 그려 콜론을 깜빡인다. 시계는 기기 시각을 쓴다.
+
+설정(`lib/clock-settings.ts`)은 기기마다 다른 표시 취향이라 서버가 아니라 `localStorage`(`mono.clock.settings.v1`)에 두고 `useSyncExternalStore`로 읽는다. 깨진 값은 항목별로 기본값을 채운다. iOS 홈 화면 앱은 Safari와 저장소가 따로다. 데모는 메모리에서만 바뀐다. 글꼴은 iPad·Mac 기본 글꼴만 써서 따로 받지 않는다.
+
+날씨는 `GET /api/weather`가 로그인 확인 후 `server/weather.ts`에서 Open-Meteo(키 없음)의 지금 기온·날씨 코드·낮밤과 오늘 최고·최저를 받아 `lib/weather.ts`의 네 상태로 묶는다(맑은 밤은 달 아이콘). 지역은 `weatherPlace`(용인 수지 좌표) 한 곳으로 고정이다. 값은 서버 인스턴스 메모리에 15분, 날짜가 바뀌면 새로 받고, 실패 시 같은 날 값이 있으면 그대로 쓴다. 화면은 15분마다·자정·앱 복귀(5분 경과) 때 다시 읽고 데모는 API를 부르지 않는 예시 값이다. 화면 꺼짐 방지는 Screen Wake Lock을 쓰며 거부되면 iPad 자동 잠금을 끄라고 안내한다.

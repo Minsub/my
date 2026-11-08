@@ -1,4 +1,5 @@
-// 시계 화면의 오늘 날씨. 지역은 한 곳으로 고정하고, 상태는 맑음·흐림·비·눈 네 가지로만 묶는다.
+// 시계 화면의 날씨. 지역은 한 곳으로 고정하고, 상태는 맑음·흐림·비·눈 네 가지로만 묶는다.
+// 상태와 현재 기온은 지금 시각 기준, 최저·최고는 오늘 하루 기준이다.
 export const weatherPlace = {
   label: "용인 수지",
   latitude: 37.3222,
@@ -10,8 +11,8 @@ export type WeatherKind = "clear" | "cloudy" | "rain" | "snow";
 export type TodayWeather = {
   date: string; // Asia/Seoul YYYY-MM-DD
   place: string;
-  kind: WeatherKind;
-  min: number; // °C, 반올림
+  now: { temp: number; kind: WeatherKind; isDay: boolean }; // °C, 반올림
+  min: number;
   max: number;
   updatedAt: string;
 };
@@ -34,7 +35,7 @@ export function weatherKind(code: number): WeatherKind {
 export const demoWeather = (date: string): TodayWeather => ({
   date,
   place: weatherPlace.label,
-  kind: "clear",
+  now: { temp: 9, kind: "clear", isDay: true },
   min: 4,
   max: 15,
   updatedAt: new Date().toISOString(),
