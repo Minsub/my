@@ -4,7 +4,9 @@ import { AppError, requireScope } from "./security";
 import { today } from "@/lib/format";
 import {
   splitFridgeNames,
+  type FridgeFrequent,
   type FridgeItem,
+  type FridgeKind,
   type FridgePlace,
   type FridgeState,
 } from "@/lib/fridge";
@@ -12,7 +14,7 @@ import type { Actor } from "@/lib/types";
 
 // 취미 / 냉장고 저장·조회. 쓰기는 execute(공통 명령) 안의 트랜잭션에서 부른다.
 // 냉장고는 구성원이 같이 쓰므로 넣은 사람과 관계없이 공간 안의 누구나 빼고 옮긴다.
-const COLUMNS = "id::text AS id, name, place, added_on, version";
+const COLUMNS = "id::text AS id, name, place, kind, added_on, version";
 type Ref = { id: string; expected_version: number };
 
 async function lockItem(
@@ -50,21 +52,47 @@ async function bump(
   return row;
 }
 
+const cleanName = (name: string) => splitFridgeNames(name)[0] ?? "";
 export async function addFridgeItems(
   client: PoolClient,
   actor: Actor,
-  input: { place: FridgePlace; names: string[] },
+  input: { place: FridgePlace; items: { name: string; kind: FridgeKind }[] },
 ) {
-  const names = splitFridgeNames(input.names.join("\n"));
-  if (!names.length)
-    throw new AppError("INVALID_INPUT", "넣을 재료 이름을 적어주세요.");
+  // 같은 이름을 두 번 적었으면 처음 것만 남긴다.
+  const seen = new Set<string>();
+  const items = input.items
+    .map((i) => ({ name: cleanName(i.name), kind: i.kind }))
+    .filter((i) => i.name && !seen.has(i.name) && seen.add(i.name));
+  if (!items.length)
+    throw new AppError("INVALID_INPUT", "넣을 이름을 적어주세요.");
   return query<FridgeItem>(
-    `INSERT INTO fridge_items(household_id,name,place,added_on,created_by,updated_by)
-     SELECT $1, n, $3, $4::date, $5, $5 FROM unnest($2::text[]) WITH ORDINALITY AS t(n, i) ORDER BY i
+    `INSERT INTO fridge_items(household_id,name,kind,place,added_on,created_by,updated_by)
+     SELECT $1, n, k, $4, $5::date, $6, $6
+     FROM unnest($2::text[], $3::text[]) WITH ORDINALITY AS t(n, k, i) ORDER BY i
      RETURNING ${COLUMNS}`,
-    [actor.householdId, names, input.place, today(), actor.userId],
+    [
+      actor.householdId,
+      items.map((i) => i.name),
+      items.map((i) => i.kind),
+      input.place,
+      today(),
+      actor.userId,
+    ],
     client,
   );
+}
+// 이름·종류 고치기(재료를 눌러 여는 시트). 칸은 끌어서 옮기고, 넣은 날은 바꾸지 않는다.
+export async function updateFridgeItem(
+  client: PoolClient,
+  actor: Actor,
+  input: Ref & { name: string; kind: FridgeKind },
+) {
+  const row = await lockItem(client, actor, input);
+  if (row.removed)
+    throw new AppError("ALREADY_REMOVED", "이미 뺀 재료입니다.", 409);
+  const name = cleanName(input.name);
+  if (!name) throw new AppError("INVALID_INPUT", "이름을 적어주세요.");
+  return bump(client, actor, input.id, "name=$4, kind=$5", [name, input.kind]);
 }
 export async function removeFridgeItem(
   client: PoolClient,
@@ -119,23 +147,27 @@ export async function deleteFridgeItems(
   return { deleted: names.length, names };
 }
 
-// 냉장고에 있는 재료 전체(오래 둔 순)와 최근 다 먹은 이름, 이번 달 버린 수.
+// 냉장고에 있는 것 전체(오래 둔 순), 자주 넣는 것, 이번 달 버린 수.
+// 자주 넣는 것: 최근 180일에 넣은 횟수가 많은 이름(같으면 최근에 넣은 순) 12개. 지금 냉장고에
+// 있는 이름은 뺀다. 종류·칸은 마지막으로 넣었을 때 값을 쓴다. 따로 즐겨찾기를 두지 않는다.
 export async function listFridge(actor: Actor): Promise<FridgeState> {
   requireScope(actor, "meal:read");
-  const [items, recent, [wasted]] = await Promise.all([
+  const [items, frequent, [wasted]] = await Promise.all([
     query<FridgeItem>(
       `SELECT ${COLUMNS} FROM fridge_items WHERE household_id=$1 AND removed IS NULL
        ORDER BY added_on, created_at, name`,
       [actor.householdId],
     ),
-    query<{ name: string }>(
-      `SELECT name FROM (
-         SELECT name, max(removed_at) AS last FROM fridge_items
-         WHERE household_id=$1 AND removed='eaten' AND removed_at > now() - interval '90 days'
-         GROUP BY name
-       ) r
-       WHERE NOT EXISTS (SELECT 1 FROM fridge_items i WHERE i.household_id=$1 AND i.removed IS NULL AND i.name=r.name)
-       ORDER BY last DESC LIMIT 12`,
+    query<FridgeFrequent>(
+      `SELECT name, kind, place FROM (
+         SELECT DISTINCT ON (name) name, kind, place,
+           count(*) OVER (PARTITION BY name) AS times, created_at
+         FROM fridge_items
+         WHERE household_id=$1 AND created_at > now() - interval '180 days'
+         ORDER BY name, created_at DESC
+       ) f
+       WHERE NOT EXISTS (SELECT 1 FROM fridge_items i WHERE i.household_id=$1 AND i.removed IS NULL AND i.name=f.name)
+       ORDER BY times DESC, created_at DESC LIMIT 12`,
       [actor.householdId],
     ),
     query<{ count: number }>(
@@ -147,7 +179,7 @@ export async function listFridge(actor: Actor): Promise<FridgeState> {
   ]);
   return {
     items,
-    recent: recent.map((r) => r.name),
+    frequent,
     wasted_this_month: wasted?.count ?? 0,
   };
 }

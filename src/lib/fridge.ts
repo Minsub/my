@@ -10,19 +10,34 @@ export const fridgePlaceLabels: Record<FridgePlace, string> = {
 // 한 번에 넣는 재료 수. 장 본 것을 한 줄로 적는 정도면 충분하다.
 export const FRIDGE_MAX_ADD = 20;
 export const FRIDGE_NAME_MAX = 40;
+// 재료(ingredient)·반찬(dish, 만들어 둔 것·남은 음식)·간편식(ready, 사 온 완성품).
+// 칸 안에서 묶음으로 나눠 보여주고, 반찬은 집밥 매칭에서 뺀다("감자조림"을 감자로 세지 않게).
+export const fridgeKinds = ["ingredient", "dish", "ready"] as const;
+export type FridgeKind = (typeof fridgeKinds)[number];
+export const fridgeKindLabels: Record<FridgeKind, string> = {
+  ingredient: "재료",
+  dish: "반찬",
+  ready: "간편식",
+};
 
 export type FridgeItem = {
   id: string;
   name: string;
   place: FridgePlace;
+  kind: FridgeKind;
   added_on: string; // YYYY-MM-DD, 서울 날짜
   version: number;
 };
+// 넣기 제안. 최근 6개월에 자주 넣은 것(지금 냉장고에 없는 것만)과 마지막으로 넣은 종류·칸.
+export type FridgeFrequent = {
+  name: string;
+  kind: FridgeKind;
+  place: FridgePlace;
+};
 export type FridgeState = {
   items: FridgeItem[];
-  // 최근에 다 먹은 재료 이름(지금 냉장고에 없는 것만, 최근 순). "다시 넣기" 제안에 쓴다.
-  recent: string[];
-  // 이번 달(서울) 버린 재료 수
+  frequent: FridgeFrequent[];
+  // 이번 달(서울) 버린 수
   wasted_this_month: number;
 };
 
@@ -52,6 +67,19 @@ export function splitFridgeNames(text: string) {
 }
 
 const nameKey = (s: string) => s.normalize("NFC").replace(/\s+/g, "");
+
+// 이름으로 종류를 짐작한다. 넣기 시트가 미리 골라 두고, 틀리면 사람이 바꾼다.
+// 022 migration이 이미 넣은 것을 같은 낱말로 나눴다. 낱말을 바꾸면 그 SQL과 맞출 필요는 없다(한 번만 돈다).
+const readyWords =
+  /(짬뽕|짜장|우동|라면|피자|돈까스|돈가스|너겟|핫도그|아이스크림|볶음밥|만두|밀키트|도시락|김밥|샌드위치)/;
+const dishEnds =
+  /(조림|무침|볶음|나물|찌개|국|탕|전|장아찌|절임|샐러드|카레|겉절이|잡채|반찬|남은것|남은거)$/;
+export function guessFridgeKind(name: string): FridgeKind {
+  const key = nameKey(name);
+  if (readyWords.test(key)) return "ready";
+  if (dishEnds.test(key) && !/(설탕|사탕)$/.test(key)) return "dish";
+  return "ingredient";
+}
 
 // 집밥 재료 하나에 맞는 냉장고 재료. 이름이 같으면 그대로, 아니면 냉장고 이름이 재료 이름을
 // 품을 때 맞춘다("다진 돼지고기" ↔ "돼지고기", "냉동밥" ↔ "밥"). 한 글자 재료("무")는
@@ -83,7 +111,9 @@ export type MealMatch = {
 
 // 집밥 요리를 냉장고 재료로 맞춰 본다. 다 있거나 하나만 없는 요리만 남기고,
 // 없는 수가 적은 순 → 오래 둔 재료를 쓰는 순으로 둔다.
-export function matchMeals(dishes: MealDish[], items: FridgeItem[]) {
+// 반찬은 이미 만든 음식이라 빼고, 간편식은 남긴다(만두 → 만둣국, 냉동밥 → 볶음밥).
+export function matchMeals(dishes: MealDish[], all: FridgeItem[]) {
+  const items = all.filter((i) => i.kind !== "dish");
   const staples = new Set(fridgeStaples.map(nameKey));
   const rows: MealMatch[] = dishes.map((dish) => {
     const parts = dish.ingredients.map((name): MealMatchPart => {
@@ -126,8 +156,45 @@ export function fridgeDayLabel(addedOn: string, todayIso: string) {
   return `${m}/${d}`;
 }
 
-// 이름으로 고르는 아이콘. 입력받지 않고 이름에 든 낱말로 정한다. 앞에 있을수록 먼저 본다
-// ("김치찌개"는 찌개, "양배추"는 배가 아니라 양배추).
+// 이름으로 고르는 아이콘. 입력받지 않고 종류와 이름에 든 낱말로 정한다. 목록 앞에 있을수록
+// 먼저 본다("김치찌개"는 찌개, "양배추"는 배가 아니라 양배추). 반찬·간편식은 음식 낱말을 먼저 보고
+// 없으면 🍱·🍽️다. 재료는 맞는 낱말이 없으면 🥡.
+const dishIcons: [string, string][] = [
+  ["찌개", "🍲"],
+  ["국", "🍲"],
+  ["탕", "🍲"],
+  ["카레", "🍛"],
+  ["샐러드", "🥗"],
+  ["나물", "🥗"],
+  ["무침", "🥗"],
+  ["겉절이", "🥗"],
+  ["전", "🥞"],
+  ["잡채", "🍝"],
+  ["계란", "🍳"],
+  ["달걀", "🍳"],
+];
+const readyIcons: [string, string][] = [
+  ["아이스크림", "🍦"],
+  ["볶음밥", "🍚"],
+  ["짬뽕", "🍜"],
+  ["짜장", "🍜"],
+  ["우동", "🍜"],
+  ["라면", "🍜"],
+  ["국수", "🍜"],
+  ["피자", "🍕"],
+  ["만두", "🥟"],
+  ["돈까스", "🍖"],
+  ["돈가스", "🍖"],
+  ["너겟", "🍗"],
+  ["치킨", "🍗"],
+  ["핫도그", "🌭"],
+  ["김밥", "🍙"],
+  ["주먹밥", "🍙"],
+  ["샌드위치", "🥪"],
+  ["떡볶이", "🍢"],
+  ["도시락", "🍱"],
+  ["밥", "🍚"],
+];
 const icons: [string, string][] = [
   ["아이스크림", "🍦"],
   ["브로콜리", "🥦"],
@@ -150,6 +217,14 @@ const icons: [string, string][] = [
   ["배추", "🥬"],
   ["시금치", "🥬"],
   ["깻잎", "🌿"],
+  ["도라지", "🌿"],
+  ["고사리", "🌿"],
+  ["미나리", "🌿"],
+  ["부추", "🌿"],
+  ["우엉", "🌿"],
+  ["연근", "🪷"],
+  ["가지", "🍆"],
+  ["아보카도", "🥑"],
   ["나물", "🥗"],
   ["샐러드", "🥗"],
   ["고추", "🌶️"],
@@ -213,6 +288,10 @@ const icons: [string, string][] = [
   ["복숭아", "🍑"],
   ["무", "🥬"],
 ];
-export function fridgeIcon(name: string) {
-  return icons.find(([word]) => name.includes(word))?.[1] ?? "🥡";
+const pick = (list: [string, string][], name: string) =>
+  list.find(([word]) => name.includes(word))?.[1];
+export function fridgeIcon(name: string, kind: FridgeKind = "ingredient") {
+  if (kind === "dish") return pick(dishIcons, name) ?? "🍱";
+  if (kind === "ready") return pick(readyIcons, name) ?? "🍽️";
+  return pick(icons, name) ?? "🥡";
 }

@@ -22,8 +22,9 @@ import {
   moveFridgeItem,
   removeFridgeItem,
   restoreFridgeItem,
+  updateFridgeItem,
 } from "./fridge";
-import { fridgePlaceLabels } from "@/lib/fridge";
+import { fridgeKindLabels, fridgePlaceLabels } from "@/lib/fridge";
 import { createWineShare, revokeWineShare } from "./wine-shares";
 import { releaseForStockDrop, setWinePlacement } from "./wine-placements";
 import type { Actor, BeanPrice, Snapshot } from "@/lib/types";
@@ -801,6 +802,12 @@ export async function execute(
         const removed = await deleteFridgeItems(client, actor, command.input);
         result = removed;
         label = `냉장고 ${removed.names.join(", ")} 넣기 취소`;
+        break;
+      }
+      case "fridge_update": {
+        const item = await updateFridgeItem(client, actor, command.input);
+        result = item;
+        label = `냉장고 ${item.name}(${fridgeKindLabels[item.kind]}) 고침`;
         break;
       }
       case "family_invite": {

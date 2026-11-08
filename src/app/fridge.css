@@ -98,18 +98,33 @@
   background: white;
   border-color: var(--fr-ice-line);
 }
-.fr-tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  gap: 8px;
-  align-content: start;
+.fr-scroll {
+  flex: 1;
   overflow: auto;
   min-height: 0;
   padding: 2px;
   scrollbar-width: none;
 }
-.fr-tiles::-webkit-scrollbar {
+.fr-scroll::-webkit-scrollbar {
   display: none;
+}
+.fr-section + .fr-section {
+  margin-top: 12px;
+}
+.fr-section h3 {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  margin: 0 2px 6px;
+}
+.fr-section h3 span {
+  font-weight: 500;
+  color: var(--fr-faint);
+}
+.fr-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
 }
 .fr-tile {
   height: 94px;
@@ -170,6 +185,15 @@
     opacity: 1;
   }
 }
+/* 반찬은 따뜻한 베이지, 간편식은 옅은 보라로 재료와 구분한다. */
+.fr-box .fr-tile.dish {
+  background: #fbf4ea;
+  border-color: #eedcc2;
+}
+.fr-box .fr-tile.ready {
+  background: #f5f2fa;
+  border-color: #e1dbec;
+}
 .fr-tile.lifted {
   opacity: 0.25;
 }
@@ -177,7 +201,7 @@
   box-shadow: 0 0 0 3px var(--green);
   background: white;
 }
-.fr-tiles.focus .fr-tile:not(.hit) {
+.fr-scroll.focus .fr-tile:not(.hit) {
   opacity: 0.3;
 }
 .fr-empty {
@@ -228,6 +252,41 @@
 }
 .fr-side h2 {
   font-size: 16px;
+}
+.fr-eat-now {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.fr-eat-now > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+  max-height: 150px;
+  overflow: auto;
+  scrollbar-width: none;
+}
+.fr-eat-now > div span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 7px;
+  border-radius: 8px;
+  background: #fbf4ea;
+  border: 1px solid #eedcc2;
+  font-size: 12px;
+  font-weight: 600;
+}
+/* 냉동실 것은 파란 바탕 */
+.fr-eat-now > div span.frozen {
+  background: var(--fr-ice-pale);
+  border-color: var(--fr-ice-line);
+}
+.fr-eat-now small {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fr-faint);
 }
 .fr-side > p {
   margin: 4px 0 10px;
@@ -429,7 +488,52 @@
   width: 680px;
 }
 .fr-sheet-body {
-  padding: 26px 28px 24px !important;
+  padding: 26px 28px 24px;
+}
+.fr-sheet form {
+  padding: 0 !important;
+}
+.fr-kinds {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.fr-kinds button {
+  height: 44px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: white;
+  font-size: 15px !important;
+  font-weight: 600;
+}
+.fr-kinds button.on {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: white !important;
+}
+.fr-preview button small {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--green-pale);
+  color: var(--green);
+}
+.fr-preview button.dish {
+  background: #fbf4ea;
+  border-color: #eedcc2;
+}
+.fr-preview button.dish small {
+  background: #f3e3c9;
+  color: #8a5a12;
+}
+.fr-preview button.ready {
+  background: #f5f2fa;
+  border-color: #e1dbec;
+}
+.fr-preview button.ready small {
+  background: #e7e0f3;
+  color: #5b4a86;
 }
 .fr-where {
   display: grid;
@@ -548,7 +652,7 @@
     height: 130px;
   }
   .fr-sheet-body {
-    padding: 22px 20px calc(22px + env(safe-area-inset-bottom)) !important;
+    padding: 22px 20px calc(22px + env(safe-area-inset-bottom));
   }
   .fr-sheet-foot {
     flex-wrap: wrap;

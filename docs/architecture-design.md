@@ -109,7 +109,7 @@ UI 숨김은 보안 검사가 아니다. 쿠키 기반 변경은 sameOrigin, 모
 
 ## 냉장고
 
-`/hobby/fridge`는 021 migration의 `fridge_items`를 전용 `GET /api/fridge`로 읽고 공통 `POST /api/commands`(`fridge_*`)로 쓴다. 공통 snapshot에 넣지 않았고, 새 scope 없이 `meal:*`를 같이 쓰며 명령은 모두 `webOnlyCommands`다. 화면은 `/api/meals`도 함께 읽어 집밥 메인 재료와 맞춘다. 자세한 규칙은 [냉장고 문서](fridge/README.md).
+`/hobby/fridge`는 021·022 migration의 `fridge_items`를 전용 `GET /api/fridge`로 읽고 공통 `POST /api/commands`(`fridge_*`)로 쓴다. 공통 snapshot에 넣지 않았고, 새 scope 없이 `meal:*`를 같이 쓰며 명령은 모두 `webOnlyCommands`다. 화면은 `/api/meals`도 함께 읽어 집밥 메인 재료와 맞춘다. 자세한 규칙은 [냉장고 문서](fridge/README.md).
 
 ## 가계부 원본 파일
 

@@ -13,7 +13,12 @@ import {
   MEAL_MAX_TAGS,
   mealCategories,
 } from "./meals";
-import { FRIDGE_MAX_ADD, FRIDGE_NAME_MAX, fridgePlaces } from "./fridge";
+import {
+  FRIDGE_MAX_ADD,
+  FRIDGE_NAME_MAX,
+  fridgeKinds,
+  fridgePlaces,
+} from "./fridge";
 import { COFFEE_MAX_PRICES } from "./coffee";
 import {
   CELLAR_SHELF_CAPACITY,
@@ -77,6 +82,8 @@ const meal = {
 // 냉장고 재료 한 건을 가리키는 값. 같은 재료를 동시에 바꾸면 version으로 막는다.
 const fridgeRef = { id, expected_version: version };
 const fridgePlace = z.enum(fridgePlaces);
+const fridgeName = z.string().trim().min(1).max(FRIDGE_NAME_MAX);
+const fridgeKind = z.enum(fridgeKinds);
 const bean = {
   brand_id: id,
   name,
@@ -431,11 +438,14 @@ export const commandSchemas = {
     .object({
       ...key,
       place: fridgePlace,
-      names: z
-        .array(z.string().trim().min(1).max(FRIDGE_NAME_MAX))
+      items: z
+        .array(z.object({ name: fridgeName, kind: fridgeKind }).strict())
         .min(1)
         .max(FRIDGE_MAX_ADD),
     })
+    .strict(),
+  fridge_update: z
+    .object({ ...key, ...fridgeRef, name: fridgeName, kind: fridgeKind })
     .strict(),
   fridge_remove: z
     .object({ ...key, ...fridgeRef, reason: z.enum(["eaten", "wasted"]) })
@@ -498,6 +508,7 @@ export const commandScopes: Record<Operation, Scope | null> = {
   fridge_restore: "meal:write",
   fridge_move: "meal:write",
   fridge_delete: "meal:write",
+  fridge_update: "meal:write",
   archive_item: null,
   family_invite: null,
   family_remove: null,
@@ -519,6 +530,7 @@ export const webOnlyCommands = new Set<Operation>([
   "fridge_restore",
   "fridge_move",
   "fridge_delete",
+  "fridge_update",
   "asset_save_owner",
   "asset_save_buy_plan",
   "wine_share_create",
