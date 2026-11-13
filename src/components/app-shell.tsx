@@ -13,7 +13,7 @@ import { ClockSettingsPage } from "./clock-settings";
 import { AssetStatus } from "./asset-status";
 import { AssetRecords } from "./asset-records";
 import { AssetPlans } from "./asset-plans";
-import { HtmlPageList, HtmlPageView } from "./html-pages";
+import { HtmlPageList, HtmlPageView, UploadedHtmlView } from "./html-pages";
 import { WorkspaceHome } from "./workspace-home";
 import { WineCellar, WineDetailPhoto } from "./wine-cellar";
 import { WineShares } from "./wine-share";
@@ -60,7 +60,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { findHtmlPage } from "@/lib/html-pages";
+import { findHtmlPage, isHtmlUploadId } from "@/lib/html-pages";
 import { findBakingRecipe } from "@/lib/baking";
 import type { Bean, Purchase, Snapshot, Wine } from "@/lib/types";
 import { wineTypes, glassTypes } from "@/lib/types";
@@ -1879,11 +1879,15 @@ export function AppShell({
   else if (path === "/cash/old") content = <CashOld demo={demo} />;
   else if (path === "/cash")
     content = <CashDashboard initialQuery={initialQuery} demo={demo} />;
-  else if (path === "/etc/html") content = <HtmlPageList href={href} />;
+  else if (path === "/etc/html")
+    content = <HtmlPageList href={href} demo={demo} />;
   else if (path.startsWith("/etc/html/")) {
-    const page = findHtmlPage(path.split("/")[3] ?? "");
+    const id = path.split("/")[3] ?? "";
+    const page = findHtmlPage(id);
     content = page ? (
       <HtmlPageView page={page} href={href} demo={demo} />
+    ) : isHtmlUploadId(id) ? (
+      <UploadedHtmlView key={id} id={id} href={href} demo={demo} />
     ) : null;
   } else if (path === "/settings") content = renderSettings();
   else

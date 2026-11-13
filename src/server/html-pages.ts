@@ -39,9 +39,19 @@ const pages: Record<string, HtmlPageSpec> = {
   },
 };
 const policy = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; base-uri 'none'; form-action 'none'">`;
-function isolate(html: string) {
-  if (!/<head[\s>]/i.test(html)) throw Error("HTML head is required");
-  return html.replace(/<head[^>]*>/i, (head) => head + policy);
+// CSP must come before any script, so only doctype/comments/<html> may precede it.
+// An uploaded file without <head> gets one; the parser still moves later head tags into it.
+export function isolate(html: string) {
+  const source = html.replace(/^\uFEFF/, "");
+  const prefix =
+    source.match(
+      /^(?:\s+|<!--[\s\S]*?-->|<!doctype[^>]*>|<html(?:\s[^>]*)?>)*/i,
+    )?.[0] ?? "";
+  const rest = source.slice(prefix.length);
+  const head = rest.match(/^<head(?:\s[^>]*)?>/i)?.[0];
+  return head
+    ? prefix + head + policy + rest.slice(head.length)
+    : prefix + "<head>" + policy + "</head>" + rest;
 }
 export async function htmlPage(name: string) {
   if (!Object.hasOwn(pages, name)) return null;
@@ -51,7 +61,8 @@ export async function htmlPage(name: string) {
   if (spec.adapter === "inline-css") {
     if (!spec.loadStylesheet) throw Error("HTML stylesheet loader is missing");
     const stylesheet = await spec.loadStylesheet();
-    const link = /<link\s+rel=["']stylesheet["']\s+href=["']\.\/us_yield_calculator\.tailwind\.css["']\s*\/?>(?:<\/link>)?/i;
+    const link =
+      /<link\s+rel=["']stylesheet["']\s+href=["']\.\/us_yield_calculator\.tailwind\.css["']\s*\/?>(?:<\/link>)?/i;
     if (!link.test(source)) throw Error("HTML stylesheet link is missing");
     return isolate(
       source.replace(

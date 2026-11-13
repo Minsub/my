@@ -5,7 +5,10 @@ type Package = { html: string; files: { name: string; bytes: ArrayBuffer }[] };
 async function loadPackage(
   pageId: string,
   withFiles: boolean,
+  preloaded?: string,
 ): Promise<Package> {
+  // An uploaded page's source arrives with its info, so it is not fetched twice.
+  if (preloaded !== undefined) return { html: preloaded, files: [] };
   const [page, list] = await Promise.all([
     fetch(`/api/html-pages/${encodeURIComponent(pageId)}`, {
       cache: "no-store",
@@ -48,13 +51,18 @@ function writeStore(pageId: string, key: string, value: string) {
     /* A full or blocked storage keeps the page working in memory. */
   }
 }
-type Props = { pageId: string; title: string; dataSource?: "cash" | "none" };
+type Props = {
+  pageId: string;
+  title: string;
+  dataSource?: "cash" | "none";
+  html?: string;
+};
 export function SingleHtmlPage(props: Props) {
   return (
     <HtmlPage key={props.pageId + (props.dataSource || "none")} {...props} />
   );
 }
-function HtmlPage({ pageId, title, dataSource = "none" }: Props) {
+function HtmlPage({ pageId, title, dataSource = "none", html: source }: Props) {
   const frame = useRef<HTMLIFrameElement>(null);
   const pending = useRef<Promise<Package> | null>(null);
   const [html, setHtml] = useState("");
@@ -65,7 +73,7 @@ function HtmlPage({ pageId, title, dataSource = "none" }: Props) {
     let active = true,
       sent = false;
     // The same mount shares its load in Strict Mode; no private file cache survives navigation.
-    pending.current ||= loadPackage(pageId, dataSource === "cash");
+    pending.current ||= loadPackage(pageId, dataSource === "cash", source);
     const work = pending.current;
     async function receive(event: MessageEvent) {
       if (
@@ -118,7 +126,7 @@ function HtmlPage({ pageId, title, dataSource = "none" }: Props) {
       active = false;
       window.removeEventListener("message", receive);
     };
-  }, [pageId, dataSource]);
+  }, [pageId, dataSource, source]);
   return error ? (
     <div role="alert" className="cash-error">
       {error}

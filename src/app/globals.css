@@ -3029,6 +3029,70 @@ input[type="checkbox"] {
   border-radius: 10px;
   background: #fffefa;
 }
+.html-upload-section,
+.html-builtin-section {
+  margin-bottom: 32px;
+}
+.html-upload-form {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding: 20px;
+}
+.html-upload-form h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.html-upload-warning,
+.html-upload-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.html-upload-warning {
+  background: #fbf5e6;
+  color: #86683a;
+}
+.html-upload-error {
+  background: #fbefec;
+  color: #a2523f;
+}
+.html-upload-card {
+  flex-direction: column;
+  gap: 8px;
+}
+.html-upload-card:hover {
+  transform: none;
+}
+.html-upload-link {
+  display: flex;
+  gap: 16px;
+  min-width: 0;
+}
+.html-upload-link > svg {
+  flex: 0 0 auto;
+  color: #5c7952;
+}
+.html-upload-link h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.html-upload-link code {
+  word-break: break-all;
+}
+.html-upload-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.html-page-view .html-upload-form {
+  margin-bottom: 14px;
+}
 @media (max-width: 760px) {
   .html-page-heading {
     align-items: flex-start;
@@ -3072,6 +3136,9 @@ input[type="checkbox"] {
     min-height: 34px;
     padding: 8px 12px;
     font-size: 12px;
+  }
+  .html-page-view .html-upload-form .form-fields {
+    grid-template-columns: 1fr;
   }
   .html-page-view .cash-html-frame {
     height: calc(100dvh - 197px - env(safe-area-inset-bottom));

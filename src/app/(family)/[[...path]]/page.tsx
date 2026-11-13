@@ -5,7 +5,7 @@ import { configured } from "@/server/auth";
 import { webActor, AppError } from "@/server/security";
 import { snapshot } from "@/server/service";
 import { AppShell } from "@/components/app-shell";
-import { findHtmlPage } from "@/lib/html-pages";
+import { findHtmlPage, isHtmlUploadId } from "@/lib/html-pages";
 import { findBakingRecipe } from "@/lib/baking";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -30,7 +30,8 @@ export default async function Page({
   const { path: parts = [] } = await params;
   const path = "/" + parts.join("/");
   const isRegisteredHtml =
-    /^\/etc\/html\/[^/]+$/.test(path) && Boolean(findHtmlPage(parts[2] ?? ""));
+    /^\/etc\/html\/[^/]+$/.test(path) &&
+    (Boolean(findHtmlPage(parts[2] ?? "")) || isHtmlUploadId(parts[2] ?? ""));
   const isBakingRecipe =
     /^\/hobby\/baking\/[^/]+$/.test(path) &&
     Boolean(findBakingRecipe(parts[2]));

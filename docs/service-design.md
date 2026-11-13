@@ -37,8 +37,9 @@ MONO / Personal Workspace. 필요한 데이터를 저장하고 시각화하며 A
 | `/baby/pregnancy` | 임신 기록: 배뭉침·통증 시작·종료 타이머, 태동 한 번 탭 기록(강도 상·중·하, 하루 횟수·평소 대비), 최근 1시간 상태, 출혈(출혈 없음 포함)·사진, 진료·검사(경부길이·양수량·심박수·아기 몸무게·사진·메모, 상세 복사), 산모(몸무게·배둘레), 타입별 타임라인, 추이(항목별 그래프, 태동 날짜별 강도 쌓은 막대, 날짜 상세) | pregnancy-log.tsx |
 | `/cash` | 연·월별 흐름·항목별 평균/비중·거래 조회·파일 관리 | cash-dashboard.tsx, cash-analysis.tsx, cash-files.tsx |
 | `/cash/old` | 원본 단일 HTML 분석 + 엑셀 API 자동 연결 | cash-old.tsx, single-html-page.tsx |
-| `/etc/html` | 등록된 단일 HTML 도구의 제목·설명·원본 파일 목록 | html-pages.tsx, lib/html-pages.ts |
+| `/etc/html` | 웹에서 올린 HTML(올리기·바꾸기·삭제)과 저장소에 등록된 기본 도구 목록 | html-pages.tsx, lib/html-pages.ts |
 | `/etc/html/{등록키}` | 등록된 단일 HTML을 보호된 sandbox iframe으로 실행 | html-pages.tsx, server/html-pages.ts |
+| `/etc/html/{uuid}` | 웹에서 올린 HTML을 같은 sandbox iframe으로 실행, 올린 사람·관리자는 바로 바꾸기 | html-pages.tsx, server/html-uploads.ts |
 | `/settings` | 구성원·AI 연결·도구별 MCP 안내 | app-shell.tsx, connections.tsx, mcp-guide.tsx |
 | `/login`, `/consent`, `/privacy`, `/setup` | 인증·동의·개인정보·미설정 안내 | src/app 하위 경로 |
 | `/demo?view=/wine` 등 | 읽기 전용 샘플 둘러보기. 실제 DB를 읽지 않음 | demo/page.tsx, lib/demo.ts |

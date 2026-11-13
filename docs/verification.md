@@ -2,6 +2,12 @@
 
 2026-09-08. 실행 결과와 미검증 범위를 구분한다. 수치/배포 ID는 영구 보장이나 현재 운영 재고가 아니라 해당 확인 시점의 기록이다.
 
+## 2026-11-13 기타 > HTML 웹 올리기
+
+- 023 migration(`html_uploads`). `/etc/html`에서 단일 HTML을 올리기·바꾸기·삭제, `/etc/html/{uuid}`에서 기존 sandbox iframe으로 실행. 전용 `/api/html-uploads`, 웹 전용, 새 scope·MCP 없음. `isolate()`가 `<head>` 없는 파일에도 CSP를 맨 앞에 넣도록 일반화(저장소 HTML 3개는 넣는 위치가 전과 같음).
+- lint·typecheck 통과. 로컬 Docker DB(`daily`)에 023 적용. 로컬 비밀번호 계정으로 개발 서버(Chromium)에서 확인: 올리기 200, 제목 없음·HTML 아님 400, 없는 id 404, uuid 아님 400, 옛 version 바꾸기 409 `VERSION_CONFLICT`, 로그아웃 상태 목록 401. 화면에서 올린 HTML 스크립트 실행·버튼 동작, 외부 `fetch` 차단, `<head>` 없는 파일 실행, `<title>`로 제목 채움, 외부 스크립트 경고, 바꾸기 후 새 내용으로 다시 열림, 삭제 확인·삭제, 기록 보관 다리가 `mono:html-store:upload:{uuid}:…`에 저장됨, 390px 목록·올리기 폼·실행 화면 배치, `/demo?view=/etc/html`이 API를 부르지 않음, 기본 도구 `/api/html-pages/asset-return` 정상.
+- 확인하지 못한 것: 다른 공간 사용자로 읽기·수정 거부(SQL에 `household_id` 조건을 붙인 것만 코드로 확인), 구성원(owner 아님)의 남이 올린 HTML 바꾸기 403, 3MB 근처 큰 파일과 Vercel 요청 한도, 개발 Neon·운영 DB에는 023을 적용하지 않음, 실제 휴대폰 Safari.
+
 ## 2026-11-08 냉장고 재료·반찬·간편식 구분
 
 - 022 migration(`fridge_items.kind`, 기존 행 이름으로 한 번 나눔). 칸 안 종류별 묶음, 넣기 시트의 이름별 종류 짐작·눌러 바꾸기, 타일을 눌러 이름·종류 고치기(`fridge_update`, 웹 전용), 오른쪽 "바로 먹을 것", 넣기 칩을 "자주 넣는 것"(180일 넣은 횟수 순)으로 교체, 종류별 아이콘. 반찬은 집밥 매칭에서 뺀다.

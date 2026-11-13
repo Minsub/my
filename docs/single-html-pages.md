@@ -1,6 +1,6 @@
 # 단일 HTML로 페이지 추가하기
 
-React 컴포넌트로 다시 작성하지 않고 HTML 한 파일을 앱 안에서 실행하는 방식이다. 첫 구현은 `/cash/old`다. 현재 **저장소에 HTML을 추가/교체하고 배포**하는 방식이며, 웹에서 임의 HTML을 업로드하는 관리 화면은 아니다. HTML 안의 CSS/JS를 독립적으로 작성할 수 있다. 앱 메뉴·인증·데이터 연결은 한 번 등록한다.
+React 컴포넌트로 다시 작성하지 않고 HTML 한 파일을 앱 안에서 실행하는 방식이다. 첫 구현은 `/cash/old`다. HTML을 쓰는 길은 두 가지다. **웹에서 올리기**(배포 없이 `/etc/html`에서 파일 선택, 아래 「웹에서 올린 HTML」)와 **저장소 등록**(`src/html`에 추가 후 배포, 데이터 어댑터·인라인 CSS가 필요하거나 기본 도구로 둘 때). HTML 안의 CSS/JS를 독립적으로 작성할 수 있다. 앱 메뉴·인증·데이터 연결은 한 번 등록한다.
 
 ## 현재 연결
 
@@ -11,6 +11,18 @@ React 컴포넌트로 다시 작성하지 않고 HTML 한 파일을 앱 안에�
 - 앱 진입: `cash-old.tsx`, catch-all 허용 경로 `/cash/old`, AppShell 분기. 가계부의 old 링크로 이동하므로 모바일 주 메뉴를 늘리지 않는다.
 - 모바일 배치: `/etc/html`는 하단 내비게이션에도 있다. 실행 화면(`/etc/html/{등록키}`)은 모바일에서 제목 줄과 `HTML 목록` 버튼만 남기고 eyebrow·설명·원본 경로·앱 공통 footer를 숨겨 iframe이 한 화면을 채운다. 바깥 페이지는 스크롤하지 않고 HTML 안에서만 스크롤한다. 규칙은 `globals.css`의 `.html-page-view` 모바일 블록이며 프레임 높이는 상단바·제목 줄·하단 내비게이션을 뺀 `100dvh` 계산이다. `/cash/old`는 모바일에서 제목 줄·안내 문구·footer까지 숨겨 상단바와 하단 내비게이션 사이를 iframe이 테두리 없이 채운다(`cash.css`의 `.cash-old-page` 모바일 블록, `100dvh - 65px - 64px - safe-area`). 자료 없음·오류 상태에서는 제목 줄과 `파일 관리` 버튼을 그대로 보인다.
 - Vercel 배포 파일 포함: `next.config.ts`의 `outputFileTracingIncludes`. 원본 HTML, SheetJS 및 Chart.js 런타임을 포함한다.
+
+## 웹에서 올린 HTML
+
+`/etc/html`의 `HTML 올리기`로 단일 HTML 파일 하나를 올리면 배포 없이 바로 목록에 생기고 `/etc/html/{uuid}`에서 열린다.
+
+- 저장: `db/migrations/023_html_uploads.sql`의 `html_uploads`. 원본 UTF-8 텍스트, 제목(80자)·설명(200자)·파일명·SHA-256·version. 파일당 3MB, 공간당 50개. 이전 버전은 보관하지 않는다.
+- API: `GET/POST /api/html-uploads`(목록·올리기), `GET/PATCH/DELETE /api/html-uploads/{id}`(실행 소스·바꾸기·삭제). 웹 세션 전용, 쓰기는 같은 origin 확인과 분당 20회 제한. 서버 규칙은 `src/server/html-uploads.ts`.
+- 권한: 공간 구성원은 누구나 열고, 바꾸기·삭제는 올린 사람 또는 관리자(owner)만. 바꾸기·삭제는 `expected_version`이 맞아야 한다.
+- 실행: 소스는 `isolate()`가 CSP를 `<head>` 맨 앞에 넣은 뒤 JSON으로만 내려준다. `<head>`가 없는 파일은 넣어준다. text/html로 직접 열리는 URL은 만들지 않는다. 화면은 `UploadedHtmlView`가 `SingleHtmlPage`에 소스를 넘기며, 저장소 HTML과 같은 sandbox·모바일 배치를 쓴다.
+- 기록 보관 다리는 `upload:{uuid}`를 페이지 이름으로 써서 HTML마다 따로 저장된다.
+- 제목은 파일의 `<title>`(없으면 파일명)로 미리 채운다. 외부 주소의 script·link·img·fetch가 보이면 올리기 전에 "막혀서 동작하지 않을 수 있다"고 알린다. 실제 차단은 아래 격리 규칙 그대로다.
+- 데모는 API를 부르지 않고 안내만 보인다. MCP 도구는 없다.
 
 ## 엑셀 연결 흐름
 
@@ -47,7 +59,7 @@ iframe에는 `allow-same-origin`이 없어 HTML 안에서 `localStorage`를 읽�
 
 iframe은 `sandbox="allow-scripts allow-downloads"`이며 `allow-same-origin`이 없다. HTML은 앱 쿠키·DOM·저장소·API에 직접 접근할 수 없다. HTML 자신의 기록을 남겨야 하면 위의 저장소 다리를 쓰고, 그마저 없으면 메모리 보관으로 동작한다. `allow-modals`도 없어 `alert`·`confirm`·`prompt` 호출은 무시된다(`confirm`은 false를 돌려주므로 삭제 확인이 조용히 취소된다). 확인창과 안내는 HTML 안에서 직접 그린다. 외부 fetch·이미지·스크립트 로딩과 폼 전송·팝업/최상위 이동을 제한하고 인라인 스타일/스크립트, data/blob 이미지, 다운로드만 사용한다. 공통 앱의 frame 보안 헤더를 완화하지 않는다.
 
-리뷰된 저장소 HTML만 실행하는 전제다. 이 격리는 악의적인 HTML을 안전하게 업로드·실행하는 일반 서비스의 보장으로 사용하지 않는다.
+저장소 HTML이나 공간 구성원이 직접 만든 HTML을 실행하는 전제다. 웹 올리기도 같은 공간 구성원만 할 수 있다. 이 격리는 남이 만든 악의적인 HTML을 안전하게 실행하는 일반 서비스의 보장으로 사용하지 않는다(예: CSP는 meta refresh로 iframe 자신을 다른 주소로 옮기는 것까지는 막지 않는다).
 
 따라서 외부 CDN, 외부 이미지, 직접 `fetch()`에 의존하는 HTML은 그대로는 작동하지 않는다. 필요한 라이브러리는 승인된 서버 어댑터에서 파일에 포함하고 업무 데이터는 제한된 메시지 계약으로 전달한다. 링크의 임의 페이지를 iframe에 로드하거나 HTML 소스 안에 인증 토큰을 넣는 방식으로 해결하지 않는다.
 

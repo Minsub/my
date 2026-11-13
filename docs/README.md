@@ -12,7 +12,7 @@ MONO는 필요한 페이지와 도구를 계속 추가하는 개인 워크스페
 
 [사진 저장 방식](image-storage.md): 사진은 Neon bytea에 저장한다. 새 페이지에 사진 업로드를 넣을 때 따를 규칙과 Vercel Blob·R2로 옮길 기준.
 
-[단일 HTML 페이지 추가](single-html-pages.md): 독립 HTML을 앱 안에서 재사용하는 두 번째 페이지 작성 방식. 등록 목록은 `src/html` 원본과 `src/lib/html-pages.ts`의 제목·설명 정보로 관리한다.
+[단일 HTML 페이지 추가](single-html-pages.md): 독립 HTML을 앱 안에서 재사용하는 두 번째 페이지 작성 방식. 배포 없이 `/etc/html`에서 HTML 파일을 올려 바로 열 수 있고(`html_uploads`), 저장소 기본 도구는 `src/html` 원본과 `src/lib/html-pages.ts`의 제목·설명 정보로 관리한다.
 
 ## 운영자가 직접 설정할 때
 
