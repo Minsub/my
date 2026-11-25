@@ -2,6 +2,12 @@
 
 2026-09-08. 실행 결과와 미검증 범위를 구분한다. 수치/배포 ID는 영구 보장이나 현재 운영 재고가 아니라 해당 확인 시점의 기록이다.
 
+## 2026-11-25 냉장고 넣기·조회 MCP 도구
+
+- `fridge_add`를 `webOnlyCommands`에서 빼 MCP 도구로 열고(`meal:write`), 조회 도구 `fridge_list`(`meal:read`, `listFridge`)를 추가했다. 도구 설명·설정 화면 안내(`mcp-guide`)·동의 화면 scope 문구를 함께 고쳤다. 새 scope·migration·API 없음.
+- lint·typecheck 통과. 로컬 Docker 개발 DB(`daily`)에 owner actor(channel `mcp`)로 `tools/list`·`tools/call`을 직접 호출해 확인(확인용 임시 스크립트는 지웠다): `meal:read`+`meal:write`면 도구가 meal_create·fridge_add·meal_list·fridge_list·household_get_summary 5개, `fridge_add`로 냉장실에 재료·반찬 2가지가 오늘 날짜·version 1로 들어가고 `fridge_list`에 오래 둔 순으로 보이며 staples도 함께 내려옴, `meal:read`만 있으면 `fridge_list`만 보이고 `fridge_add`는 안 보임, `fridge_remove`는 scope가 있어도 도구에 없고 execute가 `FORBIDDEN`. 확인에 쓴 행은 지웠다. 전체 도구 수는 40개. 설정 화면의 "집밥과 냉장고" 묶음에 두 도구 안내가 보이는 것도 확인.
+- 확인하지 못한 것: 실제 AI 클라이언트(Claude 등)에서 OAuth로 연결해 부르는 것, 운영 DB·운영 배포에서의 확인, 기존 연결의 동의 문구 갱신 표시.
+
 ## 2026-11-25 날짜·날씨 크기 설정, 냉장고 전체 화면·시계 왕복
 
 - 시계 설정에 "날짜·날씨 크기"(70~160%)와 "냉장고에서 돌아오기"(1분/3분/5분/안 함) 추가. 시계 보기에 "냉장고" 버튼, 냉장고 전체 화면(`/hobby/fridge/view`)과 자동 복귀.

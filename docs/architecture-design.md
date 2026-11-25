@@ -45,7 +45,7 @@ flowchart LR
 | `src/server/db.ts` | pg Pool(max 5), 파라미터 쿼리, transaction, DATE 문자열 파서 |
 | `src/server/security.ts` | webActor/mcpActor, 활성 멤버십·scope, Origin, DB 기반 rateLimit, 오류 응답 |
 | `src/server/auth.ts` | Google 로그인, OWNER_EMAIL 최초 소유자, 초대 검증, OAuth/JWT 발급·폐기 |
-| `src/server/mcp.ts` | 36개 도구 등록, scope별 노출, 서비스 호출, 결과·오류 변환 |
+| `src/server/mcp.ts` | 40개 도구 등록, scope별 노출, 서비스 호출, 결과·오류 변환 |
 | `src/lib/mcp-guide.ts`, `src/components/mcp-guide.tsx` | 설정에서 보여주는 도구 목록과 사용 안내 |
 | `src/server/wine-photos.ts` | 사진 검증·압축·권한·버전·중복 방지·저장 |
 | `src/lib/wine-cellar.ts` | 웹·MCP가 공유하는 최근 구입가/평점 계산, 필터·정렬, 가격 구간, 공유 페이지 타입 |
@@ -55,7 +55,7 @@ flowchart LR
 | `src/lib/pregnancy.ts`, `src/server/pregnancy.ts`, `/api/baby/pregnancy` | 꼬미 임신 기록. 웹 전용, 공통 snapshot·MCP와 분리. 계산 규칙은 lib가 단일 기준 |
 | `src/lib/baking/` | 베이킹 레시피 정적 데이터(`recipes/{id}.ts`)와 등록 목록·합계·검색 함수. DB·API·MCP 없음. 추가 절차는 [베이킹 문서](baking/README.md) |
 | `src/lib/meals.ts`, `src/server/meals.ts`, `src/server/link-preview.ts`, `/api/meals`, `/api/meals/preview` | 집밥 요리 목록. 공통 snapshot과 분리, 쓰기는 execute(`meal_*`), MCP는 추가·조회만. 링크 썸네일은 저장하지 않고 og 태그를 읽는다. [집밥 문서](meals/README.md) |
-| `src/lib/fridge.ts`, `src/server/fridge.ts`, `/api/fridge` | 냉장고 재료(냉장·냉동, 넣은 날). 공통 snapshot과 분리, 쓰기는 execute(`fridge_*`), 모두 웹 전용. 집밥 재료 매칭은 lib가 단일 기준. [냉장고 문서](fridge/README.md) |
+| `src/lib/fridge.ts`, `src/server/fridge.ts`, `/api/fridge` | 냉장고 재료(냉장·냉동, 넣은 날). 공통 snapshot과 분리, 쓰기는 execute(`fridge_*`). 넣기(`fridge_add`)와 조회(`fridge_list` 도구)만 MCP에 열고 나머지는 웹 전용. 집밥 재료 매칭은 lib가 단일 기준. [냉장고 문서](fridge/README.md) |
 | `src/lib/assets.ts` | 자산 그룹 카탈로그·분류 룰·집계 순수 함수. 웹·서버·MCP가 공유하는 단일 기준 |
 | `src/server/assets.ts`, `/api/assets` | 자산 스냅샷 저장·조회. 공통 snapshot과 분리하고 쓰기는 execute 경유 |
 | `src/lib/asset-plans.ts`, `src/server/asset-plans.ts` | 분할매수 전략. 연금저축·IRP 고정 상수와 월급·현금 그룹 저장·조회(`/api/assets?view=plans`) |
@@ -109,7 +109,7 @@ UI 숨김은 보안 검사가 아니다. 쿠키 기반 변경은 sameOrigin, 모
 
 ## 냉장고
 
-`/hobby/fridge`는 021·022 migration의 `fridge_items`를 전용 `GET /api/fridge`로 읽고 공통 `POST /api/commands`(`fridge_*`)로 쓴다. 공통 snapshot에 넣지 않았고, 새 scope 없이 `meal:*`를 같이 쓰며 명령은 모두 `webOnlyCommands`다. 화면은 `/api/meals`도 함께 읽어 집밥 메인 재료와 맞춘다. 자세한 규칙은 [냉장고 문서](fridge/README.md).
+`/hobby/fridge`는 021·022 migration의 `fridge_items`를 전용 `GET /api/fridge`로 읽고 공통 `POST /api/commands`(`fridge_*`)로 쓴다. 공통 snapshot에 넣지 않았고 새 scope 없이 `meal:*`를 같이 쓴다. MCP에는 `fridge_add`(넣기, `meal:write`)와 `fridge_list`(조회, `meal:read`, `listFridge` 호출)만 열고 빼기·되돌리기·칸 옮기기·이름 고치기는 `webOnlyCommands`로 둔다(도구 목록에서 빠지고 MCP 채널 execute는 FORBIDDEN). 화면은 `/api/meals`도 함께 읽어 집밥 메인 재료와 맞춘다. 자세한 규칙은 [냉장고 문서](fridge/README.md).
 
 ## 가계부 원본 파일
 

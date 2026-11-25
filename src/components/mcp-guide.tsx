@@ -46,11 +46,15 @@ const groups = [
     ),
   },
   {
-    title: "집밥",
-    scope: "meal:read · 목록 조회 / meal:write · 요리 추가",
+    title: "집밥과 냉장고",
+    scope: "meal:read · 집밥·냉장고 조회 / meal:write · 요리·재료 추가",
     entries: [
-      ...Object.entries(readGuide).filter(([id]) => id.startsWith("meal_")),
-      ...Object.entries(commandGuide).filter(([id]) => id.startsWith("meal_")),
+      ...Object.entries(readGuide).filter(
+        ([id]) => id.startsWith("meal_") || id.startsWith("fridge_"),
+      ),
+      ...Object.entries(commandGuide).filter(
+        ([id]) => id.startsWith("meal_") || id.startsWith("fridge_"),
+      ),
     ],
   },
   {

@@ -36,7 +36,7 @@
 - 조회 `GET /api/fridge`(`{ items, frequent, wasted_this_month }`), 쓰기는 공통 `POST /api/commands`의 `fridge_add`(`items: [{name, kind}]`, 한 번에 20개, 공백·같은 이름 정리)·`fridge_update`(이름·종류)·`fridge_remove`·`fridge_restore`·`fridge_move`·`fridge_delete`(서버 `src/server/fridge.ts`).
 - 냉장고는 함께 쓰므로 넣은 사람과 관계없이 공간 안의 누구나 빼고 옮긴다. 같은 재료를 동시에 바꾸면 version 검사(`VERSION_CONFLICT`)로 막고 화면은 서버 목록으로 다시 맞춘다.
 - scope: 집밥과 같은 부엌 영역이라 `meal:read`·`meal:write`를 같이 쓴다. 새 scope를 만들면 기존 AI 연결을 다시 승인해야 해서 나누지 않았다.
-- MCP: 모든 `fridge_*` 명령이 `webOnlyCommands`라 도구로 나가지 않고 MCP 채널에서 거부한다. 영수증 사진으로 한꺼번에 넣기 같은 MCP 도구는 필요해지면 그때 연다.
+- MCP: 넣기와 조회만 연다. `fridge_add`(`meal:write`)는 장을 봐 온 것을 말로 한 번에 넣는 일이라 도구로 받고, `fridge_list`(`meal:read`)는 지금 있는 것·자주 넣는 것·늘 있는 재료를 돌려줘 같은 이름으로 넣고 집밥과 맞출 수 있게 한다. 도구 설명이 칸(cold/frozen)·종류(ingredient/dish/ready)의 뜻과 "먼저 fridge_list로 확인하고 같은 표기를 쓸 것", "이미 있는 이름을 또 보내면 타일이 두 개가 됨", "넣은 날은 서버가 오늘로 정함"을 안내한다. 빼기·되돌리기·칸 옮기기·이름 고치기는 냉장고 앞에서 타일을 보고 하는 일이라 `webOnlyCommands`로 남겨 도구에서 빠지고 MCP 채널에서는 `FORBIDDEN`이다. 영수증 사진으로 한꺼번에 넣기 같은 도구는 필요해지면 그때 연다.
 
 ## 시안
 

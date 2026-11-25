@@ -18,6 +18,13 @@ import {
 import { readAssetHistory, readAssetItems, readAssetOverview } from "./assets";
 import { listMeals } from "./meals";
 import { filterMeals, mealCategories, mealWordCounts } from "@/lib/meals";
+import { listFridge } from "./fridge";
+import {
+  FRIDGE_MAX_ADD,
+  fridgeKindLabels,
+  fridgePlaceLabels,
+  fridgeStaples,
+} from "@/lib/fridge";
 import {
   assetClassificationRules,
   assetGroupName,
@@ -60,6 +67,10 @@ const descriptions: Partial<Record<Operation, string>> = {
     '집밥 목록에 요리를 추가합니다. ingredients에는 양념을 빼고 메인 재료만 "두부 반 모"가 아니라 "두부"처럼 짧은 이름으로 넣고, 먼저 meal_list로 이미 쓰는 재료·태그 이름을 확인해 같은 표기를 쓰세요. category는 ' +
     mealCategories.join("·") +
     " 중 하나입니다. 아직 안 해본 요리면 want_to_try를 true로 보냅니다. 레시피 링크(YouTube·블로그 등)만 받았으면 링크 내용을 읽을 수 있을 때 그 제목·설명으로 이름·재료를 채우고 links에 넣으세요. 띄어쓰기만 다른 같은 이름이 이미 있으면 DUPLICATE_TITLE로 거부하며, 수정·삭제는 웹 화면에서 합니다.",
+  fridge_add:
+    "장을 봐 왔거나 반찬을 만들어 넣은 것을 냉장고에 기록합니다. 한 번에 한 칸(place)으로 최대 " +
+    FRIDGE_MAX_ADD +
+    '가지까지 보내고, 냉장실과 냉동실에 나눠 넣으려면 두 번 부릅니다. 이름은 "두부 반 모"가 아니라 "두부"처럼 짧게 적고 개수·양·유통기한은 기록하지 않습니다(한 이름이 타일 하나). place는 cold(냉장실)·frozen(냉동실)이며 얼린 것·냉동 제품이 아니면 cold입니다. kind는 ingredient(재료: 두부·대파), dish(반찬: 감자조림·남은 김치찌개처럼 만들어 둔 것), ready(간편식: 냉동만두·아이스크림처럼 사 온 완성품)입니다. 먼저 fridge_list로 지금 있는 것과 자주 넣는 것의 이름·종류를 보고 같은 표기를 쓰세요. 이미 있는 이름을 또 보내면 막지 않고 같은 이름이 두 개가 됩니다. 넣은 날은 서버가 오늘(서울)로 정하므로 지난 날짜로는 넣을 수 없고, 빼기·칸 옮기기·이름 고치기는 웹의 냉장고 화면에서 합니다.',
 };
 // wine_get의 셀러 위치. placements는 wine_set_placement의 expected_placements로 그대로 쓴다.
 function cellarPlacement(wine: Wine, s: Snapshot) {
@@ -618,6 +629,31 @@ export function mcpHandler(actor: Actor) {
               ingredients_in_use: count("ingredients"),
               tags_in_use: count("tags"),
               url: `${appUrl()}/hobby/meals`,
+            });
+          },
+        );
+      if (actor.scopes.includes("meal:read"))
+        server.registerTool(
+          "fridge_list",
+          {
+            description:
+              "냉장고에 지금 있는 것을 조회합니다(냉장실·냉동실, 이름·종류·넣은 날, 오래 둔 순). frequent는 최근 180일에 자주 넣었지만 지금은 없는 이름과 마지막에 넣었을 때의 종류·칸이라, fridge_add에 같은 표기로 그대로 쓸 수 있습니다. staples(늘 있는 재료)는 적지 않아도 있다고 보는 것이라 보통 넣지 않습니다. 무엇을 해먹을지 고를 때는 meal_list의 재료와 함께 보세요.",
+            inputSchema: z.object({}),
+            annotations: { readOnlyHint: true, openWorldHint: false },
+            _meta: {
+              securitySchemes: [{ type: "oauth2", scopes: ["meal:read"] }],
+            },
+          },
+          async () => {
+            const state = await listFridge(actor);
+            return output({
+              items: state.items,
+              frequent: state.frequent,
+              wasted_this_month: state.wasted_this_month,
+              places: fridgePlaceLabels,
+              kinds: fridgeKindLabels,
+              staples: fridgeStaples,
+              url: `${appUrl()}/hobby/fridge`,
             });
           },
         );

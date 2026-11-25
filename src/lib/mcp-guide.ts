@@ -185,14 +185,29 @@ export const commandGuide = {
     example:
       "참치김치찌개 추가해줘. 재료는 두부, 김치, 참치이고 한식, 태그는 매움.",
   },
+  fridge_add: {
+    title: "냉장고에 넣기",
+    description:
+      "장을 봐 왔거나 반찬을 만들어 넣은 것을 냉장고에 기록합니다. 이름만 짧게 적고 개수·양·유통기한은 남기지 않습니다. 넣은 날은 오늘로 정합니다.",
+    input:
+      "place(cold 냉장실/frozen 냉동실), items[{name, kind}] (한 번에 최대 20가지). kind는 ingredient(재료)·dish(반찬)·ready(간편식)이며, 두 칸에 나눠 넣으려면 칸마다 따로 보냅니다.",
+    result:
+      "넣은 재료와 ID. 빼기·칸 옮기기·이름 고치기는 웹의 냉장고 화면에서 합니다.",
+    example:
+      "장 봐왔어. 두부, 대파, 돼지고기는 냉장실에 넣고 냉동만두는 냉동실에 넣어줘.",
+  },
   // meal_update·meal_delete는 웹 전용이다. MCP는 추가·조회만 연다.
   // asset_save_owner·asset_save_buy_plan·wine_share_*는 웹 전용이라 MCP 도구 목록에 없다(contracts.ts의 webOnlyCommands).
-  // 냉장고(fridge_*)는 모두 웹 전용이다.
+  // 냉장고도 넣기·조회만 연다. 빼기·되돌리기·칸 옮기기·이름 고치기는 웹 전용이다.
 } satisfies Record<
   Exclude<
     Operation,
     | `family_${string}`
-    | `fridge_${string}`
+    | "fridge_remove"
+    | "fridge_restore"
+    | "fridge_move"
+    | "fridge_delete"
+    | "fridge_update"
     | "archive_item"
     | "asset_save_owner"
     | "asset_save_buy_plan"
@@ -333,6 +348,15 @@ export const readGuide: Record<string, Entry> = {
     result:
       "items(이름·카테고리·재료·태그·해보고 싶음·링크·메모), total, next_cursor, categories, ingredients_in_use·tags_in_use(지금 쓰는 이름).",
     example: "두부 들어가는 매운 요리 중에 뭐 해먹을까?",
+  },
+  fridge_list: {
+    title: "냉장고 조회",
+    description:
+      "냉장고에 지금 있는 것을 오래 둔 순으로 조회합니다. 넣기 전에 같은 이름이 있는지 보거나, 지금 재료로 뭘 해먹을지 고를 때 씁니다.",
+    input: "없음.",
+    result:
+      "items(이름·종류·칸·넣은 날), frequent(자주 넣었지만 지금 없는 이름과 그때 종류·칸), wasted_this_month, places·kinds(이름표), staples(늘 있는 재료), 냉장고 화면 링크.",
+    example: "냉장고에 뭐 있어? 오래된 것부터 알려줘.",
   },
   household_get_summary: {
     title: "가족 컬렉션 요약",

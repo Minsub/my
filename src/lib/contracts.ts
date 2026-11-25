@@ -521,11 +521,11 @@ export const commandScopes: Record<Operation, Scope | null> = {
 // 와인 목록 공유는 공개 링크를 만드는 일이라 사람이 화면에서 목록을 보고 정한다.
 // 와인 삭제는 기록까지 지워 되돌릴 수 없으므로 사람이 상세 화면에서 확인하고 실행한다.
 // 집밥은 MCP로 추가·조회만 연다. 고치기·지우기는 웹 화면에서 한다.
-// 냉장고는 냉장고 앞 화면에서 넣고 빼는 기록이라 지금은 MCP 도구로 열지 않는다.
+// 냉장고도 넣기(fridge_add)와 조회만 연다. 장을 봐 온 것을 말로 한 번에 넣는 일이라 도구로 받는다.
+// 빼기·되돌리기·칸 옮기기·이름 고치기는 냉장고 앞에서 타일을 보고 하는 일이라 웹 화면에 둔다.
 export const webOnlyCommands = new Set<Operation>([
   "meal_update",
   "meal_delete",
-  "fridge_add",
   "fridge_remove",
   "fridge_restore",
   "fridge_move",
