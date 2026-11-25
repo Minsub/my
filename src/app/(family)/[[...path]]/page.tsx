@@ -57,6 +57,7 @@ export default async function Page({
       "/hobby/baking",
       "/hobby/meals",
       "/hobby/fridge",
+      "/hobby/fridge/view",
       "/hobby/clock",
       "/hobby/clock/view",
       "/hobby/clock/settings",

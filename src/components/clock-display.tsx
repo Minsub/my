@@ -106,6 +106,7 @@ export function ClockDisplay({
     settings.spacing,
     settings.size,
     settings.stretch,
+    settings.headSize,
     hourDigits,
     ink,
   ]);
@@ -129,6 +130,7 @@ export function ClockDisplay({
           "--clock-info": settings.info,
           "--clock-font": family,
           "--clock-weight": settings.weight,
+          "--clock-head": settings.headSize / 100,
         } as CSSProperties
       }
     >

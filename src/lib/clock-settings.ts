@@ -79,6 +79,16 @@ export type ClockSpacing = (typeof clockSpacings)[number]["value"];
 
 export const clockSizeRange = { min: 60, max: 100, step: 5 }; // 화면 너비를 채우는 비율 %
 export const clockStretchRange = { min: 100, max: 180, step: 5 }; // 세로로 늘이는 비율 %
+// 날짜·날씨 줄 크기 비율 %. 160%면 날씨 묶음이 화면 너비(여백 제외)를 넘지 않는다.
+export const clockHeadRange = { min: 70, max: 160, step: 5 };
+
+// 냉장고 전체 화면에서 손대지 않고 이만큼 지나면 시계로 돌아온다. 0은 돌아오지 않음.
+export const clockBackOptions = [
+  { value: 60, label: "1분" },
+  { value: 180, label: "3분" },
+  { value: 300, label: "5분" },
+  { value: 0, label: "안 함" },
+] as const;
 
 export type ClockSettings = {
   font: ClockFont;
@@ -89,6 +99,8 @@ export type ClockSettings = {
   spacing: ClockSpacing;
   size: number;
   stretch: number;
+  headSize: number; // 날짜·날씨 줄 크기 %
+  fridgeBack: number; // 냉장고에서 시계로 돌아오기까지 초(0이면 안 함)
   centerLine: boolean; // 숫자 가운데 가로줄(플립 시계 느낌)
   padHour: boolean; // 1~9시 앞에 0
 };
@@ -102,6 +114,8 @@ export const defaultClockSettings: ClockSettings = {
   spacing: "font",
   size: 100,
   stretch: 100,
+  headSize: 100,
+  fridgeBack: 180,
   centerLine: false,
   padHour: false,
 };
@@ -160,6 +174,10 @@ export function parseClockSettings(raw: string | null): ClockSettings {
       : d.spacing,
     size: inRange(v.size, clockSizeRange, d.size),
     stretch: inRange(v.stretch, clockStretchRange, d.stretch),
+    headSize: inRange(v.headSize, clockHeadRange, d.headSize),
+    fridgeBack: clockBackOptions.some((o) => o.value === v.fridgeBack)
+      ? (v.fridgeBack as number)
+      : d.fridgeBack,
     centerLine: typeof v.centerLine === "boolean" ? v.centerLine : d.centerLine,
     padHour: typeof v.padHour === "boolean" ? v.padHour : d.padHour,
   };

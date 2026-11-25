@@ -24,32 +24,37 @@ html.clock-open body {
   user-select: none;
   -webkit-user-select: none;
 }
+/* 날짜·날씨 줄은 설정의 "날짜·날씨 크기"(--clock-head)를 곱한 --wu를 단위로 쓴다 */
 .clock-head {
+  --wu: calc(1cqw * var(--clock-head, 1));
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   align-items: flex-start;
-  gap: 4cqw;
+  gap: 1cqw 4cqw;
   padding: 0 4.4cqw;
 }
+/* 크게 키워 한 줄에 다 안 들어가면 날씨가 날짜 아래 줄로 내려간다(오른쪽 정렬 유지) */
+.clock-weather {
+  margin-left: auto;
+}
 .clock-date {
-  font-size: 3.3cqw;
+  font-size: calc(3.3 * var(--wu));
   font-weight: 500;
   color: var(--clock-sub);
-  padding-top: 0.8cqw;
+  padding-top: calc(0.8 * var(--wu));
   white-space: nowrap;
 }
 .clock-weather {
   display: flex;
   align-items: center;
-  gap: 1.8cqw;
-  min-height: 8.6cqw;
+  gap: calc(1.8 * var(--wu));
+  min-height: calc(8.6 * var(--wu));
 }
 .clock-icon {
-  width: 8.6cqw;
-  height: 8.6cqw;
+  width: calc(8.6 * var(--wu));
+  height: calc(8.6 * var(--wu));
   flex-shrink: 0;
 }
-.clock-now,
 .clock-temps b {
   font-family: var(--clock-font);
   font-weight: var(--clock-weight);
@@ -57,39 +62,37 @@ html.clock-open body {
   letter-spacing: -0.02em;
   line-height: 0.9;
 }
-.clock-now {
-  font-size: 8.4cqw;
-}
 .clock-cond {
-  font-size: 4.2cqw;
+  font-size: calc(4.2 * var(--wu));
   font-weight: 600;
   line-height: 1.1;
   white-space: nowrap;
 }
 .clock-cond small {
   display: block;
-  font-size: 2cqw;
+  font-size: calc(2 * var(--wu));
   font-weight: 400;
   color: var(--clock-sub);
-  margin-top: 0.5cqw;
+  margin-top: calc(0.5 * var(--wu));
 }
 .clock-temps {
   display: flex;
-  gap: 2.6cqw;
-  margin-left: 1cqw;
-  padding-left: 2.6cqw;
-  border-left: 0.15cqw solid color-mix(in srgb, var(--clock-info) 22%, #000);
+  gap: calc(2.6 * var(--wu));
+  margin-left: calc(1 * var(--wu));
+  padding-left: calc(2.6 * var(--wu));
+  border-left: calc(0.15 * var(--wu)) solid
+    color-mix(in srgb, var(--clock-info) 22%, #000);
 }
 .clock-temps > span {
   display: grid;
-  gap: 0.5cqw;
+  gap: calc(0.5 * var(--wu));
 }
 .clock-temps small {
-  font-size: 1.9cqw;
+  font-size: calc(1.9 * var(--wu));
   color: var(--clock-sub);
 }
 .clock-temps b {
-  font-size: 5.6cqw;
+  font-size: calc(5.6 * var(--wu));
 }
 .clock-temp-now b {
   color: var(--clock-info);

@@ -16,7 +16,8 @@
 - 되돌리기: 넣기·빼기·옮기기 직후 알림의 "되돌리기". 넣기는 지우고(`fridge_delete`), 빼기는 되살리고(`fridge_restore`), 옮기기는 원래 칸으로 옮긴다. 확인 창은 없다.
 - 이번 달 버린 수를 머리에 보여준다.
 - 다른 기기(폰)에서 바꾼 것도 보이도록 화면으로 돌아올 때와 2분마다 다시 읽는다. 끄는 중에는 다시 읽지 않는다.
-- 코드: `src/components/fridge-board.tsx`, `src/app/fridge.css`, 진입 카드는 `menu-hub.tsx`의 `hobbyMenus`, 데모 데이터 `src/lib/demo-fridge.ts`. 데모(`/demo?view=/hobby/fridge`)는 화면에서만 바뀌고 저장하지 않는다.
+- 전체 화면(`/hobby/fridge/view`): 머리의 "전체 화면"이나 시계 보기의 "냉장고"로 연다. 사이드바·상단바 없이 냉장고만 화면을 덮고(내용·동작은 같다) 화면 켜짐을 유지한다. 머리 오른쪽에 "나가기"(목록 화면으로)가 있고, 시계에서 열었으면(`?from=clock`) 대신 "시계로"와 자동으로 돌아가기까지 남은 시간이 보인다. 누르거나 입력하면 그 시간이 다시 채워지고, 손대지 않은 채 [시계 설정](../service-design.md)의 "냉장고에서 돌아오기"(1분·3분·5분·안 함, 기본 3분) 시간이 지나면 시계 보기로 돌아간다. 800px 이하에서는 전체 화면도 위아래로 쌓고 스크롤한다.
+- 코드: `src/components/fridge-board.tsx`, `src/components/fridge-screen.tsx`, `src/app/fridge.css`, 진입 카드는 `menu-hub.tsx`의 `hobbyMenus`, 데모 데이터 `src/lib/demo-fridge.ts`. 데모(`/demo?view=/hobby/fridge`, 전체 화면은 `/demo?view=/hobby/fridge/view`)는 화면에서만 바뀌고 저장하지 않는다.
 
 ## 이걸로 해먹기
 

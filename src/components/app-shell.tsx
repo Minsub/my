@@ -8,6 +8,7 @@ import { BakingRecipeList } from "./baking-recipes";
 import { BakingRecipeView } from "./baking-recipe";
 import { MealList } from "./meal-list";
 import { FridgeBoard } from "./fridge-board";
+import { FridgeScreen } from "./fridge-screen";
 import { ClockScreen } from "./clock-screen";
 import { ClockSettingsPage } from "./clock-settings";
 import { AssetStatus } from "./asset-status";
@@ -1812,6 +1813,14 @@ export function AppShell({
     content = <BakingRecipeList initialQuery={initialQuery} href={href} />;
   else if (path === "/hobby/fridge")
     content = <FridgeBoard demo={demo} href={href} />;
+  else if (path === "/hobby/fridge/view")
+    content = (
+      <FridgeScreen
+        demo={demo}
+        href={href}
+        fromClock={initialQuery.from === "clock"}
+      />
+    );
   else if (path === "/hobby/clock")
     content = (
       <MenuHub

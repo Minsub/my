@@ -2,9 +2,11 @@
 import Link from "next/link";
 import { Maximize2, RotateCcw } from "lucide-react";
 import {
+  clockBackOptions,
   clockColors,
   clockFontLook,
   clockFonts,
+  clockHeadRange,
   clockSecondsModes,
   clockSizeRange,
   clockSpacings,
@@ -157,6 +159,14 @@ export function ClockSettingsPage({
           onChange={(size) => update({ size })}
         />
         <RangeRow
+          id="clock-head"
+          label="날짜·날씨 크기"
+          note="시계 위 날짜와 날씨 줄만 키우고 줄여요"
+          range={clockHeadRange}
+          value={settings.headSize}
+          onChange={(headSize) => update({ headSize })}
+        />
+        <RangeRow
           id="clock-stretch"
           label="세로 늘이기"
           note="너비는 그대로 숫자만 위아래로 늘여요"
@@ -164,6 +174,23 @@ export function ClockSettingsPage({
           value={settings.stretch}
           onChange={(stretch) => update({ stretch })}
         />
+        <div className="clock-set-row">
+          <span>
+            냉장고에서 돌아오기
+            <small>시계에서 연 냉장고를 손대지 않으면</small>
+          </span>
+          <div className="clock-options">
+            {clockBackOptions.map((o) => (
+              <button
+                key={o.value}
+                className="clock-chip"
+                {...choice("fridgeBack", o.value)}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="clock-set-row">
           <span>가운데 줄</span>
           <div className="clock-options">

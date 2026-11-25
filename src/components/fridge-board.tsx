@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Plus, X } from "lucide-react";
+import Link from "next/link";
+import { Maximize2, Plus, X } from "lucide-react";
 import {
   FRIDGE_MAX_ADD,
   fridgeDayLabel,
@@ -325,9 +326,15 @@ function EditSheet({
 export function FridgeBoard({
   demo = false,
   href,
+  full = false,
+  action,
 }: {
   demo?: boolean;
   href: (url: string) => string;
+  // full: 전체 화면(/hobby/fridge/view)에서 머리줄을 한 줄로 줄여 쓴다.
+  full?: boolean;
+  // action: 전체 화면이 넣기 버튼 옆에 두는 나가기·시계로 버튼.
+  action?: React.ReactNode;
 }) {
   const [state, setState] = useState<FridgeState | null>(
     demo ? demoFridge() : null,
@@ -768,7 +775,7 @@ export function FridgeBoard({
     <div className={`fr-page ${dragging ? "dragging" : ""}`}>
       <div className="fr-heading">
         <div>
-          <span className="eyebrow">MONO / HOBBY / FRIDGE</span>
+          {!full && <span className="eyebrow">MONO / HOBBY / FRIDGE</span>}
           <h1>
             냉장고<span className="heading-dot">.</span>
           </h1>
@@ -781,6 +788,16 @@ export function FridgeBoard({
             </span>
           )}
         </p>
+        {action}
+        {!full && (
+          <Link
+            className="button secondary"
+            href={href("/hobby/fridge/view")}
+            aria-label="냉장고 전체 화면"
+          >
+            <Maximize2 size={16} /> 전체 화면
+          </Link>
+        )}
         <button className="button primary" onClick={() => setAdding("cold")}>
           <Plus size={16} /> 넣기
         </button>
